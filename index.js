@@ -99,7 +99,7 @@ function getTodaysQuestion() {
 async function askQuestion(question, context, apiKey) {
   try {
     const response = await axios.post(
-      'https://api-inference.huggingface.co/models/deepset/roberta-base-squad2',
+      'https://api-inference.huggingface.co/models/gpt2',
       {
         inputs: {
           question: question,
