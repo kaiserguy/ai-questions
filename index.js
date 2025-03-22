@@ -112,14 +112,7 @@ async function askQuestion(question, context, apiKey) {
     );
     
     console.log('Full API response:', response.data);
-
-    // Check if the answer is too long
-    const answer = response.data.answer;
-    if (answer.length > 500) { // Adjust the length limit as needed
-      console.warn('Answer is too long, truncating...');
-      response.data.answer = answer.substring(0, 500) + '...';
-    }
-
+    
     return response.data;
   } catch (error) {
     console.error('Error calling Hugging Face API:', error);
