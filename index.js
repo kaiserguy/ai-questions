@@ -95,13 +95,29 @@ function getTodaysQuestion() {
   return QUESTIONS_1984[questionIndex];
 }
 
-// Ask question to Hugging Face API
+// Ask question to Hugging Face API - UPDATED to use a text generation model
 async function askQuestion(question, context, apiKey) {
   try {
+    // Combine question and context into a prompt for a generative model
+    const prompt = `Based on the following context from George Orwell's "1984", please answer this question thoroughly:
+    
+Context: ${context}
+
+Question: ${question}
+
+Answer:`;
+
+    // Use a text generation model instead of a question answering model
     const response = await axios.post(
-      'https://api-inference.huggingface.co/models/gpt2',
+      'https://api-inference.huggingface.co/models/google/flan-t5-large',
       {
-        inputs: question
+        inputs: prompt,
+        parameters: {
+          max_length: 500,
+          temperature: 0.7,
+          top_p: 0.95,
+          do_sample: true
+        }
       },
       {
         headers: {
@@ -111,57 +127,31 @@ async function askQuestion(question, context, apiKey) {
       }
     );
     
-    console.log('Full API response:', response.data);
+    // Handle different response formats from the API
+    let answer;
+    if (Array.isArray(response.data) && response.data.length > 0) {
+      // Some models return an array of generated texts
+      answer = response.data[0].generated_text || response.data[0];
+    } else if (typeof response.data === 'string') {
+      // Some models return the text directly
+      answer = response.data;
+    } else if (response.data.generated_text) {
+      // Some models return an object with generated_text
+      answer = response.data.generated_text;
+    } else {
+      // Fallback
+      answer = JSON.stringify(response.data);
+    }
     
-    return response.data;
+    return {
+      answer: answer,
+      score: 1.0  // Confidence score is not relevant for generative models, so we set it to 1.0
+    };
   } catch (error) {
     console.error('Error calling Hugging Face API:', error);
     throw error;
   }
 }
-
-// Delete the last answer from the database
-app.delete('/api/answers/last', async (req, res) => {
-  try {
-    const { secret } = req.query;
-    const expectedSecret = process.env.DELETE_SECRET;
-
-    if (!secret || secret !== expectedSecret) {
-      return res.status(403).json({ error: 'Forbidden: Invalid or missing secret' });
-    }
-
-    // Find the last answer
-    const lastAnswer = await new Promise((resolve, reject) => {
-      db.get('SELECT * FROM answers ORDER BY id DESC LIMIT 1', [], (err, row) => {
-        if (err) {
-          reject(err);
-        } else {
-          resolve(row);
-        }
-      });
-    });
-
-    if (!lastAnswer) {
-      return res.status(404).json({ error: 'No answers found' });
-    }
-
-    // Delete the last answer
-    await new Promise((resolve, reject) => {
-      db.run('DELETE FROM answers WHERE id = ?', [lastAnswer.id], function(err) {
-        if (err) {
-          reject(err);
-        } else {
-          resolve();
-        }
-      });
-    });
-
-    res.json({ message: 'Last answer deleted successfully' });
-  } catch (error) {
-    console.error('Error deleting last answer:', error);
-    res.status(500).json({ error: 'Failed to delete last answer', message: error.message });
-  }
-});
 
 // Save answer to database
 function saveAnswer(question, context, answer, confidence, date) {
