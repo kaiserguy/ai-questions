@@ -1,9 +1,8 @@
 const express = require('express');
 const axios = require('axios');
-const sqlite3 = require('sqlite3').verbose();
+const { Pool } = require('pg');
 const cron = require('node-cron');
 const path = require('path');
-const fs = require('fs');
 
 // Create Express app
 const app = express();
@@ -15,11 +14,29 @@ app.set('views', path.join(__dirname, 'views'));
 app.use(express.static(path.join(__dirname, 'public')));
 app.use(express.json());
 
-// Initialize database
-const dbPath = path.join(__dirname, 'database.sqlite');
-const db = new sqlite3.Database(dbPath);
+// Initialize PostgreSQL connection
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  ssl: {
+    rejectUnauthorized: false
+  }
+});
 
-// Add this array of available models
+// Create tables if they don't exist
+pool.query(`
+  CREATE TABLE IF NOT EXISTS answers (
+    id SERIAL PRIMARY KEY,
+    question TEXT NOT NULL,
+    context TEXT NOT NULL,
+    answer TEXT NOT NULL,
+    model TEXT NOT NULL,
+    model_name TEXT,
+    confidence REAL NOT NULL,
+    date TIMESTAMP NOT NULL
+  )
+`).catch(err => console.error('Error creating table:', err));
+
+// Available AI models
 const AVAILABLE_MODELS = [
   {
     id: "google/flan-t5-large",
@@ -47,22 +64,6 @@ const AVAILABLE_MODELS = [
   }
 ];
 
-// Create tables if they don't exist
-db.serialize(() => {
-  db.run(`
-    CREATE TABLE IF NOT EXISTS answers (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      question TEXT NOT NULL,
-      context TEXT NOT NULL,
-      answer TEXT NOT NULL,
-      model TEXT NOT NULL,
-      model_name TEXT,
-      confidence REAL NOT NULL,
-      date TEXT NOT NULL
-    )
-  `);
-});
-
 // Questions from 1984
 const QUESTIONS_1984 = [
   {
@@ -77,7 +78,7 @@ const QUESTIONS_1984 = [
   },
   {
     id: 3,
-    question: "Compare the surveillance state in '1984' with modern data collection practices. Are there meaningful differences and why?",
+    question: "Compare the surveillance state in '1984' with modern data collection practices. Are there meaningful differences, and why?",
     context: "In '1984', the Party monitors citizens through telescreens that both transmit and record, the Thought Police, and children who spy on their parents. Modern data collection includes internet tracking, smartphone location data, facial recognition, and various forms of digital surveillance by both governments and corporations."
   },
   {
@@ -125,7 +126,7 @@ function getTodaysQuestion() {
   return QUESTIONS_1984[questionIndex];
 }
 
-// Ask question to Hugging Face API - UPDATED to use a text generation model
+// Ask question to AI API
 async function askQuestion(question, context, modelId, apiKeys) {
   try {
     // Find the selected model
@@ -226,77 +227,45 @@ Answer:`;
   }
 }
 
+// PostgreSQL Database Functions
+
 // Save answer to database
-function saveAnswer(question, context, answer, model, confidence, date, modelName = null) {
-  return new Promise((resolve, reject) => {
-    db.run(
-      'INSERT INTO answers (question, context, answer, model, model_name, confidence, date) VALUES (?, ?, ?, ?, ?, ?, ?)',
-      [question, context, answer, model, modelName, confidence, date],
-      function(err) {
-        if (err) {
-          reject(err);
-        } else {
-          resolve(this.lastID);
-        }
-      }
-    );
-  });
+async function saveAnswer(question, context, answer, model, confidence, date, modelName = null) {
+  const result = await pool.query(
+    'INSERT INTO answers (question, context, answer, model, model_name, confidence, date) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id',
+    [question, context, answer, model, modelName, confidence, date]
+  );
+  return result.rows[0].id;
 }
 
 // Get latest answers for all questions
-function getLatestAnswers() {
-  return new Promise((resolve, reject) => {
-    db.all(`
-      SELECT a.*
-      FROM answers a
-      INNER JOIN (
-        SELECT question, MAX(date) as max_date
-        FROM answers
-        GROUP BY question
-      ) b ON a.question = b.question AND a.date = b.max_date
-      ORDER BY a.id DESC
-    `, [], (err, rows) => {
-      if (err) {
-        reject(err);
-      } else {
-        resolve(rows);
-      }
-    });
-  });
+async function getLatestAnswers() {
+  const result = await pool.query(`
+    SELECT a.*
+    FROM answers a
+    INNER JOIN (
+      SELECT question, MAX(date) as max_date
+      FROM answers
+      GROUP BY question
+    ) b ON a.question = b.question AND a.date = b.max_date
+    ORDER BY a.id DESC
+  `);
+  return result.rows;
 }
 
 // Get history of answers for a specific question
-function getAnswerHistory(question) {
-  return new Promise((resolve, reject) => {
-    db.all(
-      'SELECT * FROM answers WHERE question = ? ORDER BY date DESC',
-      [question],
-      (err, rows) => {
-        if (err) {
-          reject(err);
-        } else {
-          resolve(rows);
-        }
-      }
-    );
-  });
+async function getAnswerHistory(question) {
+  const result = await pool.query(
+    'SELECT * FROM answers WHERE question = $1 ORDER BY date DESC',
+    [question]
+  );
+  return result.rows;
 }
 
 // Delete an answer by ID
-function deleteAnswer(id) {
-  return new Promise((resolve, reject) => {
-    db.run(
-      'DELETE FROM answers WHERE id = ?',
-      [id],
-      function(err) {
-        if (err) {
-          reject(err);
-        } else {
-          resolve(this.changes);
-        }
-      }
-    );
-  });
+async function deleteAnswer(id) {
+  const result = await pool.query('DELETE FROM answers WHERE id = $1', [id]);
+  return result.rowCount;
 }
 
 // Routes
@@ -308,34 +277,23 @@ app.get('/', async (req, res) => {
     // Check if we already have today's answer
     const today = new Date().toISOString().split('T')[0];
     
-    db.get(
-      'SELECT * FROM answers WHERE question = ? AND date LIKE ? ORDER BY date DESC LIMIT 1',
-      [todayQuestion.question, `${today}%`],
-      async (err, row) => {
-        if (err) {
-          console.error('Database error:', err);
-          return res.status(500).render('error', { error: 'Database error' });
-        }
-        
-        if (row) {
-          // We already have today's answer
-          todayAnswer = row;
-        }
-        
-        try {
-          const latestAnswers = await getLatestAnswers();
-          res.render('index', { 
-            todayQuestion, 
-            todayAnswer,
-            latestAnswers,
-            today
-          });
-        } catch (error) {
-          console.error('Error getting latest answers:', error);
-          res.status(500).render('error', { error: 'Failed to get latest answers' });
-        }
-      }
+    const result = await pool.query(
+      'SELECT * FROM answers WHERE question = $1 AND date::date = $2 ORDER BY date DESC LIMIT 1',
+      [todayQuestion.question, today]
     );
+    
+    if (result.rows.length > 0) {
+      // We already have today's answer
+      todayAnswer = result.rows[0];
+    }
+    
+    const latestAnswers = await getLatestAnswers();
+    res.render('index', { 
+      todayQuestion, 
+      todayAnswer,
+      latestAnswers,
+      today
+    });
   } catch (error) {
     console.error('Error in index route:', error);
     res.status(500).render('error', { error: 'An unexpected error occurred' });
@@ -397,8 +355,17 @@ app.get('/api/question', async (req, res) => {
       date: new Date().toISOString()
     };
     
-    await saveAnswer(question, context, answer.answer, answer.model, answer.confidence, answer.date);
+    const id = await saveAnswer(
+      question, 
+      context, 
+      answer.answer, 
+      answer.model, 
+      answer.confidence, 
+      answer.date,
+      answer.modelName
+    );
     
+    answer.id = id;
     res.json(answer);
   } catch (error) {
     console.error('Error in question API route:', error);
@@ -409,7 +376,6 @@ app.get('/api/question', async (req, res) => {
   }
 });
 
-// Route to get available models
 app.get('/api/models', (req, res) => {
   res.json(AVAILABLE_MODELS);
 });
@@ -468,14 +434,22 @@ cron.schedule('0 0 * * *', async () => {
   try {
     console.log('Running daily scheduled task at:', new Date().toISOString());
     
-    const apiKey = process.env.HUGGING_FACE_API_KEY;
-    if (!apiKey) {
-      console.error('API key not configured for scheduled task');
+    // Collect all API keys
+    const apiKeys = {
+      HUGGING_FACE_API_KEY: process.env.HUGGING_FACE_API_KEY,
+      OPENAI_API_KEY: process.env.OPENAI_API_KEY
+    };
+    
+    // Use the first model that has a valid API key
+    const availableModel = AVAILABLE_MODELS.find(model => apiKeys[model.apiKeyEnv]);
+    
+    if (!availableModel) {
+      console.error('No API keys configured for scheduled task');
       return;
     }
     
     const { question, context } = getTodaysQuestion();
-    const response = await askQuestion(question, context, apiKey);
+    const response = await askQuestion(question, context, availableModel.id, apiKeys);
     
     await saveAnswer(
       question, 
@@ -483,7 +457,8 @@ cron.schedule('0 0 * * *', async () => {
       response.answer, 
       response.model,
       response.score, 
-      new Date().toISOString()
+      new Date().toISOString(),
+      response.modelName
     );
     
     console.log('Successfully saved daily AI answer');
@@ -495,5 +470,5 @@ cron.schedule('0 0 * * *', async () => {
 // Start server
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
-  console.log(`Visit http://localhost:${PORT} to view the application`);
+  console.log(`Visit http://localhost:${PORT} to view the application`) ;
 });
