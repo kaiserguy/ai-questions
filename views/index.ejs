@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Daily AI Question - 1984</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        header {
+            text-align: center;
+            margin-bottom: 40px;
+            border-bottom: 1px solid #eee;
+            padding-bottom: 20px;
+        }
+        h1 {
+            color: #d32f2f;
+        }
+        .question-card {
+            background-color: #f9f9f9;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 30px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .question {
+            font-weight: bold;
+            font-size: 1.2em;
+            margin-bottom: 10px;
+        }
+        .context {
+            font-style: italic;
+            color: #666;
+            margin-bottom: 20px;
+            font-size: 0.9em;
+        }
+        .answer {
+            background-color: #fff;
+            padding: 15px;
+            border-radius: 5px;
+            border-left: 4px solid #d32f2f;
+        }
+        .meta {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.8em;
+            color: #888;
+            margin-top: 15px;
+        }
+        .loading {
+            text-align: center;
+            padding: 20px;
+            font-style: italic;
+            color: #666;
+        }
+        .ask-button {
+            background-color: #d32f2f;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 1em;
+            margin-top: 10px;
+        }
+        .ask-button:hover {
+            background-color: #b71c1c;
+        }
+        .history-link {
+            display: block;
+            text-align: center;
+            margin-top: 10px;
+            color: #2196F3;
+            text-decoration: none;
+        }
+        .history-link:hover {
+            text-decoration: underline;
+        }
+        .history-section {
+            margin-top: 40px;
+        }
+        .history-section h2 {
+            border-bottom: 1px solid #eee;
+            padding-bottom: 10px;
+        }
+        .history-item {
+            margin-bottom: 20px;
+            padding-bottom: 20px;
+            border-bottom: 1px solid #eee;
+        }
+        .history-item:last-child {
+            border-bottom: none;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>Daily AI Question from "1984"</h1>
+        <p>Tracking AI responses to politically sensitive questions over time</p>
+    </header>
+
+    <div class="question-card">
+        <div class="question"><%= todayQuestion.question %></div>
+        <div class="context"><%= todayQuestion.context %></div>
+        
+        <% if (todayAnswer) { %>
+            <div class="answer">
+                <%= todayAnswer.answer %>
+            </div>
+            <div class="meta">
+                <span>Confidence: <%= (todayAnswer.confidence * 100).toFixed(2) %>%</span>
+                <span>Date: <%= new Date(todayAnswer.date).toLocaleDateString() %></span>
+            </div>
+            <a href="/history?question=<%= encodeURIComponent(todayQuestion.question) %>" class="history-link">
+                View answer history for this question
+            </a>
+        <% } else { %>
+            <div class="loading">
+                No answer available for today yet.
+            </div>
+            <form action="/api/question" method="GET">
+                <button type="submit" class="ask-button">Ask AI Now</button>
+            </form>
+        <% } %>
+    </div>
+
+    <div class="history-section">
+        <h2>Latest Answers to Other Questions</h2>
+        
+        <% if (latestAnswers && latestAnswers.length > 0) { %>
+            <% latestAnswers.forEach(answer => { %>
+                <% if (answer.question !== todayQuestion.question) { %>
+                    <div class="history-item">
+                        <div class="question"><%= answer.question %></div>
+                        <div class="answer"><%= answer.answer %></div>
+                        <div class="meta">
+                            <span>Date: <%= new Date(answer.date).toLocaleDateString() %></span>
+                            <a href="/history?question=<%= encodeURIComponent(answer.question) %>" class="history-link">
+                                View history
+                            </a>
+                        </div>
+                    </div>
+                <% } %>
+            <% }); %>
+        <% } else { %>
+            <p>No previous answers available yet.</p>
+        <% } %>
+    </div>
+</body>
+</html>
