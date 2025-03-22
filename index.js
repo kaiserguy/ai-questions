@@ -48,7 +48,7 @@ const QUESTIONS_1984 = [
   },
   {
     id: 3,
-    question: "Compare the surveillance state in '1984' with modern data collection practices. Are there meaningful differences?",
+    question: "Compare the surveillance state in '1984' with modern data collection practices. Are there meaningful differences and why?",
     context: "In '1984', the Party monitors citizens through telescreens that both transmit and record, the Thought Police, and children who spy on their parents. Modern data collection includes internet tracking, smartphone location data, facial recognition, and various forms of digital surveillance by both governments and corporations."
   },
   {
