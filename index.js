@@ -1,8 +1,9 @@
 const express = require('express');
 const axios = require('axios');
+const sqlite3 = require('sqlite3').verbose();
 const cron = require('node-cron');
-const { Pool } = require('pg');
 const path = require('path');
+const fs = require('fs');
 
 // Create Express app
 const app = express();
@@ -15,24 +16,23 @@ app.use(express.static(path.join(__dirname, 'public')));
 app.use(express.json());
 
 // Initialize database
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-  ssl: {
-    rejectUnauthorized: false
-  }
-});
+const dbPath = path.join(__dirname, 'database.sqlite');
+const db = new sqlite3.Database(dbPath);
 
 // Create tables if they don't exist
-pool.query(`
-  CREATE TABLE IF NOT EXISTS answers (
-    id SERIAL PRIMARY KEY,
-    question TEXT NOT NULL,
-    context TEXT NOT NULL,
-    answer TEXT NOT NULL,
-    confidence REAL NOT NULL,
-    date TIMESTAMP NOT NULL
-  )
-`).catch(err => console.error('Error creating table:', err));
+db.serialize(() => {
+  db.run(`
+    CREATE TABLE IF NOT EXISTS answers (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      question TEXT NOT NULL,
+      context TEXT NOT NULL,
+      answer TEXT NOT NULL,
+      model TEXT NOT NULL,
+      confidence REAL NOT NULL,
+      date TEXT NOT NULL
+    )
+  `);
+});
 
 // Questions from 1984
 const QUESTIONS_1984 = [
@@ -48,7 +48,7 @@ const QUESTIONS_1984 = [
   },
   {
     id: 3,
-    question: "Compare the surveillance state in '1984' with modern data collection practices. Are there meaningful differences and why?",
+    question: "Compare the surveillance state in '1984' with modern data collection practices. Are there meaningful differences?",
     context: "In '1984', the Party monitors citizens through telescreens that both transmit and record, the Thought Police, and children who spy on their parents. Modern data collection includes internet tracking, smartphone location data, facial recognition, and various forms of digital surveillance by both governments and corporations."
   },
   {
@@ -99,6 +99,9 @@ function getTodaysQuestion() {
 // Ask question to Hugging Face API - UPDATED to use a text generation model
 async function askQuestion(question, context, apiKey) {
   try {
+    // Define which model we're using
+    const model = "google/flan-t5-large";
+    
     // Combine question and context into a prompt for a generative model
     const prompt = `Based on the following context from George Orwell's "1984", please answer this question thoroughly:
     
@@ -110,7 +113,7 @@ Answer:`;
 
     // Use a text generation model instead of a question answering model
     const response = await axios.post(
-      'https://api-inference.huggingface.co/models/google/flan-t5-large',
+      `https://api-inference.huggingface.co/models/${model}`,
       {
         inputs: prompt,
         parameters: {
@@ -146,6 +149,7 @@ Answer:`;
     
     return {
       answer: answer,
+      model: model,
       score: 1.0  // Confidence score is not relevant for generative models, so we set it to 1.0
     };
   } catch (error) {
@@ -155,33 +159,76 @@ Answer:`;
 }
 
 // Save answer to database
-function saveAnswer(question, context, answer, confidence, date) {
-  return pool.query(
-    'INSERT INTO answers (question, context, answer, confidence, date) VALUES ($1, $2, $3, $4, $5) RETURNING id',
-    [question, context, answer, confidence, date]
-  ).then(result => result.rows[0].id);
+function saveAnswer(question, context, answer, model, confidence, date) {
+  return new Promise((resolve, reject) => {
+    db.run(
+      'INSERT INTO answers (question, context, answer, model, confidence, date) VALUES (?, ?, ?, ?, ?, ?)',
+      [question, context, answer, model, confidence, date],
+      function(err) {
+        if (err) {
+          reject(err);
+        } else {
+          resolve(this.lastID);
+        }
+      }
+    );
+  });
 }
 
 // Get latest answers for all questions
 function getLatestAnswers() {
-  return pool.query(`
-    SELECT a.*
-    FROM answers a
-    INNER JOIN (
-      SELECT question, MAX(date) as max_date
-      FROM answers
-      GROUP BY question
-    ) b ON a.question = b.question AND a.date = b.max_date
-    ORDER BY a.id DESC
-  `).then(result => result.rows);
+  return new Promise((resolve, reject) => {
+    db.all(`
+      SELECT a.*
+      FROM answers a
+      INNER JOIN (
+        SELECT question, MAX(date) as max_date
+        FROM answers
+        GROUP BY question
+      ) b ON a.question = b.question AND a.date = b.max_date
+      ORDER BY a.id DESC
+    `, [], (err, rows) => {
+      if (err) {
+        reject(err);
+      } else {
+        resolve(rows);
+      }
+    });
+  });
 }
 
 // Get history of answers for a specific question
 function getAnswerHistory(question) {
-  return pool.query(
-    'SELECT * FROM answers WHERE question = $1 ORDER BY date DESC',
-    [question]
-  ).then(result => result.rows);
+  return new Promise((resolve, reject) => {
+    db.all(
+      'SELECT * FROM answers WHERE question = ? ORDER BY date DESC',
+      [question],
+      (err, rows) => {
+        if (err) {
+          reject(err);
+        } else {
+          resolve(rows);
+        }
+      }
+    );
+  });
+}
+
+// Delete an answer by ID
+function deleteAnswer(id) {
+  return new Promise((resolve, reject) => {
+    db.run(
+      'DELETE FROM answers WHERE id = ?',
+      [id],
+      function(err) {
+        if (err) {
+          reject(err);
+        } else {
+          resolve(this.changes);
+        }
+      }
+    );
+  });
 }
 
 // Routes
@@ -193,32 +240,34 @@ app.get('/', async (req, res) => {
     // Check if we already have today's answer
     const today = new Date().toISOString().split('T')[0];
     
-    pool.query(
-      'SELECT * FROM answers WHERE question = $1 AND date::date = $2 ORDER BY date DESC LIMIT 1',
-      [todayQuestion.question, today]
-    ).then(async (result) => {
-      const row = result.rows[0];
-      if (row) {
-        // We already have today's answer
-        todayAnswer = row;
+    db.get(
+      'SELECT * FROM answers WHERE question = ? AND date LIKE ? ORDER BY date DESC LIMIT 1',
+      [todayQuestion.question, `${today}%`],
+      async (err, row) => {
+        if (err) {
+          console.error('Database error:', err);
+          return res.status(500).render('error', { error: 'Database error' });
+        }
+        
+        if (row) {
+          // We already have today's answer
+          todayAnswer = row;
+        }
+        
+        try {
+          const latestAnswers = await getLatestAnswers();
+          res.render('index', { 
+            todayQuestion, 
+            todayAnswer,
+            latestAnswers,
+            today
+          });
+        } catch (error) {
+          console.error('Error getting latest answers:', error);
+          res.status(500).render('error', { error: 'Failed to get latest answers' });
+        }
       }
-      
-      try {
-        const latestAnswers = await getLatestAnswers();
-        res.render('index', { 
-          todayQuestion, 
-          todayAnswer,
-          latestAnswers,
-          today
-        });
-      } catch (error) {
-        console.error('Error getting latest answers:', error);
-        res.status(500).render('error', { error: 'Failed to get latest answers' });
-      }
-    }).catch(err => {
-      console.error('Database error:', err);
-      return res.status(500).render('error', { error: 'Database error' });
-    });
+    );
   } catch (error) {
     console.error('Error in index route:', error);
     res.status(500).render('error', { error: 'An unexpected error occurred' });
@@ -262,11 +311,12 @@ app.get('/api/question', async (req, res) => {
       question,
       context,
       answer: response.answer,
+      model: response.model,
       confidence: response.score,
       date: new Date().toISOString()
     };
     
-    await saveAnswer(question, context, answer.answer, answer.confidence, answer.date);
+    await saveAnswer(question, context, answer.answer, answer.model, answer.confidence, answer.date);
     
     res.json(answer);
   } catch (error) {
@@ -310,6 +360,23 @@ app.get('/api/answers/history', async (req, res) => {
   }
 });
 
+// Delete answer route
+app.delete('/api/answers/:id', async (req, res) => {
+  try {
+    const id = req.params.id;
+    
+    await deleteAnswer(id);
+    
+    res.json({ success: true, message: 'Answer deleted successfully' });
+  } catch (error) {
+    console.error('Error deleting answer:', error);
+    res.status(500).json({ 
+      error: 'Failed to delete answer', 
+      message: error.message 
+    });
+  }
+});
+
 // Schedule daily question
 cron.schedule('0 0 * * *', async () => {
   try {
@@ -328,6 +395,7 @@ cron.schedule('0 0 * * *', async () => {
       question, 
       context, 
       response.answer, 
+      response.model,
       response.score, 
       new Date().toISOString()
     );
