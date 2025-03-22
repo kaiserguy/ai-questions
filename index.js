@@ -114,12 +114,64 @@ async function askQuestion(question, context, apiKey) {
       }
     );
     
+    console.log('Full API response:', response.data);
+
+    // Check if the answer is too long
+    const answer = response.data.answer;
+    if (answer.length > 500) { // Adjust the length limit as needed
+      console.warn('Answer is too long, truncating...');
+      response.data.answer = answer.substring(0, 500) + '...';
+    }
+
     return response.data;
   } catch (error) {
     console.error('Error calling Hugging Face API:', error);
     throw error;
   }
 }
+
+// Delete the last answer from the database
+app.delete('/api/answers/last', async (req, res) => {
+  try {
+    const { secret } = req.query;
+    const expectedSecret = process.env.DELETE_SECRET;
+
+    if (!secret || secret !== expectedSecret) {
+      return res.status(403).json({ error: 'Forbidden: Invalid or missing secret' });
+    }
+
+    // Find the last answer
+    const lastAnswer = await new Promise((resolve, reject) => {
+      db.get('SELECT * FROM answers ORDER BY id DESC LIMIT 1', [], (err, row) => {
+        if (err) {
+          reject(err);
+        } else {
+          resolve(row);
+        }
+      });
+    });
+
+    if (!lastAnswer) {
+      return res.status(404).json({ error: 'No answers found' });
+    }
+
+    // Delete the last answer
+    await new Promise((resolve, reject) => {
+      db.run('DELETE FROM answers WHERE id = ?', [lastAnswer.id], function(err) {
+        if (err) {
+          reject(err);
+        } else {
+          resolve();
+        }
+      });
+    });
+
+    res.json({ message: 'Last answer deleted successfully' });
+  } catch (error) {
+    console.error('Error deleting last answer:', error);
+    res.status(500).json({ error: 'Failed to delete last answer', message: error.message });
+  }
+});
 
 // Save answer to database
 function saveAnswer(question, context, answer, confidence, date) {
