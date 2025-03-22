@@ -1,9 +1,8 @@
 const express = require('express');
 const axios = require('axios');
-const sqlite3 = require('sqlite3').verbose();
 const cron = require('node-cron');
+const { Pool } = require('pg');
 const path = require('path');
-const fs = require('fs');
 
 // Create Express app
 const app = express();
@@ -16,22 +15,24 @@ app.use(express.static(path.join(__dirname, 'public')));
 app.use(express.json());
 
 // Initialize database
-const dbPath = path.join(__dirname, 'database.sqlite');
-const db = new sqlite3.Database(dbPath);
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  ssl: {
+    rejectUnauthorized: false
+  }
+});
 
 // Create tables if they don't exist
-db.serialize(() => {
-  db.run(`
-    CREATE TABLE IF NOT EXISTS answers (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      question TEXT NOT NULL,
-      context TEXT NOT NULL,
-      answer TEXT NOT NULL,
-      confidence REAL NOT NULL,
-      date TEXT NOT NULL
-    )
-  `);
-});
+pool.query(`
+  CREATE TABLE IF NOT EXISTS answers (
+    id SERIAL PRIMARY KEY,
+    question TEXT NOT NULL,
+    context TEXT NOT NULL,
+    answer TEXT NOT NULL,
+    confidence REAL NOT NULL,
+    date TIMESTAMP NOT NULL
+  )
+`).catch(err => console.error('Error creating table:', err));
 
 // Questions from 1984
 const QUESTIONS_1984 = [
@@ -155,58 +156,32 @@ Answer:`;
 
 // Save answer to database
 function saveAnswer(question, context, answer, confidence, date) {
-  return new Promise((resolve, reject) => {
-    db.run(
-      'INSERT INTO answers (question, context, answer, confidence, date) VALUES (?, ?, ?, ?, ?)',
-      [question, context, answer, confidence, date],
-      function(err) {
-        if (err) {
-          reject(err);
-        } else {
-          resolve(this.lastID);
-        }
-      }
-    );
-  });
+  return pool.query(
+    'INSERT INTO answers (question, context, answer, confidence, date) VALUES ($1, $2, $3, $4, $5) RETURNING id',
+    [question, context, answer, confidence, date]
+  ).then(result => result.rows[0].id);
 }
 
 // Get latest answers for all questions
 function getLatestAnswers() {
-  return new Promise((resolve, reject) => {
-    db.all(`
-      SELECT a.*
-      FROM answers a
-      INNER JOIN (
-        SELECT question, MAX(date) as max_date
-        FROM answers
-        GROUP BY question
-      ) b ON a.question = b.question AND a.date = b.max_date
-      ORDER BY a.id DESC
-    `, [], (err, rows) => {
-      if (err) {
-        reject(err);
-      } else {
-        resolve(rows);
-      }
-    });
-  });
+  return pool.query(`
+    SELECT a.*
+    FROM answers a
+    INNER JOIN (
+      SELECT question, MAX(date) as max_date
+      FROM answers
+      GROUP BY question
+    ) b ON a.question = b.question AND a.date = b.max_date
+    ORDER BY a.id DESC
+  `).then(result => result.rows);
 }
 
 // Get history of answers for a specific question
 function getAnswerHistory(question) {
-  return new Promise((resolve, reject) => {
-    db.all(
-      'SELECT * FROM answers WHERE question = ? ORDER BY date DESC',
-      [question],
-      (err, rows) => {
-        if (err) {
-          reject(err);
-        } else {
-          resolve(rows);
-        }
-      }
-    );
-  });
+  return pool.query(
+    'SELECT * FROM answers WHERE question = $1 ORDER BY date DESC',
+    [question]
+  ).then(result => result.rows);
 }
 
 // Routes
@@ -218,34 +193,32 @@ app.get('/', async (req, res) => {
     // Check if we already have today's answer
     const today = new Date().toISOString().split('T')[0];
     
-    db.get(
-      'SELECT * FROM answers WHERE question = ? AND date LIKE ? ORDER BY date DESC LIMIT 1',
-      [todayQuestion.question, `${today}%`],
-      async (err, row) => {
-        if (err) {
-          console.error('Database error:', err);
-          return res.status(500).render('error', { error: 'Database error' });
-        }
-        
-        if (row) {
-          // We already have today's answer
-          todayAnswer = row;
-        }
-        
-        try {
-          const latestAnswers = await getLatestAnswers();
-          res.render('index', { 
-            todayQuestion, 
-            todayAnswer,
-            latestAnswers,
-            today
-          });
-        } catch (error) {
-          console.error('Error getting latest answers:', error);
-          res.status(500).render('error', { error: 'Failed to get latest answers' });
-        }
+    pool.query(
+      'SELECT * FROM answers WHERE question = $1 AND date::date = $2 ORDER BY date DESC LIMIT 1',
+      [todayQuestion.question, today]
+    ).then(async (result) => {
+      const row = result.rows[0];
+      if (row) {
+        // We already have today's answer
+        todayAnswer = row;
       }
-    );
+      
+      try {
+        const latestAnswers = await getLatestAnswers();
+        res.render('index', { 
+          todayQuestion, 
+          todayAnswer,
+          latestAnswers,
+          today
+        });
+      } catch (error) {
+        console.error('Error getting latest answers:', error);
+        res.status(500).render('error', { error: 'Failed to get latest answers' });
+      }
+    }).catch(err => {
+      console.error('Database error:', err);
+      return res.status(500).render('error', { error: 'Database error' });
+    });
   } catch (error) {
     console.error('Error in index route:', error);
     res.status(500).render('error', { error: 'An unexpected error occurred' });
