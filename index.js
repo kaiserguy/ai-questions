@@ -101,10 +101,7 @@ async function askQuestion(question, context, apiKey) {
     const response = await axios.post(
       'https://api-inference.huggingface.co/models/gpt2',
       {
-        inputs: {
-          question: question,
-          context: context
-        }
+        inputs: question
       },
       {
         headers: {
