@@ -110,6 +110,25 @@
         .trash-button:hover {
             background-color: #d32f2f;
         }
+        .model-selector {
+            margin-bottom: 15px;
+        }
+
+        .model-selector label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+
+        .model-selector select {
+            width: 100%;
+            padding: 8px;
+            border-radius: 4px;
+            border: 1px solid #ddd;
+            background-color: white;
+            font-size: 1em;
+        }
+
     </style>
 </head>
 <body>
@@ -139,6 +158,12 @@
             <div class="loading">
                 No answer available for today yet.
             </div>
+            <div class="model-selector">
+                <label for="model-select">Select AI Model:</label>
+                <select id="model-select">
+                  <!-- Will be populated via JavaScript -->
+                </select>
+              </div>
             <button onclick="askAINow()" class="ask-button">Ask AI Now</button>
             <div id="loading-indicator" style="display: none; text-align: center; margin-top: 10px;">
                 <p>Asking AI... This may take a few moments.</p>
@@ -171,6 +196,23 @@
         <% } %>
     </div>
     <script>
+        document.addEventListener('DOMContentLoaded', function() {
+        fetch('/api/models')
+            .then(response => response.json())
+            .then(models => {
+            const select = document.getElementById('model-select');
+            models.forEach(model => {
+                const option = document.createElement('option');
+                option.value = model.id;
+                option.textContent = model.name;
+                select.appendChild(option);
+            });
+            })
+            .catch(error => {
+            console.error('Error fetching models:', error);
+            });
+        });
+
         function askAINow() {
             // Show loading indicator
             document.getElementById('loading-indicator').style.display = 'block';
@@ -180,8 +222,12 @@
             button.disabled = true;
             button.textContent = 'Processing...';
             
+            // Get selected model
+            const modelSelect = document.getElementById('model-select');
+            const selectedModel = modelSelect.value;
+            
             // Make AJAX request to get answer
-            fetch('/api/question')
+            fetch(`/api/question?model=${selectedModel}`)
                 .then(response => response.json())
                 .then(data => {
                     // Create answer HTML
@@ -192,7 +238,7 @@
                     const metaDiv = document.createElement('div');
                     metaDiv.className = 'meta';
                     metaDiv.innerHTML = `
-                        <span>Model: ${data.model}</span>
+                        <span>Model: ${data.modelName || data.model}</span>
                         <span>Confidence: ${(data.confidence * 100).toFixed(2)}%</span>
                         <span>Date: ${new Date(data.date).toLocaleDateString()}</span>
                         <button class="trash-button" onclick="deleteAnswer(${data.id})">🗑️</button>

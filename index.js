@@ -19,6 +19,34 @@ app.use(express.json());
 const dbPath = path.join(__dirname, 'database.sqlite');
 const db = new sqlite3.Database(dbPath);
 
+// Add this array of available models
+const AVAILABLE_MODELS = [
+  {
+    id: "google/flan-t5-large",
+    name: "Google FLAN-T5 Large",
+    provider: "huggingface",
+    apiKeyEnv: "HUGGING_FACE_API_KEY"
+  },
+  {
+    id: "gpt-3.5-turbo",
+    name: "ChatGPT (GPT-3.5)",
+    provider: "openai",
+    apiKeyEnv: "OPENAI_API_KEY"
+  },
+  {
+    id: "meta-llama/Llama-2-7b-chat-hf",
+    name: "Meta Llama 2 (7B)",
+    provider: "huggingface",
+    apiKeyEnv: "HUGGING_FACE_API_KEY"
+  },
+  {
+    id: "mistralai/Mistral-7B-Instruct-v0.1",
+    name: "Mistral 7B",
+    provider: "huggingface",
+    apiKeyEnv: "HUGGING_FACE_API_KEY"
+  }
+];
+
 // Create tables if they don't exist
 db.serialize(() => {
   db.run(`
@@ -28,6 +56,7 @@ db.serialize(() => {
       context TEXT NOT NULL,
       answer TEXT NOT NULL,
       model TEXT NOT NULL,
+      model_name TEXT,
       confidence REAL NOT NULL,
       date TEXT NOT NULL
     )
@@ -97,12 +126,21 @@ function getTodaysQuestion() {
 }
 
 // Ask question to Hugging Face API - UPDATED to use a text generation model
-async function askQuestion(question, context, apiKey) {
+async function askQuestion(question, context, modelId, apiKeys) {
   try {
-    // Define which model we're using
-    const model = "google/flan-t5-large";
+    // Find the selected model
+    const selectedModel = AVAILABLE_MODELS.find(model => model.id === modelId);
+    if (!selectedModel) {
+      throw new Error(`Model ${modelId} not found`);
+    }
     
-    // Combine question and context into a prompt for a generative model
+    // Get the appropriate API key
+    const apiKey = apiKeys[selectedModel.apiKeyEnv];
+    if (!apiKey) {
+      throw new Error(`API key for ${selectedModel.name} not configured`);
+    }
+    
+    // Combine question and context into a prompt
     const prompt = `Based on the following context from George Orwell's "1984", please answer this question thoroughly:
     
 Context: ${context}
@@ -111,59 +149,89 @@ Question: ${question}
 
 Answer:`;
 
-    // Use a text generation model instead of a question answering model
-    const response = await axios.post(
-      `https://api-inference.huggingface.co/models/${model}`,
-      {
-        inputs: prompt,
-        parameters: {
-          max_length: 500,
-          temperature: 0.7,
-          top_p: 0.95,
-          do_sample: true
-        }
-      },
-      {
-        headers: {
-          'Authorization': `Bearer ${apiKey}`,
-          'Content-Type': 'application/json'
-        }
-      }
-    );
-    
-    // Handle different response formats from the API
     let answer;
-    if (Array.isArray(response.data) && response.data.length > 0) {
-      // Some models return an array of generated texts
-      answer = response.data[0].generated_text || response.data[0];
-    } else if (typeof response.data === 'string') {
-      // Some models return the text directly
-      answer = response.data;
-    } else if (response.data.generated_text) {
-      // Some models return an object with generated_text
-      answer = response.data.generated_text;
-    } else {
-      // Fallback
-      answer = JSON.stringify(response.data);
+    
+    // Handle different providers
+    if (selectedModel.provider === 'huggingface') {
+      // Hugging Face API call
+      const response = await axios.post(
+        `https://api-inference.huggingface.co/models/${selectedModel.id}`,
+        {
+          inputs: prompt,
+          parameters: {
+            max_length: 500,
+            temperature: 0.7,
+            top_p: 0.95,
+            do_sample: true
+          }
+        },
+        {
+          headers: {
+            'Authorization': `Bearer ${apiKey}`,
+            'Content-Type': 'application/json'
+          }
+        }
+      ) ;
+      
+      // Handle different response formats from Hugging Face
+      if (Array.isArray(response.data) && response.data.length > 0) {
+        answer = response.data[0].generated_text || response.data[0];
+      } else if (typeof response.data === 'string') {
+        answer = response.data;
+      } else if (response.data.generated_text) {
+        answer = response.data.generated_text;
+      } else {
+        answer = JSON.stringify(response.data);
+      }
+    } 
+    else if (selectedModel.provider === 'openai') {
+      // OpenAI API call
+      const response = await axios.post(
+        'https://api.openai.com/v1/chat/completions',
+        {
+          model: selectedModel.id,
+          messages: [
+            {
+              role: "system",
+              content: "You are a helpful assistant analyzing George Orwell's 1984."
+            },
+            {
+              role: "user",
+              content: prompt
+            }
+          ],
+          temperature: 0.7,
+          max_tokens: 500
+        },
+        {
+          headers: {
+            'Authorization': `Bearer ${apiKey}`,
+            'Content-Type': 'application/json'
+          }
+        }
+      ) ;
+      
+      answer = response.data.choices[0].message.content;
     }
     
     return {
       answer: answer,
-      model: model,
-      score: 1.0  // Confidence score is not relevant for generative models, so we set it to 1.0
+      model: selectedModel.id,
+      modelName: selectedModel.name,
+      score: 1.0
     };
   } catch (error) {
-    console.error('Error calling Hugging Face API:', error);
+    console.error('Error calling AI API:', error);
     throw error;
   }
 }
 
 // Save answer to database
-function saveAnswer(question, context, answer, model, confidence, date) {
+function saveAnswer(question, context, answer, model, confidence, date, modelName = null) {
   return new Promise((resolve, reject) => {
     db.run(
-      'INSERT INTO answers (question, context, answer, model, confidence, date) VALUES (?, ?, ?, ?, ?, ?)',
-      [question, context, answer, model, confidence, date],
+      'INSERT INTO answers (question, context, answer, model, model_name, confidence, date) VALUES (?, ?, ?, ?, ?, ?, ?)',
+      [question, context, answer, model, modelName, confidence, date],
       function(err) {
         if (err) {
           reject(err);
@@ -294,24 +362,37 @@ app.get('/history', async (req, res) => {
 app.get('/api/question', async (req, res) => {
   try {
     const { question, context } = getTodaysQuestion();
-    const apiKey = process.env.HUGGING_FACE_API_KEY;
+    const modelId = req.query.model || AVAILABLE_MODELS[0].id; // Default to first model if not specified
     
-    if (!apiKey) {
+    // Collect all API keys
+    const apiKeys = {
+      HUGGING_FACE_API_KEY: process.env.HUGGING_FACE_API_KEY,
+      OPENAI_API_KEY: process.env.OPENAI_API_KEY
+    };
+    
+    // Check if we have the required API key
+    const selectedModel = AVAILABLE_MODELS.find(model => model.id === modelId);
+    if (!selectedModel) {
+      return res.status(400).json({ error: 'Invalid model ID' });
+    }
+    
+    if (!apiKeys[selectedModel.apiKeyEnv]) {
       return res.status(500).json({ 
-        error: 'API key not configured',
+        error: `API key for ${selectedModel.name} not configured`,
         question,
         context,
         date: new Date().toISOString()
       });
     }
     
-    const response = await askQuestion(question, context, apiKey);
+    const response = await askQuestion(question, context, modelId, apiKeys);
     
     const answer = {
       question,
       context,
       answer: response.answer,
       model: response.model,
+      modelName: response.modelName,
       confidence: response.score,
       date: new Date().toISOString()
     };
@@ -326,6 +407,11 @@ app.get('/api/question', async (req, res) => {
       message: error.message 
     });
   }
+});
+
+// Route to get available models
+app.get('/api/models', (req, res) => {
+  res.json(AVAILABLE_MODELS);
 });
 
 app.get('/api/answers', async (req, res) => {
