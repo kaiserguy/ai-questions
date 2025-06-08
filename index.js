@@ -128,9 +128,11 @@ function getTodaysQuestion() {
 
 // Ask question to AI API
 async function askQuestion(question, context, modelId, apiKeys) {
+  let selectedModel; // Declare at function scope
+  
   try {
     // Find the selected model
-    const selectedModel = AVAILABLE_MODELS.find(model => model.id === modelId);
+    selectedModel = AVAILABLE_MODELS.find(model => model.id === modelId);
     if (!selectedModel) {
       throw new Error(`Model ${modelId} not found`);
     }
@@ -225,7 +227,7 @@ Answer:`;
     console.error('Error calling AI API:', error);
     
     // Enhanced error logging for OpenAI API issues
-    if (selectedModel.provider === 'openai' && error.response) {
+    if (selectedModel && selectedModel.provider === 'openai' && error.response) {
       console.error('OpenAI API Error Details:', {
         status: error.response.status,
         statusText: error.response.statusText,
