@@ -3,6 +3,11 @@
 ## Overview
 This is a simplified version of the Daily AI Question website that asks a public free AI the same question every day via an API call and shows the answer. The website focuses on questions from George Orwell's "1984" to track AI responses over time, allowing users to monitor if AI systems change their answers to politically sensitive questions.
 
+## ✨ Latest Features
+- **Answer Comparison Tool**: Compare any two AI responses side-by-side on the history page
+- **Automatic GitHub Deployments**: Powered by GitHub Actions for reliable updates
+- **Enhanced Error Handling**: Clear, specific error messages for different API issues
+
 ## Features
 - Daily selection of questions from "1984" based on the date
 - Integration with Hugging Face's Inference API for AI responses
