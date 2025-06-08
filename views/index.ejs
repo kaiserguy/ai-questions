@@ -280,7 +280,16 @@
                 .catch(error => {
                     console.error('Error:', error);
                     document.getElementById('loading-indicator').style.display = 'none';
-                    alert('Error getting answer from AI. Please try again.');
+                    
+                    // Show user-friendly error message
+                    const errorMessage = error.message || 'Unknown error occurred';
+                    if (errorMessage.includes('404') || errorMessage.includes('not found')) {
+                        alert('The selected AI model is currently unavailable. Please try a different model or contact support.');
+                    } else if (errorMessage.includes('API key')) {
+                        alert('API configuration error. Please contact the administrator.');
+                    } else {
+                        alert('Error getting answer from AI: ' + errorMessage + '. Please try again.');
+                    }
                     
                     // Re-enable button
                     button.disabled = false;

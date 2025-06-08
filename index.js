@@ -39,8 +39,8 @@ pool.query(`
 // Available AI models
 const AVAILABLE_MODELS = [
   {
-    id: "google/flan-t5-large",
-    name: "Google FLAN-T5 Large",
+    id: "deepseek-ai/DeepSeek-R1-0528",
+    name: "DeepSeek R1 (Latest)",
     provider: "huggingface",
     apiKeyEnv: "HUGGING_FACE_API_KEY"
   },
