@@ -228,7 +228,21 @@
             
             // Make AJAX request to get answer
             fetch(`/api/question?model=${selectedModel}`)
-                .then(response => response.json())
+                .then(response => {
+                    if (!response.ok) {
+                        // Handle HTTP error responses
+                        return response.text().then(text => {
+                            let errorData;
+                            try {
+                                errorData = JSON.parse(text);
+                            } catch (e) {
+                                errorData = { error: `HTTP ${response.status}: ${response.statusText}`, message: text };
+                            }
+                            throw new Error(JSON.stringify(errorData));
+                        });
+                    }
+                    return response.json();
+                })
                 .then(data => {
                     // Create answer HTML
                     const answerDiv = document.createElement('div');
@@ -281,15 +295,68 @@
                     console.error('Error:', error);
                     document.getElementById('loading-indicator').style.display = 'none';
                     
-                    // Show user-friendly error message
-                    const errorMessage = error.message || 'Unknown error occurred';
-                    if (errorMessage.includes('404') || errorMessage.includes('not found')) {
-                        alert('The selected AI model is currently unavailable. Please try a different model or contact support.');
-                    } else if (errorMessage.includes('API key')) {
-                        alert('API configuration error. Please contact the administrator.');
-                    } else {
-                        alert('Error getting answer from AI: ' + errorMessage + '. Please try again.');
+                    // Parse the error response to get detailed information
+                    let errorMessage = 'Unknown error occurred';
+                    let userFriendlyMessage = '';
+                    
+                    // Try to parse JSON error response
+                    if (error.message) {
+                        try {
+                            const errorData = JSON.parse(error.message);
+                            errorMessage = errorData.message || errorData.error || error.message;
+                        } catch (e) {
+                            errorMessage = error.message;
+                        }
                     }
+                    
+                    // Provide specific error messages based on error type
+                    if (errorMessage.includes('429') || errorMessage.includes('rate limit') || errorMessage.includes('quota')) {
+                        userFriendlyMessage = '⚠️ Rate Limit Exceeded\n\n' +
+                            'The AI service has reached its usage limit. This could be due to:\n' +
+                            '• Too many requests in a short time\n' +
+                            '• API quota exhausted\n' +
+                            '• Billing limits reached\n\n' +
+                            'Please try again in a few minutes or contact the administrator.';
+                    } else if (errorMessage.includes('404') || errorMessage.includes('not found')) {
+                        userFriendlyMessage = '❌ Model Unavailable\n\n' +
+                            'The selected AI model is currently not available. This could be because:\n' +
+                            '• The model has been discontinued\n' +
+                            '• The model is temporarily offline\n' +
+                            '• The model endpoint has changed\n\n' +
+                            'Please try selecting a different AI model from the dropdown.';
+                    } else if (errorMessage.includes('401') || errorMessage.includes('unauthorized') || errorMessage.includes('API key')) {
+                        userFriendlyMessage = '🔑 Authentication Error\n\n' +
+                            'There is an issue with the API authentication:\n' +
+                            '• API key may be invalid or expired\n' +
+                            '• API key may not have required permissions\n\n' +
+                            'Please contact the administrator to resolve this issue.';
+                    } else if (errorMessage.includes('500') || errorMessage.includes('internal server error')) {
+                        userFriendlyMessage = '🔧 Server Error\n\n' +
+                            'The AI service is experiencing technical difficulties:\n' +
+                            '• Internal server error occurred\n' +
+                            '• Service may be temporarily down\n\n' +
+                            'Please try again in a few minutes. If the problem persists, contact support.';
+                    } else if (errorMessage.includes('503') || errorMessage.includes('service unavailable')) {
+                        userFriendlyMessage = '⏳ Service Unavailable\n\n' +
+                            'The AI service is temporarily unavailable:\n' +
+                            '• Service is under maintenance\n' +
+                            '• High traffic causing temporary outage\n\n' +
+                            'Please try again in a few minutes.';
+                    } else if (errorMessage.includes('timeout') || errorMessage.includes('network')) {
+                        userFriendlyMessage = '🌐 Connection Error\n\n' +
+                            'Unable to connect to the AI service:\n' +
+                            '• Network connectivity issues\n' +
+                            '• Request timed out\n\n' +
+                            'Please check your internet connection and try again.';
+                    } else {
+                        userFriendlyMessage = '❓ Unexpected Error\n\n' +
+                            'An unexpected error occurred while contacting the AI service:\n\n' +
+                            'Error details: ' + errorMessage + '\n\n' +
+                            'Please try again or contact support if the problem persists.';
+                    }
+                    
+                    // Show the detailed error message
+                    alert(userFriendlyMessage);
                     
                     // Re-enable button
                     button.disabled = false;
