@@ -223,6 +223,27 @@ Answer:`;
     };
   } catch (error) {
     console.error('Error calling AI API:', error);
+    
+    // Enhanced error logging for OpenAI API issues
+    if (selectedModel.provider === 'openai' && error.response) {
+      console.error('OpenAI API Error Details:', {
+        status: error.response.status,
+        statusText: error.response.statusText,
+        data: error.response.data,
+        headers: error.response.headers
+      });
+      
+      // Check for specific OpenAI error patterns
+      if (error.response.status === 429) {
+        const errorData = error.response.data;
+        if (errorData && errorData.error) {
+          console.error('OpenAI 429 Error Type:', errorData.error.type);
+          console.error('OpenAI 429 Error Code:', errorData.error.code);
+          console.error('OpenAI 429 Error Message:', errorData.error.message);
+        }
+      }
+    }
+    
     throw error;
   }
 }
@@ -369,10 +390,42 @@ app.get('/api/question', async (req, res) => {
     res.json(answer);
   } catch (error) {
     console.error('Error in question API route:', error);
-    res.status(500).json({ 
+    
+    // Enhanced error response for OpenAI API issues
+    let errorResponse = { 
       error: 'Failed to get answer from AI', 
       message: error.message 
-    });
+    };
+    
+    // Check for OpenAI-specific 429 errors
+    if (error.response && error.response.status === 429) {
+      const errorData = error.response.data;
+      if (errorData && errorData.error) {
+        // Check for quota/billing issues
+        if (errorData.error.code === 'insufficient_quota' || 
+            errorData.error.type === 'insufficient_quota' ||
+            errorData.error.message.includes('quota') ||
+            errorData.error.message.includes('billing')) {
+          
+          errorResponse = {
+            error: 'OpenAI API Key Issue Detected',
+            message: 'Your OpenAI API key may not be properly linked to your billing account.',
+            details: [
+              '🔑 This is a known OpenAI issue where older API keys become disconnected from billing',
+              '💡 Solution: Create a new API key at https://platform.openai.com/api-keys',
+              '⚠️ Make sure to create the key from the main API keys page, not from profile settings',
+              '💰 Your account has sufficient credits, but the API key cannot access them'
+            ],
+            technicalDetails: {
+              status: error.response.status,
+              openaiError: errorData.error
+            }
+          };
+        }
+      }
+    }
+    
+    res.status(500).json(errorResponse);
   }
 });
 
