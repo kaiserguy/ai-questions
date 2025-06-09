@@ -685,6 +685,40 @@
             overflow: hidden;
             text-overflow: ellipsis;
         }
+
+        /* Cooldown notification styles */
+        .cooldown-message {
+            text-align: left;
+        }
+        
+        .cooldown-message h4 {
+            margin: 0 0 10px 0;
+            color: #ff9800;
+        }
+        
+        .cooldown-message p {
+            margin: 5px 0;
+            font-size: 0.9em;
+        }
+        
+        .cooldown-actions {
+            margin-top: 15px;
+            text-align: center;
+        }
+        
+        .cooldown-actions button {
+            background-color: #2196F3;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.9em;
+        }
+        
+        .cooldown-actions button:hover {
+            background-color: #1976D2;
+        }
     </style>
 </head>
 <body>
@@ -1095,7 +1129,12 @@
             })
             .catch(error => {
                 console.error('Error asking personal question:', error);
-                if (error.error) {
+                
+                // Handle cooldown error specifically
+                if (error.error === 'Cooldown active') {
+                    const modelName = error.existingAnswer?.modelName || selectedModel;
+                    showCooldownNotification(error, modelName, questionId);
+                } else if (error.error) {
                     showNotification('AI Error', error.error, 'error');
                 } else {
                     showNotification('Request Failed', 'Failed to get AI response. Please try again.', 'error');
@@ -1105,6 +1144,37 @@
                 // Restore button state
                 setButtonLoading(button, false);
             });
+        }
+
+        function showCooldownNotification(cooldownData, modelName, questionId) {
+            const hoursRemaining = cooldownData.hoursRemaining;
+            const lastAsked = new Date(cooldownData.lastAsked).toLocaleString();
+            
+            const message = `
+                <div class="cooldown-message">
+                    <h4>⏰ 24-Hour Cooldown Active</h4>
+                    <p><strong>${modelName}</strong> was already asked this question recently.</p>
+                    <p><strong>Last asked:</strong> ${lastAsked}</p>
+                    <p><strong>Available again in:</strong> ${hoursRemaining} hour(s)</p>
+                    <div class="cooldown-actions">
+                        <button onclick="showExistingAnswer(${questionId}, ${JSON.stringify(cooldownData.existingAnswer).replace(/"/g, '&quot;')})" class="btn-small btn-secondary">
+                            View Previous Answer
+                        </button>
+                    </div>
+                </div>
+            `;
+            
+            showNotification('Cooldown Active', message, 'warning', 8000);
+        }
+
+        function showExistingAnswer(questionId, answerData) {
+            // Close any existing notifications
+            const notifications = document.querySelectorAll('.notification');
+            notifications.forEach(n => n.remove());
+            
+            // Show the existing answer
+            showAIResponse(questionId, answerData, true);
+            showNotification('Previous Answer', 'Showing the most recent answer from this AI model.', 'info');
         }
 
         function viewPersonalAnswers(questionId) {

@@ -857,6 +857,38 @@ app.post('/api/personal-question/:id/ask', requireAuth, async (req, res) => {
     
     const personalQuestion = questionResult.rows[0];
     
+    // Check for recent answer within 24 hours
+    const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    const recentAnswerResult = await pool.query(
+      `SELECT * FROM answers 
+       WHERE personal_question_id = $1 AND user_id = $2 AND model = $3 
+       AND date > $4 
+       ORDER BY date DESC LIMIT 1`,
+      [id, req.user.id, model, twentyFourHoursAgo]
+    );
+    
+    if (recentAnswerResult.rows.length > 0) {
+      const recentAnswer = recentAnswerResult.rows[0];
+      const timeUntilNext = new Date(recentAnswer.date.getTime() + 24 * 60 * 60 * 1000);
+      const hoursRemaining = Math.ceil((timeUntilNext - new Date()) / (1000 * 60 * 60));
+      
+      return res.status(429).json({ 
+        error: 'Cooldown active',
+        message: `This question was already asked to ${recentAnswer.model_name || model} within the last 24 hours. Please wait ${hoursRemaining} hour(s) before asking again.`,
+        lastAsked: recentAnswer.date,
+        nextAvailable: timeUntilNext,
+        hoursRemaining: hoursRemaining,
+        existingAnswer: {
+          id: recentAnswer.id,
+          answer: recentAnswer.answer,
+          confidence: recentAnswer.confidence,
+          date: recentAnswer.date,
+          model: recentAnswer.model,
+          modelName: recentAnswer.model_name
+        }
+      });
+    }
+    
     // Collect all API keys
     const apiKeys = {
       HUGGING_FACE_API_KEY: process.env.HUGGING_FACE_API_KEY,
