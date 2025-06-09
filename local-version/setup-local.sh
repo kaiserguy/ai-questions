@@ -103,7 +103,7 @@ if ! command -v python3 &> /dev/null; then
 fi
 
 # Install required Python packages
-pip3 install --user sqlite3 requests beautifulsoup4 lxml nltk scikit-learn numpy
+pip3 install --user requests beautifulsoup4 lxml nltk scikit-learn numpy
 
 # Install and configure Ollama
 echo -e "${BLUE}🤖 Installing Ollama for local AI models...${NC}"
