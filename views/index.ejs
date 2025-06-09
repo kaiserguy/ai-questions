@@ -691,6 +691,9 @@
             .then(answer => {
                 showNotification('AI Response Generated', 'Your question has been answered successfully!', 'success');
                 showAIResponse(questionId, answer, true);
+                
+                // Auto-refresh answer history if it's currently displayed
+                refreshAnswerHistoryIfOpen(questionId);
             })
             .catch(error => {
                 console.error('Error asking personal question:', error);
@@ -976,6 +979,26 @@
             );
         }
         
+        function refreshAnswerHistoryIfOpen(questionId) {
+            const historyContainerId = `answer-history-${questionId}`;
+            const existingHistory = document.getElementById(historyContainerId);
+            
+            if (existingHistory) {
+                // History is currently displayed, refresh it with latest data
+                fetch(`/api/personal-questions/${questionId}/answers`)
+                    .then(response => response.json())
+                    .then(answers => {
+                        if (answers.length > 0) {
+                            showAnswerHistory(questionId, answers);
+                            showNotification('History Updated', 'Answer history has been refreshed with the latest response.', 'info', 3000);
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error refreshing answer history:', error);
+                    });
+            }
+        }
+        
         function showAnswerHistory(questionId, answers) {
             const containerId = `answer-history-${questionId}`;
             
@@ -995,16 +1018,22 @@
             let historyHTML = `
                 <div class="ai-response-header">
                     <span class="ai-response-model">Answer History (${answers.length} responses)</span>
-                    <button class="response-action-btn secondary" onclick="closeAIResponse('${containerId}')">✕ Close</button>
+                    <div style="display: flex; gap: 8px;">
+                        <button class="response-action-btn" onclick="refreshAnswerHistoryIfOpen(${questionId})" style="font-size: 0.7em; padding: 4px 8px;">
+                            🔄 Refresh
+                        </button>
+                        <button class="response-action-btn secondary" onclick="closeAIResponse('${containerId}')">✕ Close</button>
+                    </div>
                 </div>
                 <div class="ai-response-content">
             `;
             
             answers.forEach((answer, index) => {
+                const isLatest = index === 0; // Assuming answers are sorted by date desc
                 historyHTML += `
-                    <div style="border-bottom: 1px solid #dee2e6; padding: 12px 0; ${index === answers.length - 1 ? 'border-bottom: none;' : ''}">
+                    <div style="border-bottom: 1px solid #dee2e6; padding: 12px 0; ${index === answers.length - 1 ? 'border-bottom: none;' : ''} ${isLatest ? 'background-color: #f8f9fa; border-radius: 4px; margin: -4px; padding: 16px;' : ''}">
                         <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
-                            <strong>${answer.model_name || answer.model}</strong>
+                            <strong>${answer.model_name || answer.model}${isLatest ? ' (Latest)' : ''}</strong>
                             <span style="color: #6c757d; font-size: 0.8em;">${new Date(answer.date).toLocaleDateString()}</span>
                         </div>
                         <div style="color: #333; line-height: 1.5;">${answer.answer}</div>
