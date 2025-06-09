@@ -1561,3 +1561,120 @@ app.get('/api/analytics/dashboard', requireAuth, async (req, res) => {
   }
 });
 
+// Export answers to CSV
+app.get('/api/analytics/export-csv/:id', requireAuth, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { 
+      start_date = null, 
+      end_date = null, 
+      models = null,
+      include_context = 'true'
+    } = req.query;
+    
+    // Get question details
+    const questionResult = await pool.query(
+      'SELECT * FROM personal_questions WHERE id = $1 AND user_id = $2 AND is_active = true',
+      [id, req.user.id]
+    );
+    
+    if (questionResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Question not found' });
+    }
+    
+    const question = questionResult.rows[0];
+    
+    // Build date filter
+    let dateFilter = '';
+    let queryParams = [id, req.user.id];
+    let paramIndex = 3;
+    
+    if (start_date) {
+      dateFilter += ` AND date >= $${paramIndex}`;
+      queryParams.push(start_date);
+      paramIndex++;
+    }
+    
+    if (end_date) {
+      dateFilter += ` AND date <= $${paramIndex}`;
+      queryParams.push(end_date);
+      paramIndex++;
+    }
+    
+    // Build model filter
+    let modelFilter = '';
+    if (models && models !== 'all') {
+      const modelList = models.split(',');
+      const modelPlaceholders = modelList.map((_, index) => `$${paramIndex + index}`).join(',');
+      modelFilter = ` AND model IN (${modelPlaceholders})`;
+      queryParams.push(...modelList);
+    }
+    
+    // Get all answers for this question with filters
+    const answersResult = await pool.query(
+      `SELECT 
+         answer, model, model_name, confidence, date, 
+         'answers' as source_table
+       FROM answers 
+       WHERE personal_question_id = $1 AND user_id = $2${dateFilter}${modelFilter}
+       UNION ALL
+       SELECT 
+         answer, model, model_name, confidence, date, 
+         'personal_question_answers' as source_table
+       FROM personal_question_answers 
+       WHERE question_id = $1 AND user_id = $2${dateFilter}${modelFilter}
+       ORDER BY date DESC`,
+      queryParams
+    );
+    
+    // Generate CSV content
+    const csvHeaders = [
+      'Date',
+      'Model',
+      'Model Name',
+      'Confidence',
+      'Answer Length',
+      'Answer'
+    ];
+    
+    if (include_context === 'true') {
+      csvHeaders.splice(-1, 0, 'Question', 'Context');
+    }
+    
+    let csvContent = csvHeaders.join(',') + '\n';
+    
+    answersResult.rows.forEach(row => {
+      const csvRow = [
+        `"${new Date(row.date).toISOString()}"`,
+        `"${row.model || ''}"`,
+        `"${row.model_name || row.model || ''}"`,
+        row.confidence || 0,
+        row.answer ? row.answer.length : 0,
+      ];
+      
+      if (include_context === 'true') {
+        csvRow.push(
+          `"${question.question.replace(/"/g, '""')}"`,
+          `"${question.context.replace(/"/g, '""')}"`,
+        );
+      }
+      
+      // Add answer last (may contain newlines and special characters)
+      csvRow.push(`"${(row.answer || '').replace(/"/g, '""')}"`);
+      
+      csvContent += csvRow.join(',') + '\n';
+    });
+    
+    // Set response headers for CSV download
+    const filename = `ai-questions-export-${id}-${new Date().toISOString().split('T')[0]}.csv`;
+    res.setHeader('Content-Type', 'text/csv');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.setHeader('Cache-Control', 'no-cache');
+    
+    res.send(csvContent);
+  } catch (error) {
+    console.error('Error exporting CSV:', error);
+    res.status(500).json({ error: 'Failed to export CSV' });
+  }
+});
+

@@ -753,8 +753,47 @@
 
     <!-- Analytics Modal -->
     <div id="analytics-modal" class="schedule-modal" style="display: none;">
-        <div class="schedule-modal-content" style="max-width: 800px;">
+        <div class="schedule-modal-content" style="max-width: 900px;">
             <h3>📊 Question Analytics</h3>
+            
+            <!-- Export Controls -->
+            <div class="analytics-export-controls" style="margin-bottom: 20px; padding: 15px; background: #f8f9fa; border-radius: 8px; border: 1px solid #e9ecef;">
+                <h4 style="margin: 0 0 15px 0; color: #495057;">📥 Export Data</h4>
+                <div style="display: grid; grid-template-columns: 1fr 1fr 1fr auto; gap: 10px; align-items: end;">
+                    <div>
+                        <label for="export-start-date" style="display: block; margin-bottom: 5px; font-weight: 500;">Start Date:</label>
+                        <input type="date" id="export-start-date" style="width: 100%; padding: 8px; border: 1px solid #ced4da; border-radius: 4px;">
+                    </div>
+                    <div>
+                        <label for="export-end-date" style="display: block; margin-bottom: 5px; font-weight: 500;">End Date:</label>
+                        <input type="date" id="export-end-date" style="width: 100%; padding: 8px; border: 1px solid #ced4da; border-radius: 4px;">
+                    </div>
+                    <div>
+                        <label for="export-models" style="display: block; margin-bottom: 5px; font-weight: 500;">Models:</label>
+                        <select id="export-models" style="width: 100%; padding: 8px; border: 1px solid #ced4da; border-radius: 4px;">
+                            <option value="all">All Models</option>
+                        </select>
+                    </div>
+                    <div>
+                        <button id="export-csv-btn" onclick="exportToCSV()" style="
+                            background: #28a745; 
+                            color: white; 
+                            border: none; 
+                            padding: 10px 20px; 
+                            border-radius: 4px; 
+                            cursor: pointer;
+                            font-weight: 500;
+                            white-space: nowrap;
+                        ">📥 Export CSV</button>
+                    </div>
+                </div>
+                <div style="margin-top: 10px;">
+                    <label style="display: flex; align-items: center; gap: 8px; font-size: 14px;">
+                        <input type="checkbox" id="include-context" checked style="margin: 0;">
+                        Include question and context in export
+                    </label>
+                </div>
+            </div>
             
             <div id="analytics-content">
                 <div class="analytics-loading">Loading analytics...</div>
@@ -2019,6 +2058,78 @@
             }
             
             content.innerHTML = html;
+            
+            // Populate export model selector
+            populateExportModelSelector(comparison.models || []);
+        }
+        
+        function populateExportModelSelector(models) {
+            const exportModelsSelect = document.getElementById('export-models');
+            
+            // Clear existing options except "All Models"
+            exportModelsSelect.innerHTML = '<option value="all">All Models</option>';
+            
+            // Add model options
+            models.forEach(model => {
+                const option = document.createElement('option');
+                option.value = model.model;
+                option.textContent = model.model_name || model.model;
+                exportModelsSelect.appendChild(option);
+            });
+        }
+        
+        function exportToCSV() {
+            if (!currentAnalyticsQuestionId) {
+                showNotification('Export Error', 'No question selected for export', 'error');
+                return;
+            }
+            
+            // Get export parameters
+            const startDate = document.getElementById('export-start-date').value;
+            const endDate = document.getElementById('export-end-date').value;
+            const models = document.getElementById('export-models').value;
+            const includeContext = document.getElementById('include-context').checked;
+            
+            // Build URL parameters
+            const params = new URLSearchParams();
+            
+            if (startDate) {
+                params.append('start_date', startDate);
+            }
+            
+            if (endDate) {
+                params.append('end_date', endDate);
+            }
+            
+            if (models && models !== 'all') {
+                params.append('models', models);
+            }
+            
+            params.append('include_context', includeContext.toString());
+            
+            // Construct download URL
+            const exportUrl = `/api/analytics/export-csv/${currentAnalyticsQuestionId}?${params.toString()}`;
+            
+            // Show loading state
+            const exportBtn = document.getElementById('export-csv-btn');
+            const originalText = exportBtn.textContent;
+            exportBtn.textContent = '⏳ Exporting...';
+            exportBtn.disabled = true;
+            
+            // Create temporary link and trigger download
+            const link = document.createElement('a');
+            link.href = exportUrl;
+            link.style.display = 'none';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            
+            // Reset button state
+            setTimeout(() => {
+                exportBtn.textContent = originalText;
+                exportBtn.disabled = false;
+                showNotification('Export Started', 'CSV download should begin shortly', 'success', 3000);
+            }, 1000);
         }
         </script>
         
