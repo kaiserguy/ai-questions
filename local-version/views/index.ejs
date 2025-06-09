@@ -691,13 +691,15 @@
     <header>
         <h1>Daily AI Question from "1984"</h1>
         <p>Tracking AI responses to politically sensitive questions over time</p>
-        <div class="auth-section">
-            <div id="user-info" class="user-info hidden">
-                <img id="user-avatar" class="user-avatar" src="" alt="User Avatar">
-                <span id="user-name"></span>
+        <div class="auth-section" <% if (localMode) { %>style="display: none;"<% } %>>
+            <div id="user-info" class="user-info <% if (!user) { %>hidden<% } %>">
+                <% if (user) { %>
+                <img id="user-avatar" class="user-avatar" src="<%= user.avatar_url %>" alt="User Avatar">
+                <span id="user-name"><%= user.name %></span>
+                <% } %>
                 <a href="/auth/logout" class="auth-button logout-button">Logout</a>
             </div>
-            <a id="login-button" href="/auth/google" class="auth-button">Login with Google</a>
+            <a id="login-button" href="/auth/google" class="auth-button" <% if (user) { %>style="display: none;"<% } %>>Login with Google</a>
         </div>
     </header>
 

@@ -848,7 +848,9 @@ app.get('/', async (req, res) => {
       todayQuestion, 
       todayAnswer,
       latestAnswers,
-      today
+      today,
+      localMode: LOCAL_CONFIG.enabled,
+      user: req.user
     });
   } catch (error) {
     console.error('Error in index route:', error);
