@@ -6,290 +6,10 @@ const path = require('path');
 const session = require('express-session');
 const passport = require('passport');
 const GoogleStrategy = require('passport-google-oauth20').Strategy;
-const { spawn } = require('child_process');
-const fs = require('fs');
-
-// Load local configuration
-const LOCAL_CONFIG = require('./local-config');
-
-// Wikipedia integration
-class WikipediaIntegration {
-  constructor(wikipediaDbPath = './wikipedia.db') {
-    this.wikipediaDbPath = wikipediaDbPath;
-    this.searchEngine = null;
-    this.contextExtractor = null;
-    this.available = false;
-    this.initializeWikipedia();
-  }
-  
-  async initializeWikipedia() {
-    try {
-      // Check if Wikipedia database exists
-      if (!fs.existsSync(this.wikipediaDbPath)) {
-        console.log('⚠️ Wikipedia database not found. Use setup script to download.');
-        return;
-      }
-      
-      // Initialize Python search engine
-      this.available = true;
-      console.log('✅ Wikipedia integration available');
-    } catch (error) {
-      console.log('⚠️ Wikipedia integration failed:', error.message);
-      this.available = false;
-    }
-  }
-  
-  async searchWikipedia(query, limit = 5) {
-    if (!this.available) {
-      return { results: [], error: 'Wikipedia not available' };
-    }
-    
-    try {
-      const result = await this.runPythonScript('search', { query, limit });
-      return JSON.parse(result);
-    } catch (error) {
-      console.error('Wikipedia search failed:', error);
-      return { results: [], error: error.message };
-    }
-  }
-  
-  async getWikipediaContext(query, maxLength = 2000) {
-    if (!this.available) {
-      return { context: '', sources: [], confidence: 0 };
-    }
-    
-    try {
-      const result = await this.runPythonScript('context', { query, maxLength });
-      return JSON.parse(result);
-    } catch (error) {
-      console.error('Wikipedia context extraction failed:', error);
-      return { context: '', sources: [], confidence: 0 };
-    }
-  }
-  
-  async getWikipediaStats() {
-    if (!this.available) {
-      return { error: 'Wikipedia not available' };
-    }
-    
-    try {
-      const result = await this.runPythonScript('stats', {});
-      return JSON.parse(result);
-    } catch (error) {
-      console.error('Wikipedia stats failed:', error);
-      return { error: error.message };
-    }
-  }
-  
-  runPythonScript(action, params) {
-    return new Promise((resolve, reject) => {
-      const pythonProcess = spawn('python3', [
-        path.join(__dirname, 'wikipedia_api.py'),
-        action,
-        JSON.stringify(params)
-      ]);
-      
-      let output = '';
-      let errorOutput = '';
-      
-      pythonProcess.stdout.on('data', (data) => {
-        output += data.toString();
-      });
-      
-      pythonProcess.stderr.on('data', (data) => {
-        errorOutput += data.toString();
-      });
-      
-      pythonProcess.on('close', (code) => {
-        if (code === 0) {
-          resolve(output.trim());
-        } else {
-          reject(new Error(`Python script failed: ${errorOutput}`));
-        }
-      });
-      
-      // Timeout after 30 seconds
-      setTimeout(() => {
-        pythonProcess.kill();
-        reject(new Error('Wikipedia search timeout'));
-      }, 30000);
-    });
-  }
-}
-
-// Ollama client for local AI models
-class OllamaClient {
-  constructor(baseUrl = 'http://localhost:11434') {
-    this.baseUrl = baseUrl;
-    this.available = false;
-    this.checkAvailability();
-  }
-  
-  async checkAvailability() {
-    try {
-      const response = await axios.get(`${this.baseUrl}/api/tags`, { timeout: 5000 });
-      this.available = true;
-      console.log('✅ Ollama service is available');
-      return true;
-    } catch (error) {
-      this.available = false;
-      console.log('⚠️ Ollama service not available:', error.message);
-      return false;
-    }
-  }
-  
-  async generateResponse(model, prompt, context = '') {
-    if (!this.available) {
-      throw new Error('Ollama service is not available');
-    }
-    
-    const fullPrompt = context ? `Context: ${context}\n\nQuestion: ${prompt}` : prompt;
-    
-    try {
-      const response = await axios.post(`${this.baseUrl}/api/generate`, {
-        model: model,
-        prompt: fullPrompt,
-        stream: false,
-        options: {
-          temperature: 0.7,
-          top_p: 0.9,
-          top_k: 40
-        }
-      }, { timeout: 120000 }); // 2 minute timeout
-      
-      return {
-        answer: response.data.response,
-        model: model,
-        model_name: this.getModelDisplayName(model),
-        confidence: 0.8, // Default confidence for local models
-        tokens_used: response.data.eval_count || 0,
-        response_time: response.data.total_duration ? Math.round(response.data.total_duration / 1000000) : 0
-      };
-    } catch (error) {
-      console.error('Ollama generation error:', error.message);
-      throw new Error(`Local AI model error: ${error.message}`);
-    }
-  }
-  
-  async listModels() {
-    if (!this.available) {
-      return { models: [] };
-    }
-    
-    try {
-      const response = await axios.get(`${this.baseUrl}/api/tags`);
-      return response.data;
-    } catch (error) {
-      console.error('Error listing Ollama models:', error.message);
-      return { models: [] };
-    }
-  }
-  
-  async pullModel(modelName) {
-    if (!this.available) {
-      throw new Error('Ollama service is not available');
-    }
-    
-    try {
-      const response = await axios.post(`${this.baseUrl}/api/pull`, {
-        name: modelName
-      }, { timeout: 600000 }); // 10 minute timeout for model download
-      
-      return response.data;
-    } catch (error) {
-      console.error('Error pulling Ollama model:', error.message);
-      throw new Error(`Failed to download model: ${error.message}`);
-    }
-  }
-  
-  async deleteModel(modelName) {
-    if (!this.available) {
-      throw new Error('Ollama service is not available');
-    }
-    
-    try {
-      const response = await axios.delete(`${this.baseUrl}/api/delete`, {
-        data: { name: modelName }
-      });
-      return response.data;
-    } catch (error) {
-      console.error('Error deleting Ollama model:', error.message);
-      throw new Error(`Failed to delete model: ${error.message}`);
-    }
-  }
-  
-  getModelDisplayName(model) {
-    const modelNames = {
-      'llama3.2:3b': 'Llama 3.2 3B (Local)',
-      'llama3.2:1b': 'Llama 3.2 1B (Local)',
-      'phi3:mini': 'Phi-3 Mini (Local)',
-      'phi3:medium': 'Phi-3 Medium (Local)',
-      'gemma:2b': 'Gemma 2B (Local)',
-      'gemma:7b': 'Gemma 7B (Local)',
-      'mistral:7b': 'Mistral 7B (Local)',
-      'codellama:7b': 'CodeLlama 7B (Local)',
-      'tinyllama': 'TinyLlama (Local)',
-      'qwen2:1.5b': 'Qwen2 1.5B (Local)',
-      'qwen2:7b': 'Qwen2 7B (Local)'
-    };
-    return modelNames[model] || `${model} (Local)`;
-  }
-  
-  getRecommendedModels() {
-    return [
-      {
-        name: 'llama3.2:3b',
-        displayName: 'Llama 3.2 3B',
-        size: '2GB',
-        description: 'Fast and efficient for general tasks',
-        recommended: true,
-        minRam: '4GB'
-      },
-      {
-        name: 'phi3:mini',
-        displayName: 'Phi-3 Mini',
-        size: '2GB',
-        description: 'Microsoft\'s efficient model',
-        recommended: true,
-        minRam: '4GB'
-      },
-      {
-        name: 'gemma:2b',
-        displayName: 'Gemma 2B',
-        size: '1.5GB',
-        description: 'Google\'s compact model',
-        recommended: false,
-        minRam: '3GB'
-      },
-      {
-        name: 'mistral:7b',
-        displayName: 'Mistral 7B',
-        size: '4GB',
-        description: 'Higher quality responses',
-        recommended: false,
-        minRam: '8GB'
-      },
-      {
-        name: 'tinyllama',
-        displayName: 'TinyLlama',
-        size: '1GB',
-        description: 'Ultra-lightweight for low-end hardware',
-        recommended: false,
-        minRam: '2GB'
-      }
-    ];
-  }
-}
-
-// Initialize Ollama client
-const ollama = new OllamaClient(process.env.OLLAMA_URL || 'http://localhost:11434');
-
-// Initialize Wikipedia integration
-const wikipedia = new WikipediaIntegration(process.env.WIKIPEDIA_DB_PATH || './wikipedia.db');
 
 // Create Express app
 const app = express();
-const PORT = LOCAL_CONFIG.app.port;
+const PORT = process.env.PORT || 3000;
 
 // Set up EJS as the view engine
 app.set('view engine', 'ejs');
@@ -299,84 +19,61 @@ app.use(express.json());
 
 // Session configuration
 app.use(session({
-  secret: LOCAL_CONFIG.session.secret,
+  secret: process.env.SESSION_SECRET || 'your-secret-key-change-in-production',
   resave: false,
   saveUninitialized: false,
-  cookie: { 
-    secure: LOCAL_CONFIG.session.secure,
-    maxAge: LOCAL_CONFIG.session.maxAge
+  cookie: { secure: false } // Set to true in production with HTTPS
+}));
+
+// Passport configuration
+app.use(passport.initialize());
+app.use(passport.session());
+
+// Google OAuth Strategy
+passport.use(new GoogleStrategy({
+  clientID: process.env.GOOGLE_CLIENT_ID,
+  clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+  callbackURL: process.env.NODE_ENV === 'production' 
+    ? "https://peaceful-sierra-40313-4a09d237c70e.herokuapp.com/auth/google/callback"
+    : "/auth/google/callback"
+}, async (accessToken, refreshToken, profile, done) => {
+  try {
+    // Check if user exists
+    let result = await pool.query('SELECT * FROM users WHERE google_id = $1', [profile.id]);
+    
+    if (result.rows.length > 0) {
+      // User exists, return user
+      return done(null, result.rows[0]);
+    } else {
+      // Create new user
+      const newUser = await pool.query(
+        'INSERT INTO users (google_id, email, name, avatar_url) VALUES ($1, $2, $3, $4) RETURNING *',
+        [profile.id, profile.emails[0].value, profile.displayName, profile.photos[0].value]
+      );
+      return done(null, newUser.rows[0]);
+    }
+  } catch (error) {
+    return done(error, null);
   }
 }));
 
-// Local mode authentication bypass
-if (LOCAL_CONFIG.enabled) {
-  // Skip passport setup in local mode
-  console.log('Running in LOCAL MODE - Authentication disabled');
-  
-  // Middleware to inject default user
-  app.use((req, res, next) => {
-    req.user = LOCAL_CONFIG.defaultUser;
-    req.isAuthenticated = () => true;
-    next();
-  });
-} else {
-  // Passport configuration for production mode
-  app.use(passport.initialize());
-  app.use(passport.session());
+// Serialize user for session
+passport.serializeUser((user, done) => {
+  done(null, user.id);
+});
 
-  // Google OAuth Strategy
-  passport.use(new GoogleStrategy({
-    clientID: process.env.GOOGLE_CLIENT_ID,
-    clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-    callbackURL: process.env.NODE_ENV === 'production' 
-      ? "https://peaceful-sierra-40313-4a09d237c70e.herokuapp.com/auth/google/callback"
-      : "/auth/google/callback"
-  }, async (accessToken, refreshToken, profile, done) => {
-    try {
-      // Check if user exists
-      let result = await pool.query('SELECT * FROM users WHERE google_id = $1', [profile.id]);
-      
-      if (result.rows.length > 0) {
-        // User exists, return user
-        return done(null, result.rows[0]);
-      } else {
-        // Create new user
-        const newUser = await pool.query(
-          'INSERT INTO users (google_id, email, name, avatar_url) VALUES ($1, $2, $3, $4) RETURNING *',
-          [profile.id, profile.emails[0].value, profile.displayName, profile.photos[0].value]
-        );
-        return done(null, newUser.rows[0]);
-      }
-    } catch (error) {
-      return done(error, null);
-    }
-  }));
-
-  // Serialize user for session
-  passport.serializeUser((user, done) => {
-    done(null, user.id);
-  });
-
-  // Deserialize user from session
-  passport.deserializeUser(async (id, done) => {
-    try {
-      const result = await pool.query('SELECT * FROM users WHERE id = $1', [id]);
-      done(null, result.rows[0]);
-    } catch (error) {
-      done(error, null);
-    }
-  });
-}
+// Deserialize user from session
+passport.deserializeUser(async (id, done) => {
+  try {
+    const result = await pool.query('SELECT * FROM users WHERE id = $1', [id]);
+    done(null, result.rows[0]);
+  } catch (error) {
+    done(error, null);
+  }
+});
 
 // Initialize PostgreSQL connection
-const pool = new Pool(LOCAL_CONFIG.enabled ? {
-  host: LOCAL_CONFIG.database.host,
-  port: LOCAL_CONFIG.database.port,
-  database: LOCAL_CONFIG.database.database,
-  user: LOCAL_CONFIG.database.user,
-  password: LOCAL_CONFIG.database.password,
-  ssl: false
-} : {
+const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
   ssl: {
     rejectUnauthorized: false
@@ -393,23 +90,7 @@ pool.query(`
     avatar_url TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
   )
-`).then(async () => {
-  // In local mode, ensure default user exists
-  if (LOCAL_CONFIG.enabled) {
-    try {
-      const existingUser = await pool.query('SELECT * FROM users WHERE google_id = $1', [LOCAL_CONFIG.defaultUser.google_id]);
-      if (existingUser.rows.length === 0) {
-        await pool.query(
-          'INSERT INTO users (google_id, email, name, avatar_url) VALUES ($1, $2, $3, $4)',
-          [LOCAL_CONFIG.defaultUser.google_id, LOCAL_CONFIG.defaultUser.email, LOCAL_CONFIG.defaultUser.name, LOCAL_CONFIG.defaultUser.avatar_url]
-        );
-        console.log('Created default local user');
-      }
-    } catch (err) {
-      console.error('Error creating default user:', err);
-    }
-  }
-}).catch(err => console.error('Error creating users table:', err));
+`).catch(err => console.error('Error creating users table:', err));
 
 pool.query(`
   CREATE TABLE IF NOT EXISTS personal_questions (
@@ -637,71 +318,11 @@ function getTodaysQuestion() {
 }
 
 // Ask question to AI API
-async function askQuestion(question, context, modelId, apiKeys, useWikipedia = false) {
+async function askQuestion(question, context, modelId, apiKeys) {
   let selectedModel; // Declare at function scope
   
   try {
-    // Get Wikipedia context if enabled
-    let wikipediaContext = '';
-    let wikipediaSources = [];
-    
-    if (useWikipedia && wikipedia.available) {
-      try {
-        const wikiResult = await wikipedia.getWikipediaContext(question, 1500);
-        if (wikiResult.context && wikiResult.confidence > 0.3) {
-          wikipediaContext = wikiResult.context;
-          wikipediaSources = wikiResult.sources || [];
-          console.log(`📚 Added Wikipedia context (confidence: ${wikiResult.confidence.toFixed(2)})`);
-        }
-      } catch (wikiError) {
-        console.warn('Wikipedia context failed:', wikiError.message);
-      }
-    }
-    
-    // Enhance context with Wikipedia information
-    const enhancedContext = wikipediaContext ? 
-      `${context}\n\nAdditional factual context from Wikipedia:\n${wikipediaContext}` : 
-      context;
-    
-    // Check if this is a local Ollama model
-    if (modelId.includes('ollama:') || modelId.startsWith('llama') || modelId.startsWith('phi') || 
-        modelId.startsWith('gemma') || modelId.startsWith('mistral') || modelId.startsWith('tinyllama') ||
-        modelId.startsWith('qwen') || modelId.startsWith('codellama')) {
-      
-      // Handle local Ollama model
-      try {
-        const response = await ollama.generateResponse(modelId, question, enhancedContext);
-        
-        // Add Wikipedia sources to response
-        const result = {
-          answer: response.answer,
-          model: response.model,
-          modelName: response.model_name,
-          score: response.confidence,
-          tokens: response.tokens_used,
-          responseTime: response.response_time
-        };
-        
-        if (wikipediaSources.length > 0) {
-          result.wikipediaSources = wikipediaSources;
-          result.answer += `\n\n*Sources: ${wikipediaSources.map(s => s.title).join(', ')}*`;
-        }
-        
-        return result;
-      } catch (ollamaError) {
-        console.error('Ollama error:', ollamaError.message);
-        
-        // If Ollama fails and fallback is enabled, try cloud models
-        if (process.env.OLLAMA_FALLBACK_TO_CLOUD === 'true') {
-          console.log('Falling back to cloud models...');
-          // Continue to cloud model logic below
-        } else {
-          throw new Error(`Local AI model error: ${ollamaError.message}`);
-        }
-      }
-    }
-    
-    // Find the selected cloud model
+    // Find the selected model
     selectedModel = AVAILABLE_MODELS.find(model => model.id === modelId);
     if (!selectedModel) {
       throw new Error(`Model ${modelId} not found`);
@@ -716,7 +337,7 @@ async function askQuestion(question, context, modelId, apiKeys, useWikipedia = f
     // Combine question and context into a prompt
     const prompt = `Based on the following context from George Orwell's "1984", please answer this question thoroughly:
     
-Context: ${enhancedContext}
+Context: ${context}
 
 Question: ${question}
 
@@ -747,12 +368,26 @@ Answer:`;
       ) ;
       
       // Handle different response formats from Hugging Face
+      console.log('Hugging Face raw response:', JSON.stringify(response.data, null, 2));
+      
       if (Array.isArray(response.data) && response.data.length > 0) {
-        answer = response.data[0].generated_text || response.data[0];
+        // For text generation models, the response includes the original prompt
+        const fullText = response.data[0].generated_text || response.data[0];
+        // Remove the original prompt from the response to get just the answer
+        answer = fullText.replace(prompt, '').trim();
+        
+        // If the answer is still empty or very short, use the full text
+        if (!answer || answer.length < 10) {
+          answer = fullText;
+        }
       } else if (typeof response.data === 'string') {
         answer = response.data;
       } else if (response.data.generated_text) {
-        answer = response.data.generated_text;
+        const fullText = response.data.generated_text;
+        answer = fullText.replace(prompt, '').trim();
+        if (!answer || answer.length < 10) {
+          answer = fullText;
+        }
       } else {
         answer = JSON.stringify(response.data);
       }
@@ -787,20 +422,12 @@ Answer:`;
       answer = response.data.choices[0].message.content;
     }
     
-    const result = {
+    return {
       answer: answer,
       model: selectedModel.id,
       modelName: selectedModel.name,
       score: 1.0
     };
-    
-    // Add Wikipedia sources to cloud model responses
-    if (wikipediaSources.length > 0) {
-      result.wikipediaSources = wikipediaSources;
-      result.answer += `\n\n*Sources: ${wikipediaSources.map(s => s.title).join(', ')}*`;
-    }
-    
-    return result;
   } catch (error) {
     console.error('Error calling AI API:', error);
     
@@ -1948,327 +1575,120 @@ app.get('/api/analytics/dashboard', requireAuth, async (req, res) => {
   }
 });
 
-
-
-// ===== OLLAMA API ENDPOINTS =====
-
-// Get available local models
-app.get('/api/ollama/models', async (req, res) => {
-  try {
-    const models = await ollama.listModels();
-    const recommended = ollama.getRecommendedModels();
-    
-    res.json({
-      available: models.models || [],
-      recommended: recommended,
-      service_available: ollama.available
-    });
-  } catch (error) {
-    console.error('Error fetching Ollama models:', error);
-    res.status(500).json({ 
-      error: 'Failed to fetch local models',
-      available: [],
-      recommended: ollama.getRecommendedModels(),
-      service_available: false
-    });
-  }
-});
-
-// Download a model
-app.post('/api/ollama/models/:modelName/download', async (req, res) => {
-  try {
-    const { modelName } = req.params;
-    
-    if (!ollama.available) {
-      return res.status(503).json({ error: 'Ollama service is not available' });
-    }
-    
-    // Start the download (this is async and may take a long time)
-    ollama.pullModel(modelName)
-      .then(() => {
-        console.log(`Model ${modelName} downloaded successfully`);
-      })
-      .catch(error => {
-        console.error(`Failed to download model ${modelName}:`, error);
-      });
-    
-    res.json({ 
-      message: `Download started for model ${modelName}`,
-      status: 'downloading'
-    });
-  } catch (error) {
-    console.error('Error starting model download:', error);
-    res.status(500).json({ error: 'Failed to start model download' });
-  }
-});
-
-// Delete a model
-app.delete('/api/ollama/models/:modelName', async (req, res) => {
-  try {
-    const { modelName } = req.params;
-    
-    if (!ollama.available) {
-      return res.status(503).json({ error: 'Ollama service is not available' });
-    }
-    
-    await ollama.deleteModel(modelName);
-    
-    res.json({ 
-      message: `Model ${modelName} deleted successfully`,
-      status: 'deleted'
-    });
-  } catch (error) {
-    console.error('Error deleting model:', error);
-    res.status(500).json({ error: 'Failed to delete model' });
-  }
-});
-
-// Test a model
-app.post('/api/ollama/models/:modelName/test', async (req, res) => {
-  try {
-    const { modelName } = req.params;
-    
-    if (!ollama.available) {
-      return res.status(503).json({ error: 'Ollama service is not available' });
-    }
-    
-    const testPrompt = "Hello! Please respond with a brief greeting to confirm you're working correctly.";
-    const response = await ollama.generateResponse(modelName, testPrompt);
-    
-    res.json({
-      message: 'Model test successful',
-      test_response: response.answer,
-      response_time: response.response_time,
-      model: response.model
-    });
-  } catch (error) {
-    console.error('Error testing model:', error);
-    res.status(500).json({ error: `Model test failed: ${error.message}` });
-  }
-});
-
-// Get Ollama service status
-app.get('/api/ollama/status', async (req, res) => {
-  try {
-    const isAvailable = await ollama.checkAvailability();
-    const models = isAvailable ? await ollama.listModels() : { models: [] };
-    
-    res.json({
-      service_available: isAvailable,
-      service_url: ollama.baseUrl,
-      model_count: models.models ? models.models.length : 0,
-      models: models.models || []
-    });
-  } catch (error) {
-    console.error('Error checking Ollama status:', error);
-    res.json({
-      service_available: false,
-      service_url: ollama.baseUrl,
-      model_count: 0,
-      models: [],
-      error: error.message
-    });
-  }
-});
-
-// Get combined model list (cloud + local)
-app.get('/api/models/all', async (req, res) => {
-  try {
-    const cloudModels = AVAILABLE_MODELS.map(model => ({
-      id: model.id,
-      name: model.name,
-      provider: model.provider,
-      type: 'cloud',
-      available: !!process.env[model.apiKeyEnv],
-      api_key_required: model.apiKeyEnv
-    }));
-    
-    let localModels = [];
-    if (ollama.available) {
-      const ollamaModels = await ollama.listModels();
-      localModels = (ollamaModels.models || []).map(model => ({
-        id: model.name,
-        name: ollama.getModelDisplayName(model.name),
-        provider: 'ollama',
-        type: 'local',
-        available: true,
-        size: model.size,
-        modified_at: model.modified_at
-      }));
-    }
-    
-    res.json({
-      cloud_models: cloudModels,
-      local_models: localModels,
-      ollama_available: ollama.available
-    });
-  } catch (error) {
-    console.error('Error fetching all models:', error);
-    res.status(500).json({ error: 'Failed to fetch model list' });
-  }
-});
-
-
-// ===== WIKIPEDIA API ENDPOINTS =====
-
-// Wikipedia search
-app.get('/api/wikipedia/search', async (req, res) => {
-  try {
-    const { q: query, limit = 5 } = req.query;
-    
-    if (!query) {
-      return res.status(400).json({ error: 'Query parameter required' });
-    }
-    
-    const result = await wikipedia.searchWikipedia(query, parseInt(limit));
-    res.json(result);
-    
-  } catch (error) {
-    console.error('Wikipedia search error:', error);
-    res.status(500).json({ error: 'Wikipedia search failed' });
-  }
-});
-
-// Wikipedia context for AI
-app.get('/api/wikipedia/context', async (req, res) => {
-  try {
-    const { q: query, maxLength = 2000 } = req.query;
-    
-    if (!query) {
-      return res.status(400).json({ error: 'Query parameter required' });
-    }
-    
-    const result = await wikipedia.getWikipediaContext(query, parseInt(maxLength));
-    res.json(result);
-    
-  } catch (error) {
-    console.error('Wikipedia context error:', error);
-    res.status(500).json({ error: 'Wikipedia context extraction failed' });
-  }
-});
-
-// Wikipedia article by ID
-app.get('/api/wikipedia/article/:id', async (req, res) => {
+// Export answers to CSV
+app.get('/api/analytics/export-csv/:id', requireAuth, async (req, res) => {
   try {
     const { id } = req.params;
+    const { 
+      start_date = null, 
+      end_date = null, 
+      models = null,
+      include_context = 'true'
+    } = req.query;
     
-    const result = await wikipedia.runPythonScript('article', { article_id: id });
-    const parsed = JSON.parse(result);
+    // Get question details
+    const questionResult = await pool.query(
+      'SELECT * FROM personal_questions WHERE id = $1 AND user_id = $2 AND is_active = true',
+      [id, req.user.id]
+    );
     
-    if (parsed.error) {
-      return res.status(404).json(parsed);
+    if (questionResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Question not found' });
     }
     
-    res.json(parsed);
+    const question = questionResult.rows[0];
     
-  } catch (error) {
-    console.error('Wikipedia article error:', error);
-    res.status(500).json({ error: 'Failed to get Wikipedia article' });
-  }
-});
-
-// Random Wikipedia articles
-app.get('/api/wikipedia/random', async (req, res) => {
-  try {
-    const { count = 5 } = req.query;
+    // Build date filter
+    let dateFilter = '';
+    let queryParams = [id, req.user.id];
+    let paramIndex = 3;
     
-    const result = await wikipedia.runPythonScript('random', { count: parseInt(count) });
-    const parsed = JSON.parse(result);
-    
-    res.json(parsed);
-    
-  } catch (error) {
-    console.error('Wikipedia random articles error:', error);
-    res.status(500).json({ error: 'Failed to get random articles' });
-  }
-});
-
-// Wikipedia categories
-app.get('/api/wikipedia/categories', async (req, res) => {
-  try {
-    const { limit = 20 } = req.query;
-    
-    const result = await wikipedia.runPythonScript('categories', { limit: parseInt(limit) });
-    const parsed = JSON.parse(result);
-    
-    res.json(parsed);
-    
-  } catch (error) {
-    console.error('Wikipedia categories error:', error);
-    res.status(500).json({ error: 'Failed to get categories' });
-  }
-});
-
-// Search by category
-app.get('/api/wikipedia/category/:category', async (req, res) => {
-  try {
-    const { category } = req.params;
-    const { limit = 10 } = req.query;
-    
-    const result = await wikipedia.runPythonScript('category', { 
-      category: decodeURIComponent(category), 
-      limit: parseInt(limit) 
-    });
-    const parsed = JSON.parse(result);
-    
-    res.json(parsed);
-    
-  } catch (error) {
-    console.error('Wikipedia category search error:', error);
-    res.status(500).json({ error: 'Failed to search category' });
-  }
-});
-
-// Wikipedia statistics
-app.get('/api/wikipedia/stats', async (req, res) => {
-  try {
-    const result = await wikipedia.getWikipediaStats();
-    res.json(result);
-    
-  } catch (error) {
-    console.error('Wikipedia stats error:', error);
-    res.status(500).json({ error: 'Failed to get Wikipedia statistics' });
-  }
-});
-
-// Wikipedia status
-app.get('/api/wikipedia/status', async (req, res) => {
-  try {
-    const status = {
-      available: wikipedia.available,
-      database_path: wikipedia.wikipediaDbPath,
-      database_exists: fs.existsSync(wikipedia.wikipediaDbPath)
-    };
-    
-    if (wikipedia.available) {
-      const stats = await wikipedia.getWikipediaStats();
-      status.stats = stats;
+    if (start_date) {
+      dateFilter += ` AND date >= $${paramIndex}`;
+      queryParams.push(start_date);
+      paramIndex++;
     }
     
-    res.json(status);
+    if (end_date) {
+      dateFilter += ` AND date <= $${paramIndex}`;
+      queryParams.push(end_date);
+      paramIndex++;
+    }
     
-  } catch (error) {
-    console.error('Wikipedia status error:', error);
-    res.status(500).json({ error: 'Failed to get Wikipedia status' });
-  }
-});
-
-// Download Wikipedia dataset
-app.post('/api/wikipedia/download', async (req, res) => {
-  try {
-    const { dataset = 'simple' } = req.body;
+    // Build model filter
+    let modelFilter = '';
+    if (models && models !== 'all') {
+      const modelList = models.split(',');
+      const modelPlaceholders = modelList.map((_, index) => `$${paramIndex + index}`).join(',');
+      modelFilter = ` AND model IN (${modelPlaceholders})`;
+      queryParams.push(...modelList);
+    }
     
-    // This would trigger the download process
-    // For now, return a placeholder response
-    res.json({ 
-      message: `Wikipedia ${dataset} dataset download initiated`,
-      dataset: dataset,
-      status: 'started'
+    // Get all answers for this question with filters
+    const answersResult = await pool.query(
+      `SELECT 
+         answer, model, model_name, confidence, date, 
+         'answers' as source_table
+       FROM answers 
+       WHERE personal_question_id = $1 AND user_id = $2${dateFilter}${modelFilter}
+       UNION ALL
+       SELECT 
+         answer, model, model_name, confidence, date, 
+         'personal_question_answers' as source_table
+       FROM personal_question_answers 
+       WHERE question_id = $1 AND user_id = $2${dateFilter}${modelFilter}
+       ORDER BY date DESC`,
+      queryParams
+    );
+    
+    // Generate CSV content
+    const csvHeaders = [
+      'Date',
+      'Model',
+      'Model Name',
+      'Confidence',
+      'Answer Length',
+      'Answer'
+    ];
+    
+    if (include_context === 'true') {
+      csvHeaders.splice(-1, 0, 'Question', 'Context');
+    }
+    
+    let csvContent = csvHeaders.join(',') + '\n';
+    
+    answersResult.rows.forEach(row => {
+      const csvRow = [
+        `"${new Date(row.date).toISOString()}"`,
+        `"${row.model || ''}"`,
+        `"${row.model_name || row.model || ''}"`,
+        row.confidence || 0,
+        row.answer ? row.answer.length : 0,
+      ];
+      
+      if (include_context === 'true') {
+        csvRow.push(
+          `"${question.question.replace(/"/g, '""')}"`,
+          `"${question.context.replace(/"/g, '""')}"`,
+        );
+      }
+      
+      // Add answer last (may contain newlines and special characters)
+      csvRow.push(`"${(row.answer || '').replace(/"/g, '""')}"`);
+      
+      csvContent += csvRow.join(',') + '\n';
     });
     
+    // Set response headers for CSV download
+    const filename = `ai-questions-export-${id}-${new Date().toISOString().split('T')[0]}.csv`;
+    res.setHeader('Content-Type', 'text/csv');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.setHeader('Cache-Control', 'no-cache');
+    
+    res.send(csvContent);
   } catch (error) {
-    console.error('Wikipedia download error:', error);
-    res.status(500).json({ error: 'Failed to start Wikipedia download' });
+    console.error('Error exporting CSV:', error);
+    res.status(500).json({ error: 'Failed to export CSV' });
   }
 });
 
