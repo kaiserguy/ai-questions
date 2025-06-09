@@ -269,6 +269,14 @@
         <h3>📝 Your Personal Questions</h3>
         <p>Create and track your own custom questions to monitor AI responses over time.</p>
         
+        <!-- Model Selector for Personal Questions -->
+        <div class="model-selector">
+            <label for="personal-model-select">Select AI Model for Personal Questions:</label>
+            <select id="personal-model-select">
+              <!-- Will be populated via JavaScript -->
+            </select>
+        </div>
+        
         <div id="personal-questions-list">
             <!-- Personal questions will be loaded here -->
         </div>
@@ -358,17 +366,31 @@
         let personalQuestions = [];
 
         document.addEventListener('DOMContentLoaded', function() {
-            // Load models
+            // Load models for both selectors
             fetch('/api/models')
                 .then(response => response.json())
                 .then(models => {
-                    const select = document.getElementById('model-select');
-                    models.forEach(model => {
-                        const option = document.createElement('option');
-                        option.value = model.id;
-                        option.textContent = model.name;
-                        select.appendChild(option);
-                    });
+                    // Populate main model selector
+                    const mainSelect = document.getElementById('model-select');
+                    if (mainSelect) {
+                        models.forEach(model => {
+                            const option = document.createElement('option');
+                            option.value = model.id;
+                            option.textContent = model.name;
+                            mainSelect.appendChild(option);
+                        });
+                    }
+                    
+                    // Populate personal questions model selector
+                    const personalSelect = document.getElementById('personal-model-select');
+                    if (personalSelect) {
+                        models.forEach(model => {
+                            const option = document.createElement('option');
+                            option.value = model.id;
+                            option.textContent = model.name;
+                            personalSelect.appendChild(option);
+                        });
+                    }
                 })
                 .catch(error => {
                     console.error('Error fetching models:', error);
@@ -487,17 +509,21 @@
         }
 
         function askPersonalQuestion(questionId) {
-            const modelSelect = document.getElementById('model-select');
+            // Try personal model selector first, then fall back to main model selector
+            let modelSelect = document.getElementById('personal-model-select');
+            if (!modelSelect || !modelSelect.value) {
+                modelSelect = document.getElementById('model-select');
+            }
             
             if (!modelSelect) {
-                alert('Please scroll down to the main question section and select an AI model first.');
+                alert('Model selector not found. Please refresh the page and try again.');
                 return;
             }
             
             const selectedModel = modelSelect.value;
             
             if (!selectedModel) {
-                alert('Please select an AI model first from the dropdown in the main question section.');
+                alert('Please select an AI model first.');
                 return;
             }
             
