@@ -488,10 +488,16 @@
 
         function askPersonalQuestion(questionId) {
             const modelSelect = document.getElementById('model-select');
+            
+            if (!modelSelect) {
+                alert('Please scroll down to the main question section and select an AI model first.');
+                return;
+            }
+            
             const selectedModel = modelSelect.value;
             
             if (!selectedModel) {
-                alert('Please select an AI model first.');
+                alert('Please select an AI model first from the dropdown in the main question section.');
                 return;
             }
             
