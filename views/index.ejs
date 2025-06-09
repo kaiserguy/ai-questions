@@ -850,6 +850,133 @@
         <h3>📝 Your Personal Questions</h3>
         <p>Create and track your own custom questions to monitor AI responses over time.</p>
         
+        <!-- Offline Version Download Section -->
+        <div id="offline-version-section" class="offline-version-section" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border-radius: 12px; padding: 20px; margin-bottom: 25px; box-shadow: 0 4px 15px rgba(0,0,0,0.1);">
+            <div style="display: flex; align-items: center; gap: 15px; margin-bottom: 15px;">
+                <div style="font-size: 48px;">🏠</div>
+                <div>
+                    <h4 style="margin: 0; color: white; font-size: 20px;">Want Complete Privacy?</h4>
+                    <p style="margin: 5px 0 0 0; opacity: 0.9; font-size: 16px;">Download the offline version for your own computer</p>
+                </div>
+            </div>
+            
+            <div style="background: rgba(255,255,255,0.1); border-radius: 8px; padding: 15px; margin-bottom: 15px;">
+                <h5 style="margin: 0 0 10px 0; color: white;">✨ Offline Version Features:</h5>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; font-size: 14px;">
+                    <div>• 🔒 Complete privacy - no data leaves your computer</div>
+                    <div>• 🤖 Local AI models (Ollama integration)</div>
+                    <div>• 📚 Local Wikipedia database</div>
+                    <div>• 💬 Private chat with AI models</div>
+                    <div>• 🚫 No API keys or internet required</div>
+                    <div>• ⚡ Fast responses from local models</div>
+                </div>
+            </div>
+            
+            <div style="display: flex; gap: 12px; align-items: center; flex-wrap: wrap;">
+                <a href="https://github.com/kaiserguy/ai-questions" target="_blank" style="
+                    background: white; 
+                    color: #667eea; 
+                    text-decoration: none; 
+                    padding: 12px 20px; 
+                    border-radius: 6px; 
+                    font-weight: 600;
+                    display: flex;
+                    align-items: center;
+                    gap: 8px;
+                    transition: transform 0.2s;
+                " onmouseover="this.style.transform='translateY(-2px)'" onmouseout="this.style.transform='translateY(0)'">
+                    <span style="font-size: 18px;">📥</span>
+                    Download Offline Version
+                </a>
+                <button onclick="showInstallInstructions()" style="
+                    background: rgba(255,255,255,0.2); 
+                    color: white; 
+                    border: 1px solid rgba(255,255,255,0.3); 
+                    padding: 12px 20px; 
+                    border-radius: 6px; 
+                    cursor: pointer;
+                    font-weight: 500;
+                    display: flex;
+                    align-items: center;
+                    gap: 8px;
+                ">
+                    <span style="font-size: 16px;">📋</span>
+                    Installation Guide
+                </button>
+            </div>
+        </div>
+        
+        <!-- Installation Instructions Modal -->
+        <div id="install-instructions-modal" class="schedule-modal" style="display: none;">
+            <div class="schedule-modal-content" style="max-width: 700px;">
+                <h3>🛠️ Offline Version Installation Guide</h3>
+                
+                <div style="background: #f8f9fa; border-radius: 8px; padding: 20px; margin-bottom: 20px;">
+                    <h4 style="margin: 0 0 15px 0; color: #495057;">📋 System Requirements</h4>
+                    <ul style="margin: 0; padding-left: 20px;">
+                        <li><strong>Operating System:</strong> Ubuntu 20.04+ (or compatible Linux distribution)</li>
+                        <li><strong>RAM:</strong> 8GB minimum (16GB recommended for larger AI models)</li>
+                        <li><strong>Storage:</strong> 10GB free space (more for additional AI models)</li>
+                        <li><strong>Internet:</strong> Required for initial setup and downloads only</li>
+                    </ul>
+                </div>
+                
+                <div style="background: #e7f3ff; border-radius: 8px; padding: 20px; margin-bottom: 20px;">
+                    <h4 style="margin: 0 0 15px 0; color: #0066cc;">🚀 Quick Installation</h4>
+                    <p style="margin: 0 0 15px 0;">Run these commands in your terminal:</p>
+                    <div style="background: #2d3748; color: #e2e8f0; padding: 15px; border-radius: 6px; font-family: 'Courier New', monospace; font-size: 14px; overflow-x: auto;">
+                        <div style="color: #68d391;"># Clone the repository</div>
+                        <div>git clone https://github.com/kaiserguy/ai-questions.git</div>
+                        <br>
+                        <div style="color: #68d391;"># Navigate to local version</div>
+                        <div>cd ai-questions/local-version</div>
+                        <br>
+                        <div style="color: #68d391;"># Run the setup script</div>
+                        <div>./setup-local.sh</div>
+                        <br>
+                        <div style="color: #68d391;"># Start the application</div>
+                        <div>./start-local.sh</div>
+                    </div>
+                </div>
+                
+                <div style="background: #fff3cd; border-radius: 8px; padding: 20px; margin-bottom: 20px;">
+                    <h4 style="margin: 0 0 15px 0; color: #856404;">⚡ What Happens During Setup</h4>
+                    <ol style="margin: 0; padding-left: 20px;">
+                        <li><strong>System Updates:</strong> Updates package lists and installs dependencies</li>
+                        <li><strong>Node.js v20:</strong> Installs or upgrades to the latest Node.js</li>
+                        <li><strong>PostgreSQL:</strong> Sets up local database for your questions</li>
+                        <li><strong>Ollama AI:</strong> Installs local AI model runner</li>
+                        <li><strong>Wikipedia:</strong> Downloads basic English Wikipedia (~50MB)</li>
+                        <li><strong>AI Models:</strong> Optionally downloads recommended AI models</li>
+                    </ol>
+                </div>
+                
+                <div style="background: #d1ecf1; border-radius: 8px; padding: 20px; margin-bottom: 20px;">
+                    <h4 style="margin: 0 0 15px 0; color: #0c5460;">🎯 After Installation</h4>
+                    <ul style="margin: 0; padding-left: 20px;">
+                        <li>Access your private instance at <strong>http://localhost:3000</strong></li>
+                        <li>No API keys required - everything runs locally</li>
+                        <li>Chat with AI models privately</li>
+                        <li>Browse local Wikipedia articles</li>
+                        <li>Create and schedule personal questions</li>
+                        <li>Export your data anytime</li>
+                    </ul>
+                </div>
+                
+                <div style="background: #f8d7da; border-radius: 8px; padding: 15px; margin-bottom: 20px;">
+                    <h4 style="margin: 0 0 10px 0; color: #721c24;">🔧 Troubleshooting</h4>
+                    <p style="margin: 0; font-size: 14px;">If you encounter issues, check the <a href="https://github.com/kaiserguy/ai-questions/blob/main/local-version/TROUBLESHOOTING.md" target="_blank" style="color: #721c24;">troubleshooting guide</a> or <a href="https://github.com/kaiserguy/ai-questions/issues" target="_blank" style="color: #721c24;">report an issue</a> on GitHub.</p>
+                </div>
+                
+                <div class="schedule-modal-actions">
+                    <button class="schedule-btn schedule-btn-secondary" onclick="closeInstallInstructions()">Close</button>
+                    <a href="https://github.com/kaiserguy/ai-questions" target="_blank" class="schedule-btn schedule-btn-primary" style="text-decoration: none; display: inline-block;">
+                        📥 Download Now
+                    </a>
+                </div>
+            </div>
+        </div>
+        
         <!-- Model Selector for Personal Questions -->
         <div class="model-selector">
             <label for="personal-model-select">Select AI Model for Personal Questions:</label>
@@ -2014,6 +2141,14 @@
             
             // Reset content
             document.getElementById('analytics-content').innerHTML = '<div class="analytics-loading">Loading analytics...</div>';
+        }
+        
+        function showInstallInstructions() {
+            document.getElementById('install-instructions-modal').style.display = 'flex';
+        }
+        
+        function closeInstallInstructions() {
+            document.getElementById('install-instructions-modal').style.display = 'none';
         }
         
         function loadAnalyticsData(questionId) {

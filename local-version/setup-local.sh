@@ -418,16 +418,28 @@ mkdir -p logs
 
 # Download Wikipedia if enabled
 if [ "$WIKIPEDIA_AUTO_DOWNLOAD" = "true" ]; then
-    echo -e "${BLUE}📚 Downloading Wikipedia database...${NC}"
-    echo "This may take several minutes depending on your internet connection..."
+    echo -e "${BLUE}📚 Downloading basic English Wikipedia database...${NC}"
+    echo "This will download a lightweight Wikipedia dataset (~50MB) for enhanced AI responses..."
+    echo "You can upgrade to the full dataset later through the web interface."
     
     # Use the manage-wikipedia.sh script to download
     if [ -f "./manage-wikipedia.sh" ]; then
         chmod +x ./manage-wikipedia.sh
+        echo "Starting Wikipedia download..."
         ./manage-wikipedia.sh download simple
+        
+        if [ $? -eq 0 ]; then
+            echo -e "${GREEN}✅ Wikipedia database downloaded successfully${NC}"
+        else
+            echo -e "${YELLOW}⚠️  Wikipedia download failed, but you can try again later through the web interface${NC}"
+        fi
     else
         echo -e "${YELLOW}⚠️  Wikipedia download script not found, skipping...${NC}"
+        echo "You can download Wikipedia later through the web interface."
     fi
+else
+    echo -e "${BLUE}📚 Wikipedia auto-download disabled${NC}"
+    echo "You can download Wikipedia later through the web interface."
 fi
 
 echo ""

@@ -1661,6 +1661,217 @@ async function executeScheduledQuestions() {
   }
 }
 
+// ===== CHAT API ENDPOINT =====
+
+app.post('/api/chat', async (req, res) => {
+  try {
+    const { message, model, context = [], includeWikipedia = true } = req.body;
+    
+    if (!message || !model) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Message and model are required' 
+      });
+    }
+    
+    // Check if Ollama is available
+    try {
+      const ollamaResponse = await fetch(`${LOCAL_CONFIG.ollama.url}/api/tags`);
+      if (!ollamaResponse.ok) {
+        throw new Error('Ollama service not available');
+      }
+    } catch (error) {
+      return res.status(503).json({ 
+        success: false, 
+        error: 'Local AI service (Ollama) is not available. Please ensure Ollama is running.' 
+      });
+    }
+    
+    // Prepare the prompt with context
+    let prompt = '';
+    
+    // Add conversation context if provided
+    if (context && context.length > 0) {
+      prompt += 'Previous conversation:\n';
+      context.forEach(msg => {
+        prompt += `${msg.role === 'user' ? 'Human' : 'Assistant'}: ${msg.content}\n`;
+      });
+      prompt += '\n';
+    }
+    
+    // Add Wikipedia context if enabled and available
+    let wikipediaLinks = [];
+    if (includeWikipedia && wikipedia.available) {
+      try {
+        const searchResults = await wikipedia.searchRelevantArticles(message, 3);
+        if (searchResults && searchResults.length > 0) {
+          prompt += 'Relevant Wikipedia information:\n';
+          searchResults.forEach(result => {
+            prompt += `- ${result.title}: ${result.content.substring(0, 200)}...\n`;
+            wikipediaLinks.push({ title: result.title, url: `/wikipedia/article/${encodeURIComponent(result.title)}` });
+          });
+          prompt += '\n';
+        }
+      } catch (error) {
+        console.error('Error searching Wikipedia:', error);
+      }
+    }
+    
+    // Add the current message
+    prompt += `Human: ${message}\nAssistant:`;
+    
+    // Call Ollama API
+    try {
+      const ollamaResponse = await fetch(`${LOCAL_CONFIG.ollama.url}/api/generate`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          model: model,
+          prompt: prompt,
+          stream: false,
+          options: {
+            temperature: 0.7,
+            top_p: 0.9,
+            max_tokens: 1000
+          }
+        })
+      });
+      
+      if (!ollamaResponse.ok) {
+        throw new Error(`Ollama API error: ${ollamaResponse.status}`);
+      }
+      
+      const result = await ollamaResponse.json();
+      
+      if (!result.response) {
+        throw new Error('No response from AI model');
+      }
+      
+      res.json({
+        success: true,
+        response: result.response.trim(),
+        model: model,
+        wikipediaLinks: wikipediaLinks
+      });
+      
+    } catch (error) {
+      console.error('Error calling Ollama:', error);
+      res.status(500).json({ 
+        success: false, 
+        error: `Failed to get response from AI model: ${error.message}` 
+      });
+    }
+    
+  } catch (error) {
+    console.error('Error in chat endpoint:', error);
+    res.status(500).json({ 
+      success: false, 
+      error: 'Internal server error' 
+    });
+  }
+});
+
+// ===== WIKIPEDIA ARTICLE ENDPOINT =====
+
+app.get('/wikipedia/article/:title', async (req, res) => {
+  try {
+    const { title } = req.params;
+    
+    if (!wikipedia.available) {
+      return res.status(503).send(`
+        <html>
+          <head><title>Wikipedia Not Available</title></head>
+          <body style="font-family: Arial, sans-serif; padding: 20px;">
+            <h1>📚 Wikipedia Database Not Available</h1>
+            <p>The Wikipedia database is not currently available. Please check the main page to download it.</p>
+            <a href="/" style="color: #007bff;">← Back to Main Page</a>
+          </body>
+        </html>
+      `);
+    }
+    
+    try {
+      const article = await wikipedia.getArticle(title);
+      
+      if (!article) {
+        return res.status(404).send(`
+          <html>
+            <head><title>Article Not Found</title></head>
+            <body style="font-family: Arial, sans-serif; padding: 20px;">
+              <h1>📄 Article Not Found</h1>
+              <p>The article "${title}" was not found in the Wikipedia database.</p>
+              <a href="/" style="color: #007bff;">← Back to Main Page</a>
+            </body>
+          </html>
+        `);
+      }
+      
+      res.send(`
+        <html>
+          <head>
+            <title>${article.title} - Local Wikipedia</title>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <style>
+              body { 
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; 
+                line-height: 1.6; 
+                max-width: 800px; 
+                margin: 0 auto; 
+                padding: 20px; 
+                color: #333;
+              }
+              .header { 
+                border-bottom: 1px solid #eee; 
+                padding-bottom: 15px; 
+                margin-bottom: 20px; 
+              }
+              .back-link { 
+                color: #007bff; 
+                text-decoration: none; 
+                font-size: 14px;
+              }
+              .back-link:hover { text-decoration: underline; }
+              h1 { color: #000; margin: 10px 0; }
+              .content { 
+                white-space: pre-wrap; 
+                line-height: 1.8; 
+              }
+            </style>
+          </head>
+          <body>
+            <div class="header">
+              <a href="/" class="back-link">← Back to AI Questions</a>
+              <h1>📄 ${article.title}</h1>
+              <p style="color: #666; margin: 0;">From Local Wikipedia Database</p>
+            </div>
+            <div class="content">${article.content}</div>
+          </body>
+        </html>
+      `);
+      
+    } catch (error) {
+      console.error('Error retrieving article:', error);
+      res.status(500).send(`
+        <html>
+          <head><title>Error</title></head>
+          <body style="font-family: Arial, sans-serif; padding: 20px;">
+            <h1>❌ Error</h1>
+            <p>An error occurred while retrieving the article: ${error.message}</p>
+            <a href="/" style="color: #007bff;">← Back to Main Page</a>
+          </body>
+        </html>
+      `);
+    }
+    
+  } catch (error) {
+    console.error('Error in Wikipedia article endpoint:', error);
+    res.status(500).send('Internal server error');
+  }
+});
+
 // Start server
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);

@@ -811,7 +811,7 @@
                                 border: none; 
                                 padding: 8px 16px; 
                                 border-radius: 4px; 
-                                cursor: pointer;">📥 Download Wikipedia</button>
+                                cursor: pointer;">📥 Download/Upgrade Wikipedia</button>
                             <button onclick="showRandomArticles()" style="
                                 background: #17a2b8; 
                                 color: white; 
@@ -826,6 +826,13 @@
                                 padding: 8px 16px; 
                                 border-radius: 4px; 
                                 cursor: pointer;">📂 Browse Categories</button>
+                            <button onclick="showWikipediaStats()" style="
+                                background: #fd7e14; 
+                                color: white; 
+                                border: none; 
+                                padding: 8px 16px; 
+                                border-radius: 4px; 
+                                cursor: pointer;">📊 Database Statistics</button>
                         </div>
                         <div style="margin-top: 15px;">
                             <label style="display: flex; align-items: center; gap: 8px; font-size: 14px;">
@@ -880,6 +887,77 @@
                         margin-left: 10px;
                     ">⚙️ Manage Models</button>
                 </div>
+            </div>
+        </div>
+        
+        <!-- Chat Interface Section -->
+        <div id="chat-section" class="chat-section" style="background: #fff; border-radius: 8px; padding: 20px; margin-bottom: 20px; border: 1px solid #ddd; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+            <h4 style="margin: 0 0 15px 0; color: #333;">💬 Chat with Local AI</h4>
+            <p style="margin: 0 0 15px 0; color: #666; font-size: 14px;">Have a conversation with your local AI models. Responses will include Wikipedia links when relevant.</p>
+            
+            <!-- Chat Model Selector -->
+            <div style="margin-bottom: 15px;">
+                <label for="chat-model-select" style="display: block; margin-bottom: 5px; font-weight: 500;">Select AI Model:</label>
+                <select id="chat-model-select" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px; background: white;">
+                    <option value="">Loading models...</option>
+                </select>
+            </div>
+            
+            <!-- Chat Messages Container -->
+            <div id="chat-messages" style="
+                height: 400px; 
+                overflow-y: auto; 
+                border: 1px solid #e9ecef; 
+                border-radius: 8px; 
+                padding: 15px; 
+                margin-bottom: 15px; 
+                background: #fafafa;
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            ">
+                <div class="chat-welcome" style="text-align: center; color: #666; padding: 20px;">
+                    <p>👋 Welcome to Local AI Chat!</p>
+                    <p>Start a conversation with your local AI model. Your conversations are private and not stored.</p>
+                </div>
+            </div>
+            
+            <!-- Chat Input -->
+            <div style="display: flex; gap: 10px;">
+                <input type="text" id="chat-input" placeholder="Type your message..." style="
+                    flex: 1; 
+                    padding: 12px; 
+                    border: 1px solid #ddd; 
+                    border-radius: 6px; 
+                    font-size: 14px;
+                " onkeypress="if(event.key==='Enter') sendChatMessage()">
+                <button onclick="sendChatMessage()" id="chat-send-btn" style="
+                    background: #007bff; 
+                    color: white; 
+                    border: none; 
+                    padding: 12px 20px; 
+                    border-radius: 6px; 
+                    cursor: pointer;
+                    font-weight: 500;
+                ">Send</button>
+                <button onclick="clearChat()" style="
+                    background: #6c757d; 
+                    color: white; 
+                    border: none; 
+                    padding: 12px 16px; 
+                    border-radius: 6px; 
+                    cursor: pointer;
+                ">Clear</button>
+            </div>
+            
+            <!-- Chat Options -->
+            <div style="margin-top: 10px; display: flex; gap: 15px; align-items: center; font-size: 14px;">
+                <label style="display: flex; align-items: center; gap: 5px;">
+                    <input type="checkbox" id="chat-wikipedia-enabled" checked>
+                    <span>🔗 Include Wikipedia links</span>
+                </label>
+                <label style="display: flex; align-items: center; gap: 5px;">
+                    <input type="checkbox" id="chat-context-enabled" checked>
+                    <span>🧠 Use conversation context</span>
+                </label>
             </div>
         </div>
         
@@ -2189,6 +2267,191 @@
             
             content.innerHTML = html;
         }
+        
+        // ===== CHAT FUNCTIONS =====
+        
+        let chatContext = [];
+        
+        function sendChatMessage() {
+            const input = document.getElementById('chat-input');
+            const message = input.value.trim();
+            const modelSelect = document.getElementById('chat-model-select');
+            const selectedModel = modelSelect.value;
+            
+            if (!message) return;
+            if (!selectedModel) {
+                showNotification('No Model Selected', 'Please select an AI model first.', 'error');
+                return;
+            }
+            
+            // Clear input
+            input.value = '';
+            
+            // Add user message to chat
+            addChatMessage('user', message);
+            
+            // Show typing indicator
+            const typingId = addChatMessage('assistant', '⏳ Thinking...', true);
+            
+            // Disable send button
+            const sendBtn = document.getElementById('chat-send-btn');
+            sendBtn.disabled = true;
+            sendBtn.textContent = 'Sending...';
+            
+            // Prepare context if enabled
+            const useContext = document.getElementById('chat-context-enabled').checked;
+            const contextMessages = useContext ? chatContext.slice(-6) : []; // Last 3 exchanges
+            
+            // Send to AI
+            fetch('/api/chat', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    message: message,
+                    model: selectedModel,
+                    context: contextMessages,
+                    includeWikipedia: document.getElementById('chat-wikipedia-enabled').checked
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                // Remove typing indicator
+                document.getElementById(typingId).remove();
+                
+                if (data.success) {
+                    // Add AI response
+                    addChatMessage('assistant', data.response, false, data.wikipediaLinks);
+                    
+                    // Update context
+                    if (useContext) {
+                        chatContext.push({ role: 'user', content: message });
+                        chatContext.push({ role: 'assistant', content: data.response });
+                        
+                        // Keep only last 10 messages
+                        if (chatContext.length > 10) {
+                            chatContext = chatContext.slice(-10);
+                        }
+                    }
+                } else {
+                    addChatMessage('system', `Error: ${data.error}`, false);
+                }
+            })
+            .catch(error => {
+                console.error('Chat error:', error);
+                document.getElementById(typingId).remove();
+                addChatMessage('system', 'Error: Failed to get response from AI', false);
+            })
+            .finally(() => {
+                // Re-enable send button
+                sendBtn.disabled = false;
+                sendBtn.textContent = 'Send';
+            });
+        }
+        
+        function addChatMessage(role, content, isTemporary = false, wikipediaLinks = []) {
+            const messagesContainer = document.getElementById('chat-messages');
+            const messageId = 'msg-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9);
+            
+            // Remove welcome message if it exists
+            const welcome = messagesContainer.querySelector('.chat-welcome');
+            if (welcome) {
+                welcome.remove();
+            }
+            
+            const messageDiv = document.createElement('div');
+            messageDiv.id = messageId;
+            messageDiv.style.cssText = `
+                margin-bottom: 15px;
+                padding: 12px;
+                border-radius: 8px;
+                max-width: 80%;
+                word-wrap: break-word;
+                ${role === 'user' ? 
+                    'background: #007bff; color: white; margin-left: auto; text-align: right;' : 
+                    role === 'assistant' ? 
+                        'background: white; border: 1px solid #e9ecef; margin-right: auto;' :
+                        'background: #f8d7da; border: 1px solid #f5c6cb; color: #721c24; margin: 0 auto; text-align: center; max-width: 90%;'
+                }
+            `;
+            
+            let messageContent = content;
+            
+            // Add Wikipedia links if provided
+            if (wikipediaLinks && wikipediaLinks.length > 0) {
+                messageContent += '<div style="margin-top: 10px; padding-top: 10px; border-top: 1px solid #e9ecef;">';
+                messageContent += '<strong>📚 Related Wikipedia Articles:</strong><br>';
+                wikipediaLinks.forEach(link => {
+                    messageContent += `<a href="/wikipedia/article/${encodeURIComponent(link.title)}" target="_blank" style="color: #007bff; text-decoration: none; display: block; margin: 2px 0;">• ${link.title}</a>`;
+                });
+                messageContent += '</div>';
+            }
+            
+            messageDiv.innerHTML = `
+                <div style="font-size: 12px; color: #666; margin-bottom: 5px;">
+                    ${role === 'user' ? '👤 You' : role === 'assistant' ? '🤖 AI' : '⚠️ System'}
+                    <span style="float: right;">${new Date().toLocaleTimeString()}</span>
+                </div>
+                <div>${messageContent}</div>
+            `;
+            
+            messagesContainer.appendChild(messageDiv);
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+            
+            return messageId;
+        }
+        
+        function clearChat() {
+            const messagesContainer = document.getElementById('chat-messages');
+            messagesContainer.innerHTML = `
+                <div class="chat-welcome" style="text-align: center; color: #666; padding: 20px;">
+                    <p>👋 Welcome to Local AI Chat!</p>
+                    <p>Start a conversation with your local AI model. Your conversations are private and not stored.</p>
+                </div>
+            `;
+            chatContext = [];
+        }
+        
+        function loadChatModels() {
+            const select = document.getElementById('chat-model-select');
+            
+            fetch('/api/ollama/models')
+                .then(response => response.json())
+                .then(models => {
+                    select.innerHTML = '';
+                    
+                    if (models.length === 0) {
+                        select.innerHTML = '<option value="">No models available</option>';
+                        return;
+                    }
+                    
+                    select.innerHTML = '<option value="">Select a model...</option>';
+                    models.forEach(model => {
+                        const option = document.createElement('option');
+                        option.value = model.name;
+                        option.textContent = `${model.name} (${(model.size / (1024 * 1024 * 1024)).toFixed(1)} GB)`;
+                        select.appendChild(option);
+                    });
+                    
+                    // Auto-select first model if available
+                    if (models.length > 0) {
+                        select.value = models[0].name;
+                    }
+                })
+                .catch(error => {
+                    console.error('Error loading chat models:', error);
+                    select.innerHTML = '<option value="">Error loading models</option>';
+                });
+        }
+        
+        // Initialize chat when page loads
+        document.addEventListener('DOMContentLoaded', function() {
+            if (typeof localMode !== 'undefined' && localMode) {
+                loadChatModels();
+            }
+        });
+        
         </script>
         
 </body>
