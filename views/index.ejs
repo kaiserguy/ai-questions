@@ -248,6 +248,146 @@
         .hidden {
             display: none;
         }
+        
+        /* Notification System */
+        .notification-container {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 1000;
+            max-width: 400px;
+        }
+        
+        .notification {
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            margin-bottom: 10px;
+            padding: 16px;
+            border-left: 4px solid #007bff;
+            animation: slideIn 0.3s ease-out;
+            position: relative;
+        }
+        
+        .notification.success {
+            border-left-color: #28a745;
+        }
+        
+        .notification.error {
+            border-left-color: #dc3545;
+        }
+        
+        .notification.warning {
+            border-left-color: #ffc107;
+        }
+        
+        .notification-title {
+            font-weight: bold;
+            margin-bottom: 4px;
+            color: #333;
+        }
+        
+        .notification-message {
+            color: #666;
+            font-size: 0.9em;
+            line-height: 1.4;
+        }
+        
+        .notification-close {
+            position: absolute;
+            top: 8px;
+            right: 12px;
+            background: none;
+            border: none;
+            font-size: 18px;
+            cursor: pointer;
+            color: #999;
+            padding: 0;
+            width: 20px;
+            height: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .notification-close:hover {
+            color: #333;
+        }
+        
+        @keyframes slideIn {
+            from {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+        
+        /* AI Response Display */
+        .ai-response-container {
+            margin-top: 20px;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            border: 1px solid #e9ecef;
+        }
+        
+        .ai-response-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+            padding-bottom: 8px;
+            border-bottom: 1px solid #dee2e6;
+        }
+        
+        .ai-response-model {
+            font-weight: bold;
+            color: #007bff;
+        }
+        
+        .ai-response-time {
+            font-size: 0.8em;
+            color: #6c757d;
+        }
+        
+        .ai-response-content {
+            line-height: 1.6;
+            color: #333;
+            white-space: pre-wrap;
+        }
+        
+        .ai-response-actions {
+            margin-top: 12px;
+            padding-top: 12px;
+            border-top: 1px solid #dee2e6;
+            display: flex;
+            gap: 10px;
+        }
+        
+        .response-action-btn {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 6px 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.8em;
+        }
+        
+        .response-action-btn:hover {
+            background: #0056b3;
+        }
+        
+        .response-action-btn.secondary {
+            background: #6c757d;
+        }
+        
+        .response-action-btn.secondary:hover {
+            background: #545b62;
+        }
     </style>
 </head>
 <body>
@@ -263,6 +403,9 @@
             <a id="login-button" href="/auth/google" class="auth-button">Login with Google</a>
         </div>
     </header>
+
+    <!-- Notification Container -->
+    <div id="notification-container" class="notification-container"></div>
 
     <!-- Personal Questions Section (only visible when logged in) -->
     <div id="personal-questions-section" class="personal-questions-section hidden">
@@ -460,6 +603,7 @@
             personalQuestions.forEach(question => {
                 const questionDiv = document.createElement('div');
                 questionDiv.className = 'personal-question-item';
+                questionDiv.dataset.questionId = question.id;
                 questionDiv.innerHTML = `
                     <div class="question">${question.question}</div>
                     <div class="context">${question.context}</div>
@@ -504,7 +648,7 @@
             })
             .catch(error => {
                 console.error('Error adding personal question:', error);
-                alert('Failed to add question. Please try again.');
+                showNotification('Error', 'Failed to add question. Please try again.', 'error');
             });
         }
 
@@ -516,22 +660,20 @@
             }
             
             if (!modelSelect) {
-                alert('Model selector not found. Please refresh the page and try again.');
+                showNotification('Model Required', 'Please select an AI model from the dropdown above first.', 'warning');
                 return;
             }
             
             const selectedModel = modelSelect.value;
             
             if (!selectedModel) {
-                alert('Please select an AI model first.');
+                showNotification('Model Required', 'Please select an AI model first.', 'warning');
                 return;
             }
             
             // Show loading state
             const button = event.target;
-            const originalText = button.textContent;
-            button.disabled = true;
-            button.textContent = 'Processing...';
+            setButtonLoading(button, true);
             
             fetch(`/api/personal-question/${questionId}/ask`, {
                 method: 'POST',
@@ -547,20 +689,20 @@
                 return response.json();
             })
             .then(answer => {
-                alert(`AI Response: ${answer.answer}`);
+                showNotification('AI Response Generated', 'Your question has been answered successfully!', 'success');
+                showAIResponse(questionId, answer, true);
             })
             .catch(error => {
                 console.error('Error asking personal question:', error);
                 if (error.error) {
-                    alert(`Error: ${error.error}`);
+                    showNotification('AI Error', error.error, 'error');
                 } else {
-                    alert('Failed to get AI response. Please try again.');
+                    showNotification('Request Failed', 'Failed to get AI response. Please try again.', 'error');
                 }
             })
             .finally(() => {
                 // Restore button state
-                button.disabled = false;
-                button.textContent = originalText;
+                setButtonLoading(button, false);
             });
         }
 
@@ -569,21 +711,16 @@
                 .then(response => response.json())
                 .then(answers => {
                     if (answers.length === 0) {
-                        alert('No answers yet for this question.');
+                        showNotification('No Answers', 'No answers yet for this question.', 'info');
                         return;
                     }
                     
-                    let message = 'Answer History:\\n\\n';
-                    answers.forEach((answer, index) => {
-                        message += `${index + 1}. ${new Date(answer.date).toLocaleDateString()} (${answer.model_name || answer.model}):\\n`;
-                        message += `${answer.answer}\\n\\n`;
-                    });
-                    
-                    alert(message);
+                    // Create a dedicated answer history display
+                    showAnswerHistory(questionId, answers);
                 })
                 .catch(error => {
                     console.error('Error viewing personal answers:', error);
-                    alert('Failed to load answers. Please try again.');
+                    showNotification('Load Failed', 'Failed to load answers. Please try again.', 'error');
                 });
         }
 
@@ -617,20 +754,25 @@
         }
 
         function deletePersonalQuestion(questionId) {
-            if (!confirm('Are you sure you want to delete this question?')) return;
-            
-            fetch(`/api/personal-questions/${questionId}`, {
-                method: 'DELETE'
-            })
-            .then(response => response.json())
-            .then(() => {
-                personalQuestions = personalQuestions.filter(q => q.id !== questionId);
-                renderPersonalQuestions();
-            })
-            .catch(error => {
-                console.error('Error deleting personal question:', error);
-                alert('Failed to delete question. Please try again.');
-            });
+            showConfirmModal(
+                'Delete Question',
+                'Are you sure you want to delete this question? This action cannot be undone.',
+                () => {
+                    fetch(`/api/personal-questions/${questionId}`, {
+                        method: 'DELETE'
+                    })
+                    .then(response => response.json())
+                    .then(() => {
+                        personalQuestions = personalQuestions.filter(q => q.id !== questionId);
+                        renderPersonalQuestions();
+                        showNotification('Question Deleted', 'Question has been successfully deleted.', 'success');
+                    })
+                    .catch(error => {
+                        console.error('Error deleting personal question:', error);
+                        showNotification('Delete Failed', 'Failed to delete question. Please try again.', 'error');
+                    });
+                }
+            );
         }
 
         function askAINow() {
@@ -639,8 +781,7 @@
             
             // Disable the button while processing
             const button = document.querySelector('.ask-button');
-            button.disabled = true;
-            button.textContent = 'Processing...';
+            setButtonLoading(button, true);
             
             // Get selected model
             const modelSelect = document.getElementById('model-select');
@@ -703,8 +844,7 @@
                     metaDiv.insertAdjacentElement('afterend', historyLink);
                     
                     // Re-enable button
-                    button.disabled = false;
-                    button.textContent = 'Ask AI Now';
+                    setButtonLoading(button, false);
                     
                     // Refresh the page after 2 seconds to update the latest answers section
                     setTimeout(() => {
@@ -788,32 +928,305 @@
                     }
                     
                     // Show the detailed error message
-                    alert(userFriendlyMessage);
+                    if (userFriendlyMessage.includes('🔑 OpenAI API Key Issue Detected')) {
+                        showNotification('API Key Issue', errorDetails.message, 'error', 10000);
+                    } else if (userFriendlyMessage.includes('⚠️ Rate Limit or Quota Issue')) {
+                        showNotification('Rate Limit Exceeded', 'API quota or rate limit reached. Please try again later or check your API key billing status.', 'warning', 8000);
+                    } else if (userFriendlyMessage.includes('❌ Model Unavailable')) {
+                        showNotification('Model Unavailable', 'The selected AI model is currently not available. Please try a different model.', 'error', 6000);
+                    } else if (userFriendlyMessage.includes('🔑 Authentication Error')) {
+                        showNotification('Authentication Error', 'API key authentication failed. Please contact the administrator.', 'error', 6000);
+                    } else if (userFriendlyMessage.includes('🔧 Server Error')) {
+                        showNotification('Server Error', 'The AI service is experiencing technical difficulties. Please try again later.', 'error', 6000);
+                    } else if (userFriendlyMessage.includes('⏳ Service Unavailable')) {
+                        showNotification('Service Unavailable', 'The AI service is temporarily unavailable. Please try again in a few minutes.', 'warning', 6000);
+                    } else if (userFriendlyMessage.includes('🌐 Connection Error')) {
+                        showNotification('Connection Error', 'Unable to connect to the AI service. Please check your internet connection.', 'error', 6000);
+                    } else {
+                        showNotification('Unexpected Error', 'An unexpected error occurred. Please try again or contact support.', 'error', 6000);
+                    }
                     
                     // Re-enable button
-                    button.disabled = false;
-                    button.textContent = 'Ask AI Now';
+                    setButtonLoading(button, false);
                 });
         }
         
         function deleteAnswer(id) {
-            if (confirm('Are you sure you want to delete this answer?')) {
-                fetch(`/api/answers/${id}`, {
-                    method: 'DELETE',
-                })
-                .then(response => response.json())
-                .then(data => {
-                    if (data.success) {
-                        alert('Answer deleted successfully');
-                        location.reload();
-                    } else {
-                        alert('Error deleting answer: ' + data.message);
+            showConfirmModal(
+                'Delete Answer',
+                'Are you sure you want to delete this answer? This action cannot be undone.',
+                () => {
+                    fetch(`/api/answers/${id}`, {
+                        method: 'DELETE',
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            showNotification('Answer Deleted', 'Answer deleted successfully', 'success');
+                            location.reload();
+                        } else {
+                            showNotification('Delete Failed', data.message || 'Error deleting answer', 'error');
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error:', error);
+                        showNotification('Delete Failed', 'Error deleting answer', 'error');
+                    });
+                }
+            );
+        }
+        
+        function showAnswerHistory(questionId, answers) {
+            const containerId = `answer-history-${questionId}`;
+            
+            // Remove existing history container
+            const existing = document.getElementById(containerId);
+            if (existing) {
+                existing.remove();
+            }
+            
+            // Create history container
+            const container = document.createElement('div');
+            container.id = containerId;
+            container.className = 'ai-response-container';
+            container.style.maxHeight = '400px';
+            container.style.overflowY = 'auto';
+            
+            let historyHTML = `
+                <div class="ai-response-header">
+                    <span class="ai-response-model">Answer History (${answers.length} responses)</span>
+                    <button class="response-action-btn secondary" onclick="closeAIResponse('${containerId}')">✕ Close</button>
+                </div>
+                <div class="ai-response-content">
+            `;
+            
+            answers.forEach((answer, index) => {
+                historyHTML += `
+                    <div style="border-bottom: 1px solid #dee2e6; padding: 12px 0; ${index === answers.length - 1 ? 'border-bottom: none;' : ''}">
+                        <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+                            <strong>${answer.model_name || answer.model}</strong>
+                            <span style="color: #6c757d; font-size: 0.8em;">${new Date(answer.date).toLocaleDateString()}</span>
+                        </div>
+                        <div style="color: #333; line-height: 1.5;">${answer.answer}</div>
+                    </div>
+                `;
+            });
+            
+            historyHTML += `
+                </div>
+            `;
+            
+            container.innerHTML = historyHTML;
+            
+            // Insert after the question item
+            const questionItem = document.querySelector(`[data-question-id="${questionId}"]`);
+            if (questionItem) {
+                questionItem.appendChild(container);
+            }
+        }
+        </script>
+        
+        <script>
+        // Notification System
+        function showNotification(title, message, type = 'info', duration = 5000) {
+            const container = document.getElementById('notification-container');
+            
+            const notification = document.createElement('div');
+            notification.className = `notification ${type}`;
+            
+            notification.innerHTML = `
+                <div class="notification-title">${title}</div>
+                <div class="notification-message">${message}</div>
+                <button class="notification-close" onclick="closeNotification(this)">&times;</button>
+            `;
+            
+            container.appendChild(notification);
+            
+            // Auto-remove after duration
+            if (duration > 0) {
+                setTimeout(() => {
+                    if (notification.parentNode) {
+                        closeNotification(notification.querySelector('.notification-close'));
                     }
-                })
-                .catch(error => {
-                    console.error('Error:', error);
-                    alert('Error deleting answer');
-                });
+                }, duration);
+            }
+            
+            return notification;
+        }
+        
+        function closeNotification(closeButton) {
+            const notification = closeButton.parentNode;
+            notification.style.animation = 'slideOut 0.3s ease-in';
+            setTimeout(() => {
+                if (notification.parentNode) {
+                    notification.parentNode.removeChild(notification);
+                }
+            }, 300);
+        }
+        
+        function showConfirmModal(title, message, onConfirm, onCancel = null) {
+            // Create modal overlay
+            const overlay = document.createElement('div');
+            overlay.style.cssText = `
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background: rgba(0, 0, 0, 0.5);
+                z-index: 2000;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+            `;
+            
+            // Create modal content
+            const modal = document.createElement('div');
+            modal.style.cssText = `
+                background: white;
+                border-radius: 8px;
+                padding: 24px;
+                max-width: 400px;
+                width: 90%;
+                box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+                animation: modalFadeIn 0.2s ease-out;
+            `;
+            
+            modal.innerHTML = `
+                <h3 style="margin: 0 0 12px 0; color: #333;">${title}</h3>
+                <p style="margin: 0 0 20px 0; color: #666; line-height: 1.5;">${message}</p>
+                <div style="display: flex; gap: 10px; justify-content: flex-end;">
+                    <button id="modal-cancel" style="
+                        background: #6c757d;
+                        color: white;
+                        border: none;
+                        padding: 8px 16px;
+                        border-radius: 4px;
+                        cursor: pointer;
+                    ">Cancel</button>
+                    <button id="modal-confirm" style="
+                        background: #dc3545;
+                        color: white;
+                        border: none;
+                        padding: 8px 16px;
+                        border-radius: 4px;
+                        cursor: pointer;
+                    ">Confirm</button>
+                </div>
+            `;
+            
+            overlay.appendChild(modal);
+            document.body.appendChild(overlay);
+            
+            // Add modal animation CSS if not exists
+            if (!document.getElementById('modal-styles')) {
+                const style = document.createElement('style');
+                style.id = 'modal-styles';
+                style.textContent = `
+                    @keyframes modalFadeIn {
+                        from { opacity: 0; transform: scale(0.9); }
+                        to { opacity: 1; transform: scale(1); }
+                    }
+                    @keyframes slideOut {
+                        from { transform: translateX(0); opacity: 1; }
+                        to { transform: translateX(100%); opacity: 0; }
+                    }
+                `;
+                document.head.appendChild(style);
+            }
+            
+            // Handle button clicks
+            modal.querySelector('#modal-confirm').onclick = () => {
+                document.body.removeChild(overlay);
+                if (onConfirm) onConfirm();
+            };
+            
+            modal.querySelector('#modal-cancel').onclick = () => {
+                document.body.removeChild(overlay);
+                if (onCancel) onCancel();
+            };
+            
+            // Close on overlay click
+            overlay.onclick = (e) => {
+                if (e.target === overlay) {
+                    document.body.removeChild(overlay);
+                    if (onCancel) onCancel();
+                }
+            };
+        }
+        
+        function showAIResponse(questionId, response, isPersonal = false) {
+            const containerId = isPersonal ? `ai-response-${questionId}` : 'main-ai-response';
+            
+            // Remove existing response container
+            const existing = document.getElementById(containerId);
+            if (existing) {
+                existing.remove();
+            }
+            
+            // Create response container
+            const container = document.createElement('div');
+            container.id = containerId;
+            container.className = 'ai-response-container';
+            
+            container.innerHTML = `
+                <div class="ai-response-header">
+                    <span class="ai-response-model">${response.modelName || response.model}</span>
+                    <span class="ai-response-time">${new Date(response.date || Date.now()).toLocaleString()}</span>
+                </div>
+                <div class="ai-response-content">${response.answer}</div>
+                <div class="ai-response-actions">
+                    <button class="response-action-btn" onclick="copyToClipboard('${response.answer.replace(/'/g, "\\'")}')">
+                        📋 Copy
+                    </button>
+                    <button class="response-action-btn secondary" onclick="closeAIResponse('${containerId}')">
+                        ✕ Close
+                    </button>
+                </div>
+            `;
+            
+            // Insert after the appropriate element
+            if (isPersonal) {
+                const questionItem = document.querySelector(`[data-question-id="${questionId}"]`);
+                if (questionItem) {
+                    questionItem.appendChild(container);
+                }
+            } else {
+                const questionCard = document.querySelector('.question-card');
+                questionCard.appendChild(container);
+            }
+        }
+        
+        function closeAIResponse(containerId) {
+            const container = document.getElementById(containerId);
+            if (container) {
+                container.style.animation = 'slideOut 0.3s ease-in';
+                setTimeout(() => {
+                    if (container.parentNode) {
+                        container.remove();
+                    }
+                }, 300);
+            }
+        }
+        
+        function copyToClipboard(text) {
+            navigator.clipboard.writeText(text).then(() => {
+                showNotification('Copied!', 'Response copied to clipboard', 'success', 2000);
+            }).catch(() => {
+                showNotification('Copy Failed', 'Could not copy to clipboard', 'error', 3000);
+            });
+        }
+        
+        function setButtonLoading(button, loading = true) {
+            if (loading) {
+                button.dataset.originalText = button.textContent;
+                button.textContent = 'Processing...';
+                button.disabled = true;
+                button.style.opacity = '0.7';
+            } else {
+                button.textContent = button.dataset.originalText || button.textContent;
+                button.disabled = false;
+                button.style.opacity = '1';
             }
         }
         </script>        
