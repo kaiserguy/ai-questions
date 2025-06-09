@@ -1,154 +1,174 @@
-# Simple Daily AI Question Website - Documentation
+# AI Questions - Local Deployment with Local AI
 
-## Overview
-This is a simplified version of the Daily AI Question website that asks a public free AI the same question every day via an API call and shows the answer. The website focuses on questions from George Orwell's "1984" to track AI responses over time, allowing users to monitor if AI systems change their answers to politically sensitive questions.
+## 🎯 Overview
 
-## ✨ Latest Features
-- **Answer Comparison Tool**: Compare any two AI responses side-by-side on the history page
-- **Automatic GitHub Deployments**: Powered by GitHub Actions for reliable updates
-- **Enhanced Error Handling**: Clear, specific error messages for different API issues
+AI Questions Local is a self-hosted version that runs completely on your own hardware with **local AI capabilities**. Using Ollama, you can run open-source AI models directly on your machine without requiring external API keys or internet connectivity.
 
-## Features
-- Daily selection of questions from "1984" based on the date
-- Integration with Hugging Face's Inference API for AI responses
-- Database storage of all responses for historical tracking
-- Clean, responsive user interface
-- Scheduled daily question asking via cron job
-- Historical view of all answers to each question
+### Key Features
 
-## Technical Stack
-- **Backend**: Node.js with Express
-- **Database**: SQLite (via sqlite3)
-- **Frontend**: EJS templates with vanilla CSS
-- **Scheduling**: node-cron for automated daily tasks
-- **API Integration**: Axios for HTTP requests
+✅ **Local AI Models** - Run open-source models without API keys  
+✅ **Complete Privacy** - All data and AI processing stays on your machine  
+✅ **No Authentication** - Direct access without login requirements  
+✅ **Automated Scheduling** - Set up recurring AI questions  
+✅ **Data Export** - CSV downloads for analysis  
+✅ **Model Management** - Easy installation and management of AI models  
+✅ **Hybrid Support** - Use both local and cloud models  
 
-## Project Structure
-```
-simple-daily-ai-question/
-├── index.js           # Main application file with all logic
-├── package.json       # Project dependencies
-├── database.sqlite    # SQLite database (created on first run)
-├── views/             # EJS templates
-│   ├── index.ejs      # Home page showing today's question
-│   ├── history.ejs    # Page showing answer history for a question
-│   └── error.ejs      # Error page
-└── .env               # Environment variables (create this file)
-```
-
-## Setup Instructions
+## 🚀 Quick Start
 
 ### Prerequisites
-- Node.js (v14 or later)
-- npm (v6 or later)
-- Hugging Face account for API key
+- Ubuntu 20.04+ (64-bit)
+- 4GB+ RAM (8GB+ recommended for better models)
+- 20GB+ free disk space
+- Internet connection for initial setup
 
 ### Installation
+```bash
+# 1. Download and extract
+wget https://github.com/your-repo/ai-questions-local/archive/main.zip
+unzip main.zip && cd ai-questions-local
 
-1. **Clone or extract the project files**
+# 2. Run setup (installs everything including AI models)
+chmod +x setup-local.sh && ./setup-local.sh
 
-2. **Install dependencies**
-   ```bash
-   cd simple-daily-ai-question
-   npm install
-   ```
+# 3. Start the application
+./start-local.sh
 
-3. **Create an environment file**
-   Create a file named `.env` in the project root with the following content:
-   ```
-   HUGGING_FACE_API_KEY=your_api_key_here
-   PORT=3000
-   ```
-   Replace `your_api_key_here` with your Hugging Face API key.
+# 4. Open in browser
+# http://localhost:3000
+```
 
-4. **Start the application**
-   ```bash
-   npm start
-   ```
+## 🤖 Local AI Models
 
-5. **Access the website**
-   Open your browser and navigate to `http://localhost:3000`
+The setup automatically installs AI models based on your system's RAM:
 
-## Usage
+- **4GB+ RAM**: Llama 3.2 3B, Phi-3 Mini (~2GB each)
+- **8GB+ RAM**: Adds Mistral 7B (~4GB)
+- **2-4GB RAM**: Gemma 2B, TinyLlama (lightweight options)
 
-### Viewing Today's Question and Answer
-- The home page displays today's question based on the date
-- If an answer has already been fetched today, it will be displayed
-- If no answer is available, you can click "Ask AI Now" to fetch one
+### Model Management
+- **Web Interface**: Manage models through the application UI
+- **Command Line**: Use `./manage-models.sh` for advanced management
+- **Automatic Selection**: Setup chooses optimal models for your hardware
 
-### Viewing Answer History
-- Click "View answer history for this question" to see all historical answers for a specific question
-- This allows you to track changes in AI responses over time
+## 📋 What's Included
 
-### Automated Daily Questions
-- The application includes a cron job that runs at midnight UTC every day
-- This job automatically fetches a new answer for the day's question
-- No manual intervention is required for daily updates
+### Core Application
+- **Modified Backend**: Authentication bypass, local database support, Ollama integration
+- **Enhanced Frontend**: Local model selection and management UI
+- **Database Setup**: PostgreSQL with automated configuration
+- **Environment Config**: Pre-configured for local operation
 
-## Deployment Options
+### Setup and Management Scripts
+- `setup-local.sh` - Complete installation including Ollama and AI models
+- `start-local.sh` - Start application with Ollama service checks
+- `stop-local.sh` - Stop application gracefully
+- `status-local.sh` - System status and health checks
+- `manage-models.sh` - AI model management tool
+- `backup-local.sh` - Database backup utility
 
-### Deploying to a VPS or Cloud Provider
-1. Set up a Node.js environment on your server
-2. Clone the repository to your server
-3. Install dependencies with `npm install`
-4. Set up environment variables (HUGGING_FACE_API_KEY)
-5. Use a process manager like PM2 to keep the application running:
-   ```bash
-   npm install -g pm2
-   pm2 start index.js --name "daily-ai-question"
-   ```
+### Documentation
+- `LOCAL-AI-GUIDE.md` - Comprehensive setup and usage guide
+- `TROUBLESHOOTING.md` - Common issues and solutions
+- `README-LOCAL.md` - Detailed technical documentation
 
-### Deploying to Heroku
-1. Create a Heroku account and install the Heroku CLI
-2. Initialize a git repository in the project folder:
-   ```bash
-   git init
-   git add .
-   git commit -m "Initial commit"
-   ```
-3. Create a Heroku app:
-   ```bash
-   heroku create
-   ```
-4. Set the environment variable:
-   ```bash
-   heroku config:set HUGGING_FACE_API_KEY=your_api_key_here
-   ```
-5. Deploy the application:
-   ```bash
-   git push heroku main
-   ```
+### Configuration Files
+- `.env.example` - Environment template with local AI options
+- `local-config.js` - Local mode configuration with Ollama settings
+- Service files for systemd integration
 
-## Customization
+## 🔧 Management Commands
 
-### Changing the Questions
-To modify the questions, edit the `QUESTIONS_1984` array in `index.js`. Each question requires:
-- `id`: A unique identifier
-- `question`: The question text
-- `context`: Background information to help the AI provide a relevant answer
+```bash
+# Application control
+./start-local.sh          # Start application and Ollama
+./stop-local.sh           # Stop application gracefully
+./status-local.sh         # Check status of all services
 
-### Changing the AI Model
-The application uses Hugging Face's "deepset/roberta-base-squad2" model by default. To use a different model:
-1. Find a suitable question-answering model on Hugging Face
-2. Update the URL in the `askQuestion` function in `index.js`
+# Model management
+./manage-models.sh list           # List installed models
+./manage-models.sh download model # Download new model
+./manage-models.sh test model     # Test model functionality
+./manage-models.sh recommended    # Show recommended models
 
-### Customizing the UI
-The UI styling is contained within the EJS templates in the `views` directory. You can modify the inline CSS in these files to change the appearance of the website.
+# System management
+sudo systemctl start ai-questions    # Start as service
+sudo systemctl enable ai-questions   # Enable auto-start
+```
 
-## Troubleshooting
+## 🎯 Use Cases
 
-### API Key Issues
-If you see "API key not configured" errors, check that your Hugging Face API key is correctly set in the .env file.
+### Research and Academia
+- **Private AI monitoring** without cloud dependency
+- **Model comparison** across different AI systems
+- **Data export** for academic research and analysis
+- **Reproducible results** with consistent local models
 
-### Database Errors
-If you encounter database errors, try deleting the `database.sqlite` file and restarting the application. The database will be recreated automatically.
+### Business and Professional
+- **Market trend monitoring** with scheduled questions
+- **Competitive intelligence** gathering
+- **Regular AI-powered reports** and insights
+- **Cost-effective** AI usage without per-request charges
 
-### Deployment Issues
-This simplified version uses standard Node.js and Express, which should deploy easily to most hosting platforms. If you encounter issues:
-- Check that Node.js and npm are installed on your server
-- Verify that all dependencies are installed
-- Ensure environment variables are properly set
-- Check server logs for specific error messages
+### Personal and Privacy-Focused
+- **Complete local control** over AI interactions
+- **No data sharing** with third parties
+- **Offline capability** for sensitive work
+- **Custom model selection** for specific needs
 
-## License
-This project is licensed under the MIT License.
+## 🔒 Privacy and Security
+
+### Data Protection
+- **Local Processing**: All AI inference happens on your machine
+- **No External Calls**: Local models don't communicate with external services
+- **Database Security**: PostgreSQL with local-only access
+- **File Permissions**: Proper security for configuration files
+
+### Network Security
+- **Firewall Ready**: Configurable ports and access controls
+- **Local Only**: Default configuration blocks external access
+- **Optional Cloud**: Cloud APIs only used if explicitly configured
+
+## 📊 Performance Expectations
+
+### Response Times (Typical)
+- **3B Models**: 2-5 seconds per response
+- **7B Models**: 5-15 seconds per response
+- **Factors**: CPU speed, available RAM, model complexity
+
+### Resource Usage
+- **RAM**: 2-8GB depending on model size
+- **CPU**: Moderate usage during inference
+- **Storage**: 1-5GB per model
+- **Network**: Only for initial setup and updates
+
+## 🆘 Support
+
+### Documentation
+- **LOCAL-AI-GUIDE.md**: Complete setup and usage guide
+- **TROUBLESHOOTING.md**: Common issues and solutions
+- **Command Reference**: Built-in help in all scripts
+
+### Diagnostics
+```bash
+./status-local.sh              # Overall system status
+./manage-models.sh status      # AI service status
+journalctl -u ai-questions -f  # Application logs
+```
+
+### Community
+- GitHub Issues for bug reports
+- Documentation wiki for guides
+- Community discussions for tips and tricks
+
+---
+
+## 🎉 Ready to Start?
+
+1. **Download** the package
+2. **Run** `./setup-local.sh`
+3. **Start** with `./start-local.sh`
+4. **Access** at http://localhost:3000
+
+Transform your AI Questions experience with complete local control, privacy, and your own AI models!
+
