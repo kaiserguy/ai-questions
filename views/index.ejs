@@ -444,7 +444,6 @@
                     <div class="personal-question-actions">
                         <button class="btn-small btn-primary" onclick="askPersonalQuestion(${question.id})">Ask AI</button>
                         <button class="btn-small btn-secondary" onclick="viewPersonalAnswers(${question.id})">View Answers</button>
-                        <button class="btn-small btn-secondary" onclick="editPersonalQuestion(${question.id})">Edit</button>
                         <button class="btn-small btn-danger" onclick="deletePersonalQuestion(${question.id})">Delete</button>
                     </div>
                 `;
@@ -496,6 +495,12 @@
                 return;
             }
             
+            // Show loading state
+            const button = event.target;
+            const originalText = button.textContent;
+            button.disabled = true;
+            button.textContent = 'Processing...';
+            
             fetch(`/api/personal-question/${questionId}/ask`, {
                 method: 'POST',
                 headers: {
@@ -503,13 +508,27 @@
                 },
                 body: JSON.stringify({ model: selectedModel })
             })
-            .then(response => response.json())
+            .then(response => {
+                if (!response.ok) {
+                    return response.json().then(err => Promise.reject(err));
+                }
+                return response.json();
+            })
             .then(answer => {
                 alert(`AI Response: ${answer.answer}`);
             })
             .catch(error => {
                 console.error('Error asking personal question:', error);
-                alert('Failed to get AI response. Please try again.');
+                if (error.error) {
+                    alert(`Error: ${error.error}`);
+                } else {
+                    alert('Failed to get AI response. Please try again.');
+                }
+            })
+            .finally(() => {
+                // Restore button state
+                button.disabled = false;
+                button.textContent = originalText;
             });
         }
 
