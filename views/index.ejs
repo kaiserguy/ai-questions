@@ -18,9 +18,128 @@
             margin-bottom: 40px;
             border-bottom: 1px solid #eee;
             padding-bottom: 20px;
+            position: relative;
         }
         h1 {
             color: #d32f2f;
+        }
+        .auth-section {
+            position: absolute;
+            top: 0;
+            right: 0;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .user-info {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .user-avatar {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+        }
+        .auth-button {
+            background-color: #4285f4;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            text-decoration: none;
+            font-size: 0.9em;
+        }
+        .auth-button:hover {
+            background-color: #3367d6;
+        }
+        .logout-button {
+            background-color: #666;
+            font-size: 0.8em;
+            padding: 4px 8px;
+        }
+        .logout-button:hover {
+            background-color: #555;
+        }
+        .personal-questions-section {
+            background-color: #e3f2fd;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 30px;
+            border-left: 4px solid #2196f3;
+        }
+        .personal-questions-section h3 {
+            margin-top: 0;
+            color: #1976d2;
+        }
+        .personal-question-item {
+            background-color: white;
+            border-radius: 4px;
+            padding: 15px;
+            margin-bottom: 15px;
+            border: 1px solid #ddd;
+        }
+        .personal-question-actions {
+            display: flex;
+            gap: 10px;
+            margin-top: 10px;
+        }
+        .btn-small {
+            padding: 4px 8px;
+            font-size: 0.8em;
+            border: none;
+            border-radius: 3px;
+            cursor: pointer;
+        }
+        .btn-primary {
+            background-color: #2196f3;
+            color: white;
+        }
+        .btn-primary:hover {
+            background-color: #1976d2;
+        }
+        .btn-secondary {
+            background-color: #666;
+            color: white;
+        }
+        .btn-secondary:hover {
+            background-color: #555;
+        }
+        .btn-danger {
+            background-color: #f44336;
+            color: white;
+        }
+        .btn-danger:hover {
+            background-color: #d32f2f;
+        }
+        .add-question-form {
+            background-color: white;
+            border-radius: 4px;
+            padding: 15px;
+            border: 1px solid #ddd;
+            margin-top: 15px;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        .form-group input,
+        .form-group textarea {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 1em;
+            box-sizing: border-box;
+        }
+        .form-group textarea {
+            height: 80px;
+            resize: vertical;
         }
         .question-card {
             background-color: #f9f9f9;
@@ -113,13 +232,11 @@
         .model-selector {
             margin-bottom: 15px;
         }
-
         .model-selector label {
             display: block;
             margin-bottom: 5px;
             font-weight: bold;
         }
-
         .model-selector select {
             width: 100%;
             padding: 8px;
@@ -128,14 +245,54 @@
             background-color: white;
             font-size: 1em;
         }
-
+        .hidden {
+            display: none;
+        }
     </style>
 </head>
 <body>
     <header>
         <h1>Daily AI Question from "1984"</h1>
         <p>Tracking AI responses to politically sensitive questions over time</p>
+        <div class="auth-section">
+            <div id="user-info" class="user-info hidden">
+                <img id="user-avatar" class="user-avatar" src="" alt="User Avatar">
+                <span id="user-name"></span>
+                <a href="/auth/logout" class="auth-button logout-button">Logout</a>
+            </div>
+            <a id="login-button" href="/auth/google" class="auth-button">Login with Google</a>
+        </div>
     </header>
+
+    <!-- Personal Questions Section (only visible when logged in) -->
+    <div id="personal-questions-section" class="personal-questions-section hidden">
+        <h3>📝 Your Personal Questions</h3>
+        <p>Create and track your own custom questions to monitor AI responses over time.</p>
+        
+        <div id="personal-questions-list">
+            <!-- Personal questions will be loaded here -->
+        </div>
+        
+        <button id="add-question-btn" class="auth-button" onclick="toggleAddQuestionForm()">+ Add New Question</button>
+        
+        <div id="add-question-form" class="add-question-form hidden">
+            <h4>Add New Personal Question</h4>
+            <form onsubmit="addPersonalQuestion(event)">
+                <div class="form-group">
+                    <label for="new-question">Question:</label>
+                    <input type="text" id="new-question" required placeholder="Enter your question...">
+                </div>
+                <div class="form-group">
+                    <label for="new-context">Context:</label>
+                    <textarea id="new-context" required placeholder="Provide context for the question..."></textarea>
+                </div>
+                <div class="form-group">
+                    <button type="submit" class="auth-button">Add Question</button>
+                    <button type="button" class="auth-button logout-button" onclick="toggleAddQuestionForm()">Cancel</button>
+                </div>
+            </form>
+        </div>
+    </div>
 
     <div class="question-card">
         <div class="question"><%= todayQuestion.question %></div>
@@ -196,22 +353,234 @@
         <% } %>
     </div>
     <script>
+        // Global variables
+        let currentUser = null;
+        let personalQuestions = [];
+
         document.addEventListener('DOMContentLoaded', function() {
-        fetch('/api/models')
-            .then(response => response.json())
-            .then(models => {
-            const select = document.getElementById('model-select');
-            models.forEach(model => {
-                const option = document.createElement('option');
-                option.value = model.id;
-                option.textContent = model.name;
-                select.appendChild(option);
+            // Load models
+            fetch('/api/models')
+                .then(response => response.json())
+                .then(models => {
+                    const select = document.getElementById('model-select');
+                    models.forEach(model => {
+                        const option = document.createElement('option');
+                        option.value = model.id;
+                        option.textContent = model.name;
+                        select.appendChild(option);
+                    });
+                })
+                .catch(error => {
+                    console.error('Error fetching models:', error);
+                });
+
+            // Check authentication status
+            checkAuthStatus();
+        });
+
+        // Authentication functions
+        function checkAuthStatus() {
+            fetch('/api/user')
+                .then(response => {
+                    if (response.ok) {
+                        return response.json();
+                    } else {
+                        throw new Error('Not authenticated');
+                    }
+                })
+                .then(user => {
+                    currentUser = user;
+                    showUserInfo(user);
+                    loadPersonalQuestions();
+                })
+                .catch(error => {
+                    currentUser = null;
+                    showLoginButton();
+                });
+        }
+
+        function showUserInfo(user) {
+            document.getElementById('login-button').classList.add('hidden');
+            document.getElementById('user-info').classList.remove('hidden');
+            document.getElementById('user-avatar').src = user.avatar_url;
+            document.getElementById('user-name').textContent = user.name;
+            document.getElementById('personal-questions-section').classList.remove('hidden');
+        }
+
+        function showLoginButton() {
+            document.getElementById('user-info').classList.add('hidden');
+            document.getElementById('login-button').classList.remove('hidden');
+            document.getElementById('personal-questions-section').classList.add('hidden');
+        }
+
+        // Personal questions functions
+        function loadPersonalQuestions() {
+            fetch('/api/personal-questions')
+                .then(response => response.json())
+                .then(questions => {
+                    personalQuestions = questions;
+                    renderPersonalQuestions();
+                })
+                .catch(error => {
+                    console.error('Error loading personal questions:', error);
+                });
+        }
+
+        function renderPersonalQuestions() {
+            const container = document.getElementById('personal-questions-list');
+            container.innerHTML = '';
+
+            if (personalQuestions.length === 0) {
+                container.innerHTML = '<p>No personal questions yet. Add your first question below!</p>';
+                return;
+            }
+
+            personalQuestions.forEach(question => {
+                const questionDiv = document.createElement('div');
+                questionDiv.className = 'personal-question-item';
+                questionDiv.innerHTML = `
+                    <div class="question">${question.question}</div>
+                    <div class="context">${question.context}</div>
+                    <div class="personal-question-actions">
+                        <button class="btn-small btn-primary" onclick="askPersonalQuestion(${question.id})">Ask AI</button>
+                        <button class="btn-small btn-secondary" onclick="viewPersonalAnswers(${question.id})">View Answers</button>
+                        <button class="btn-small btn-secondary" onclick="editPersonalQuestion(${question.id})">Edit</button>
+                        <button class="btn-small btn-danger" onclick="deletePersonalQuestion(${question.id})">Delete</button>
+                    </div>
+                `;
+                container.appendChild(questionDiv);
             });
+        }
+
+        function toggleAddQuestionForm() {
+            const form = document.getElementById('add-question-form');
+            form.classList.toggle('hidden');
+            if (!form.classList.contains('hidden')) {
+                document.getElementById('new-question').focus();
+            }
+        }
+
+        function addPersonalQuestion(event) {
+            event.preventDefault();
+            
+            const question = document.getElementById('new-question').value;
+            const context = document.getElementById('new-context').value;
+            
+            fetch('/api/personal-questions', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ question, context })
+            })
+            .then(response => response.json())
+            .then(newQuestion => {
+                personalQuestions.unshift(newQuestion);
+                renderPersonalQuestions();
+                document.getElementById('new-question').value = '';
+                document.getElementById('new-context').value = '';
+                toggleAddQuestionForm();
             })
             .catch(error => {
-            console.error('Error fetching models:', error);
+                console.error('Error adding personal question:', error);
+                alert('Failed to add question. Please try again.');
             });
-        });
+        }
+
+        function askPersonalQuestion(questionId) {
+            const modelSelect = document.getElementById('model-select');
+            const selectedModel = modelSelect.value;
+            
+            if (!selectedModel) {
+                alert('Please select an AI model first.');
+                return;
+            }
+            
+            fetch(`/api/personal-question/${questionId}/ask`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ model: selectedModel })
+            })
+            .then(response => response.json())
+            .then(answer => {
+                alert(`AI Response: ${answer.answer}`);
+            })
+            .catch(error => {
+                console.error('Error asking personal question:', error);
+                alert('Failed to get AI response. Please try again.');
+            });
+        }
+
+        function viewPersonalAnswers(questionId) {
+            fetch(`/api/personal-questions/${questionId}/answers`)
+                .then(response => response.json())
+                .then(answers => {
+                    if (answers.length === 0) {
+                        alert('No answers yet for this question.');
+                        return;
+                    }
+                    
+                    let message = 'Answer History:\\n\\n';
+                    answers.forEach((answer, index) => {
+                        message += `${index + 1}. ${new Date(answer.date).toLocaleDateString()} (${answer.model_name || answer.model}):\\n`;
+                        message += `${answer.answer}\\n\\n`;
+                    });
+                    
+                    alert(message);
+                })
+                .catch(error => {
+                    console.error('Error viewing personal answers:', error);
+                    alert('Failed to load answers. Please try again.');
+                });
+        }
+
+        function editPersonalQuestion(questionId) {
+            const question = personalQuestions.find(q => q.id === questionId);
+            if (!question) return;
+            
+            const newQuestion = prompt('Edit question:', question.question);
+            if (!newQuestion) return;
+            
+            const newContext = prompt('Edit context:', question.context);
+            if (!newContext) return;
+            
+            fetch(`/api/personal-questions/${questionId}`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ question: newQuestion, context: newContext })
+            })
+            .then(response => response.json())
+            .then(updatedQuestion => {
+                const index = personalQuestions.findIndex(q => q.id === questionId);
+                personalQuestions[index] = updatedQuestion;
+                renderPersonalQuestions();
+            })
+            .catch(error => {
+                console.error('Error updating personal question:', error);
+                alert('Failed to update question. Please try again.');
+            });
+        }
+
+        function deletePersonalQuestion(questionId) {
+            if (!confirm('Are you sure you want to delete this question?')) return;
+            
+            fetch(`/api/personal-questions/${questionId}`, {
+                method: 'DELETE'
+            })
+            .then(response => response.json())
+            .then(() => {
+                personalQuestions = personalQuestions.filter(q => q.id !== questionId);
+                renderPersonalQuestions();
+            })
+            .catch(error => {
+                console.error('Error deleting personal question:', error);
+                alert('Failed to delete question. Please try again.');
+            });
+        }
 
         function askAINow() {
             // Show loading indicator

@@ -3,6 +3,9 @@ const axios = require('axios');
 const { Pool } = require('pg');
 const cron = require('node-cron');
 const path = require('path');
+const session = require('express-session');
+const passport = require('passport');
+const GoogleStrategy = require('passport-google-oauth20').Strategy;
 
 // Create Express app
 const app = express();
@@ -14,6 +17,59 @@ app.set('views', path.join(__dirname, 'views'));
 app.use(express.static(path.join(__dirname, 'public')));
 app.use(express.json());
 
+// Session configuration
+app.use(session({
+  secret: process.env.SESSION_SECRET || 'your-secret-key-change-in-production',
+  resave: false,
+  saveUninitialized: false,
+  cookie: { secure: false } // Set to true in production with HTTPS
+}));
+
+// Passport configuration
+app.use(passport.initialize());
+app.use(passport.session());
+
+// Google OAuth Strategy
+passport.use(new GoogleStrategy({
+  clientID: process.env.GOOGLE_CLIENT_ID,
+  clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+  callbackURL: "/auth/google/callback"
+}, async (accessToken, refreshToken, profile, done) => {
+  try {
+    // Check if user exists
+    let result = await pool.query('SELECT * FROM users WHERE google_id = $1', [profile.id]);
+    
+    if (result.rows.length > 0) {
+      // User exists, return user
+      return done(null, result.rows[0]);
+    } else {
+      // Create new user
+      const newUser = await pool.query(
+        'INSERT INTO users (google_id, email, name, avatar_url) VALUES ($1, $2, $3, $4) RETURNING *',
+        [profile.id, profile.emails[0].value, profile.displayName, profile.photos[0].value]
+      );
+      return done(null, newUser.rows[0]);
+    }
+  } catch (error) {
+    return done(error, null);
+  }
+}));
+
+// Serialize user for session
+passport.serializeUser((user, done) => {
+  done(null, user.id);
+});
+
+// Deserialize user from session
+passport.deserializeUser(async (id, done) => {
+  try {
+    const result = await pool.query('SELECT * FROM users WHERE id = $1', [id]);
+    done(null, result.rows[0]);
+  } catch (error) {
+    done(error, null);
+  }
+});
+
 // Initialize PostgreSQL connection
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
@@ -24,6 +80,29 @@ const pool = new Pool({
 
 // Create tables if they don't exist
 pool.query(`
+  CREATE TABLE IF NOT EXISTS users (
+    id SERIAL PRIMARY KEY,
+    google_id VARCHAR(255) UNIQUE NOT NULL,
+    email VARCHAR(255) NOT NULL,
+    name VARCHAR(255) NOT NULL,
+    avatar_url TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+  )
+`).catch(err => console.error('Error creating users table:', err));
+
+pool.query(`
+  CREATE TABLE IF NOT EXISTS personal_questions (
+    id SERIAL PRIMARY KEY,
+    user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+    question TEXT NOT NULL,
+    context TEXT NOT NULL,
+    is_active BOOLEAN DEFAULT true,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+  )
+`).catch(err => console.error('Error creating personal_questions table:', err));
+
+pool.query(`
   CREATE TABLE IF NOT EXISTS answers (
     id SERIAL PRIMARY KEY,
     question TEXT NOT NULL,
@@ -32,9 +111,12 @@ pool.query(`
     model TEXT NOT NULL,
     model_name TEXT,
     confidence REAL NOT NULL,
-    date TIMESTAMP NOT NULL
+    date TIMESTAMP NOT NULL,
+    user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+    personal_question_id INTEGER REFERENCES personal_questions(id) ON DELETE CASCADE,
+    is_personal BOOLEAN DEFAULT false
   )
-`).catch(err => console.error('Error creating table:', err));
+`).catch(err => console.error('Error creating answers table:', err));
 
 // Available AI models
 const AVAILABLE_MODELS = [
@@ -255,13 +337,22 @@ Answer:`;
 // Save answer to database
 async function saveAnswer(question, context, answer, model, confidence, date, modelName = null) {
   const result = await pool.query(
-    'INSERT INTO answers (question, context, answer, model, model_name, confidence, date) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id',
-    [question, context, answer, model, modelName, confidence, date]
+    'INSERT INTO answers (question, context, answer, model, model_name, confidence, date, is_personal) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id',
+    [question, context, answer, model, modelName, confidence, date, false]
   );
   return result.rows[0].id;
 }
 
-// Get latest answers for all questions
+// Save personal answer to database
+async function savePersonalAnswer(question, context, answer, model, confidence, date, modelName, userId, personalQuestionId) {
+  const result = await pool.query(
+    'INSERT INTO answers (question, context, answer, model, model_name, confidence, date, user_id, personal_question_id, is_personal) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING id',
+    [question, context, answer, model, modelName, confidence, date, userId, personalQuestionId, true]
+  );
+  return result.rows[0].id;
+}
+
+// Get latest answers for all questions (excluding personal questions)
 async function getLatestAnswers() {
   const result = await pool.query(`
     SELECT a.*
@@ -269,17 +360,18 @@ async function getLatestAnswers() {
     INNER JOIN (
       SELECT question, MAX(date) as max_date
       FROM answers
+      WHERE is_personal = false
       GROUP BY question
-    ) b ON a.question = b.question AND a.date = b.max_date
+    ) b ON a.question = b.question AND a.date = b.max_date AND a.is_personal = false
     ORDER BY a.id DESC
   `);
   return result.rows;
 }
 
-// Get history of answers for a specific question
+// Get history of answers for a specific question (excluding personal questions)
 async function getAnswerHistory(question) {
   const result = await pool.query(
-    'SELECT * FROM answers WHERE question = $1 ORDER BY date DESC',
+    'SELECT * FROM answers WHERE question = $1 AND is_personal = false ORDER BY date DESC',
     [question]
   );
   return result.rows;
@@ -481,6 +573,221 @@ app.delete('/api/answers/:id', async (req, res) => {
       error: 'Failed to delete answer', 
       message: error.message 
     });
+  }
+});
+
+// Authentication middleware
+function requireAuth(req, res, next) {
+  if (req.isAuthenticated()) {
+    return next();
+  }
+  res.status(401).json({ error: 'Authentication required' });
+}
+
+// Authentication routes
+app.get('/auth/google',
+  passport.authenticate('google', { scope: ['profile', 'email'] })
+);
+
+app.get('/auth/google/callback',
+  passport.authenticate('google', { failureRedirect: '/' }),
+  (req, res) => {
+    res.redirect('/');
+  }
+);
+
+app.get('/auth/logout', (req, res) => {
+  req.logout((err) => {
+    if (err) {
+      return res.status(500).json({ error: 'Logout failed' });
+    }
+    res.redirect('/');
+  });
+});
+
+app.get('/api/user', (req, res) => {
+  if (req.isAuthenticated()) {
+    res.json({
+      id: req.user.id,
+      name: req.user.name,
+      email: req.user.email,
+      avatar_url: req.user.avatar_url
+    });
+  } else {
+    res.status(401).json({ error: 'Not authenticated' });
+  }
+});
+
+// Personal questions routes
+app.get('/api/personal-questions', requireAuth, async (req, res) => {
+  try {
+    const result = await pool.query(
+      'SELECT * FROM personal_questions WHERE user_id = $1 AND is_active = true ORDER BY created_at DESC',
+      [req.user.id]
+    );
+    res.json(result.rows);
+  } catch (error) {
+    console.error('Error fetching personal questions:', error);
+    res.status(500).json({ error: 'Failed to fetch personal questions' });
+  }
+});
+
+app.post('/api/personal-questions', requireAuth, async (req, res) => {
+  try {
+    const { question, context } = req.body;
+    
+    if (!question || !context) {
+      return res.status(400).json({ error: 'Question and context are required' });
+    }
+    
+    const result = await pool.query(
+      'INSERT INTO personal_questions (user_id, question, context) VALUES ($1, $2, $3) RETURNING *',
+      [req.user.id, question, context]
+    );
+    
+    res.json(result.rows[0]);
+  } catch (error) {
+    console.error('Error creating personal question:', error);
+    res.status(500).json({ error: 'Failed to create personal question' });
+  }
+});
+
+app.put('/api/personal-questions/:id', requireAuth, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { question, context } = req.body;
+    
+    if (!question || !context) {
+      return res.status(400).json({ error: 'Question and context are required' });
+    }
+    
+    const result = await pool.query(
+      'UPDATE personal_questions SET question = $1, context = $2, updated_at = CURRENT_TIMESTAMP WHERE id = $3 AND user_id = $4 RETURNING *',
+      [question, context, id, req.user.id]
+    );
+    
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Personal question not found' });
+    }
+    
+    res.json(result.rows[0]);
+  } catch (error) {
+    console.error('Error updating personal question:', error);
+    res.status(500).json({ error: 'Failed to update personal question' });
+  }
+});
+
+app.delete('/api/personal-questions/:id', requireAuth, async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    const result = await pool.query(
+      'UPDATE personal_questions SET is_active = false WHERE id = $1 AND user_id = $2 RETURNING *',
+      [id, req.user.id]
+    );
+    
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Personal question not found' });
+    }
+    
+    res.json({ success: true, message: 'Personal question deleted successfully' });
+  } catch (error) {
+    console.error('Error deleting personal question:', error);
+    res.status(500).json({ error: 'Failed to delete personal question' });
+  }
+});
+
+// Ask personal question route
+app.post('/api/personal-question/:id/ask', requireAuth, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { model } = req.body;
+    
+    // Get the personal question
+    const questionResult = await pool.query(
+      'SELECT * FROM personal_questions WHERE id = $1 AND user_id = $2 AND is_active = true',
+      [id, req.user.id]
+    );
+    
+    if (questionResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Personal question not found' });
+    }
+    
+    const personalQuestion = questionResult.rows[0];
+    
+    // Collect all API keys
+    const apiKeys = {
+      HUGGING_FACE_API_KEY: process.env.HUGGING_FACE_API_KEY,
+      OPENAI_API_KEY: process.env.OPENAI_API_KEY
+    };
+    
+    // Check if we have the required API key
+    const selectedModel = AVAILABLE_MODELS.find(m => m.id === model);
+    if (!selectedModel) {
+      return res.status(400).json({ error: 'Invalid model ID' });
+    }
+    
+    if (!apiKeys[selectedModel.apiKeyEnv]) {
+      return res.status(500).json({ 
+        error: `API key for ${selectedModel.name} not configured`,
+        question: personalQuestion.question,
+        context: personalQuestion.context,
+        date: new Date().toISOString()
+      });
+    }
+    
+    const response = await askQuestion(personalQuestion.question, personalQuestion.context, model, apiKeys);
+    
+    const answer = {
+      question: personalQuestion.question,
+      context: personalQuestion.context,
+      answer: response.answer,
+      model: response.model,
+      modelName: response.modelName,
+      confidence: response.score,
+      date: new Date().toISOString(),
+      user_id: req.user.id,
+      personal_question_id: parseInt(id),
+      is_personal: true
+    };
+    
+    const answerId = await savePersonalAnswer(
+      answer.question,
+      answer.context,
+      answer.answer,
+      answer.model,
+      answer.confidence,
+      answer.date,
+      answer.modelName,
+      answer.user_id,
+      answer.personal_question_id
+    );
+    
+    answer.id = answerId;
+    res.json(answer);
+  } catch (error) {
+    console.error('Error in personal question API route:', error);
+    res.status(500).json({ 
+      error: 'Failed to get answer from AI', 
+      message: error.message 
+    });
+  }
+});
+
+// Get personal question answers
+app.get('/api/personal-questions/:id/answers', requireAuth, async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    const result = await pool.query(
+      'SELECT * FROM answers WHERE personal_question_id = $1 AND user_id = $2 ORDER BY date DESC',
+      [id, req.user.id]
+    );
+    
+    res.json(result.rows);
+  } catch (error) {
+    console.error('Error fetching personal question answers:', error);
+    res.status(500).json({ error: 'Failed to fetch answers' });
   }
 });
 
