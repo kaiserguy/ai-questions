@@ -230,8 +230,8 @@ createSchedulingTables();
 // Available AI models
 const AVAILABLE_MODELS = [
   {
-    id: "deepseek-ai/DeepSeek-R1-0528",
-    name: "DeepSeek R1 (Latest)",
+    id: "microsoft/DialoGPT-medium",
+    name: "Microsoft DialoGPT",
     provider: "huggingface",
     apiKeyEnv: "HUGGING_FACE_API_KEY"
   },
@@ -430,6 +430,25 @@ Answer:`;
     };
   } catch (error) {
     console.error('Error calling AI API:', error);
+    
+    // Enhanced error logging and handling
+    if (selectedModel && selectedModel.provider === 'huggingface' && error.response) {
+      console.error('Hugging Face API Error Details:', {
+        status: error.response.status,
+        statusText: error.response.statusText,
+        data: error.response.data,
+        model: selectedModel.id
+      });
+      
+      // Provide specific error messages for common Hugging Face issues
+      if (error.response.status === 404) {
+        throw new Error(`Model "${selectedModel.name}" is not available through the Hugging Face Inference API. This model may require a different API or provider.`);
+      } else if (error.response.status === 503) {
+        throw new Error(`Model "${selectedModel.name}" is currently loading. Please try again in a few minutes.`);
+      } else if (error.response.status === 429) {
+        throw new Error('Rate limit exceeded. Please try again later.');
+      }
+    }
     
     // Enhanced error logging for OpenAI API issues
     if (selectedModel && selectedModel.provider === 'openai' && error.response) {
