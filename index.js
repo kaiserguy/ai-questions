@@ -242,14 +242,14 @@ const AVAILABLE_MODELS = [
     apiKeyEnv: "OPENAI_API_KEY"
   },
   {
-    id: "meta-llama/Llama-2-7b-chat-hf",
-    name: "Meta Llama 2 (7B)",
+    id: "google/flan-t5-large",
+    name: "Google Flan-T5 Large",
     provider: "huggingface",
     apiKeyEnv: "HUGGING_FACE_API_KEY"
   },
   {
-    id: "mistralai/Mistral-7B-Instruct-v0.1",
-    name: "Mistral 7B",
+    id: "microsoft/DialoGPT-large",
+    name: "Microsoft DialoGPT Large",
     provider: "huggingface",
     apiKeyEnv: "HUGGING_FACE_API_KEY"
   }
