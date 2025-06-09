@@ -166,6 +166,67 @@ async function migrateAnswersTable() {
 // Run migration
 migrateAnswersTable();
 
+// Create scheduling tables
+async function createSchedulingTables() {
+  try {
+    // Create question_schedules table
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS question_schedules (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+        question_id INTEGER REFERENCES personal_questions(id) ON DELETE CASCADE,
+        frequency_type VARCHAR(20) NOT NULL, -- 'daily', 'weekly', 'monthly', 'custom'
+        frequency_value INTEGER, -- For custom intervals (e.g., every 3 days)
+        frequency_unit VARCHAR(10), -- 'days', 'weeks', 'months' for custom
+        selected_models TEXT[], -- Array of model names to query
+        is_active BOOLEAN DEFAULT true,
+        next_run_date TIMESTAMP,
+        last_run_date TIMESTAMP,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    // Create scheduled_executions table
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS scheduled_executions (
+        id SERIAL PRIMARY KEY,
+        schedule_id INTEGER REFERENCES question_schedules(id) ON DELETE CASCADE,
+        execution_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        models_executed TEXT[],
+        success_count INTEGER DEFAULT 0,
+        failure_count INTEGER DEFAULT 0,
+        execution_status VARCHAR(20) DEFAULT 'pending', -- 'pending', 'running', 'completed', 'failed'
+        error_details TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    // Create personal_question_answers table if it doesn't exist
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS personal_question_answers (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+        question_id INTEGER REFERENCES personal_questions(id) ON DELETE CASCADE,
+        answer TEXT NOT NULL,
+        model TEXT NOT NULL,
+        model_name TEXT,
+        confidence REAL DEFAULT 0.95,
+        date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        schedule_id INTEGER REFERENCES question_schedules(id),
+        execution_id INTEGER REFERENCES scheduled_executions(id)
+      )
+    `);
+
+    console.log('Scheduling tables created successfully');
+  } catch (err) {
+    console.error('Error creating scheduling tables:', err);
+  }
+}
+
+// Run scheduling table creation
+createSchedulingTables();
+
 // Available AI models
 const AVAILABLE_MODELS = [
   {
@@ -839,46 +900,642 @@ app.get('/api/personal-questions/:id/answers', requireAuth, async (req, res) => 
   }
 });
 
-// Schedule daily question
-cron.schedule('0 0 * * *', async () => {
+// ===== SCHEDULING API ENDPOINTS =====
+
+// Create or update schedule for a personal question
+app.post('/api/personal-questions/:id/schedule', requireAuth, async (req, res) => {
   try {
-    console.log('Running daily scheduled task at:', new Date().toISOString());
+    const { id } = req.params;
+    const { frequency_type, frequency_value, frequency_unit, selected_models } = req.body;
     
-    // Collect all API keys
+    if (!frequency_type || !selected_models || selected_models.length === 0) {
+      return res.status(400).json({ error: 'Frequency type and selected models are required' });
+    }
+    
+    // Verify the question belongs to the user
+    const questionResult = await pool.query(
+      'SELECT * FROM personal_questions WHERE id = $1 AND user_id = $2 AND is_active = true',
+      [id, req.user.id]
+    );
+    
+    if (questionResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Personal question not found' });
+    }
+    
+    // Calculate next run date
+    const nextRunDate = calculateNextRunDate(frequency_type, frequency_value, frequency_unit);
+    
+    // Check if schedule already exists
+    const existingSchedule = await pool.query(
+      'SELECT * FROM question_schedules WHERE question_id = $1 AND user_id = $2',
+      [id, req.user.id]
+    );
+    
+    let result;
+    if (existingSchedule.rows.length > 0) {
+      // Update existing schedule
+      result = await pool.query(
+        `UPDATE question_schedules 
+         SET frequency_type = $1, frequency_value = $2, frequency_unit = $3, 
+             selected_models = $4, next_run_date = $5, updated_at = CURRENT_TIMESTAMP
+         WHERE question_id = $6 AND user_id = $7 
+         RETURNING *`,
+        [frequency_type, frequency_value, frequency_unit, selected_models, nextRunDate, id, req.user.id]
+      );
+    } else {
+      // Create new schedule
+      result = await pool.query(
+        `INSERT INTO question_schedules 
+         (user_id, question_id, frequency_type, frequency_value, frequency_unit, selected_models, next_run_date)
+         VALUES ($1, $2, $3, $4, $5, $6, $7) 
+         RETURNING *`,
+        [req.user.id, id, frequency_type, frequency_value, frequency_unit, selected_models, nextRunDate]
+      );
+    }
+    
+    res.json(result.rows[0]);
+  } catch (error) {
+    console.error('Error creating/updating schedule:', error);
+    res.status(500).json({ error: 'Failed to create/update schedule' });
+  }
+});
+
+// Get schedule for a personal question
+app.get('/api/personal-questions/:id/schedule', requireAuth, async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    const result = await pool.query(
+      'SELECT * FROM question_schedules WHERE question_id = $1 AND user_id = $2',
+      [id, req.user.id]
+    );
+    
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'No schedule found' });
+    }
+    
+    res.json(result.rows[0]);
+  } catch (error) {
+    console.error('Error fetching schedule:', error);
+    res.status(500).json({ error: 'Failed to fetch schedule' });
+  }
+});
+
+// Delete schedule for a personal question
+app.delete('/api/personal-questions/:id/schedule', requireAuth, async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    const result = await pool.query(
+      'DELETE FROM question_schedules WHERE question_id = $1 AND user_id = $2 RETURNING *',
+      [id, req.user.id]
+    );
+    
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'No schedule found' });
+    }
+    
+    res.json({ success: true, message: 'Schedule deleted successfully' });
+  } catch (error) {
+    console.error('Error deleting schedule:', error);
+    res.status(500).json({ error: 'Failed to delete schedule' });
+  }
+});
+
+// Get all schedules for the user
+app.get('/api/schedules', requireAuth, async (req, res) => {
+  try {
+    const result = await pool.query(
+      `SELECT qs.*, pq.question, pq.context 
+       FROM question_schedules qs 
+       JOIN personal_questions pq ON qs.question_id = pq.id 
+       WHERE qs.user_id = $1 AND pq.is_active = true
+       ORDER BY qs.created_at DESC`,
+      [req.user.id]
+    );
+    
+    res.json(result.rows);
+  } catch (error) {
+    console.error('Error fetching schedules:', error);
+    res.status(500).json({ error: 'Failed to fetch schedules' });
+  }
+});
+
+// Toggle schedule active status
+app.post('/api/schedules/:id/toggle', requireAuth, async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    const result = await pool.query(
+      'UPDATE question_schedules SET is_active = NOT is_active, updated_at = CURRENT_TIMESTAMP WHERE id = $1 AND user_id = $2 RETURNING *',
+      [id, req.user.id]
+    );
+    
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Schedule not found' });
+    }
+    
+    res.json(result.rows[0]);
+  } catch (error) {
+    console.error('Error toggling schedule:', error);
+    res.status(500).json({ error: 'Failed to toggle schedule' });
+  }
+});
+
+// Execute schedule manually
+app.post('/api/schedules/:id/execute', requireAuth, async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    // Get schedule details
+    const scheduleResult = await pool.query(
+      `SELECT qs.*, pq.question, pq.context 
+       FROM question_schedules qs 
+       JOIN personal_questions pq ON qs.question_id = pq.id 
+       WHERE qs.id = $1 AND qs.user_id = $2`,
+      [id, req.user.id]
+    );
+    
+    if (scheduleResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Schedule not found' });
+    }
+    
+    const schedule = scheduleResult.rows[0];
+    
+    // Execute the schedule
+    const executionResult = await executeSchedule(schedule);
+    
+    res.json(executionResult);
+  } catch (error) {
+    console.error('Error executing schedule:', error);
+    res.status(500).json({ error: 'Failed to execute schedule' });
+  }
+});
+
+// Get execution history for a schedule
+app.get('/api/schedules/:id/executions', requireAuth, async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    const result = await pool.query(
+      'SELECT * FROM scheduled_executions WHERE schedule_id = $1 ORDER BY execution_date DESC LIMIT 50',
+      [id]
+    );
+    
+    res.json(result.rows);
+  } catch (error) {
+    console.error('Error fetching execution history:', error);
+    res.status(500).json({ error: 'Failed to fetch execution history' });
+  }
+});
+
+// ===== SCHEDULING UTILITY FUNCTIONS =====
+
+function calculateNextRunDate(frequency_type, frequency_value, frequency_unit) {
+  const now = new Date();
+  let nextRun = new Date(now);
+  
+  switch (frequency_type) {
+    case 'daily':
+      nextRun.setDate(now.getDate() + 1);
+      break;
+    case 'weekly':
+      nextRun.setDate(now.getDate() + 7);
+      break;
+    case 'monthly':
+      nextRun.setMonth(now.getMonth() + 1);
+      break;
+    case 'custom':
+      if (frequency_unit === 'days') {
+        nextRun.setDate(now.getDate() + frequency_value);
+      } else if (frequency_unit === 'weeks') {
+        nextRun.setDate(now.getDate() + (frequency_value * 7));
+      } else if (frequency_unit === 'months') {
+        nextRun.setMonth(now.getMonth() + frequency_value);
+      }
+      break;
+    default:
+      nextRun.setDate(now.getDate() + 1); // Default to daily
+  }
+  
+  return nextRun;
+}
+
+async function executeSchedule(schedule) {
+  try {
+    // Create execution record
+    const executionResult = await pool.query(
+      `INSERT INTO scheduled_executions (schedule_id, models_executed, execution_status)
+       VALUES ($1, $2, 'running') RETURNING *`,
+      [schedule.id, schedule.selected_models]
+    );
+    
+    const execution = executionResult.rows[0];
+    let successCount = 0;
+    let failureCount = 0;
+    const errors = [];
+    
+    // Collect API keys
     const apiKeys = {
       HUGGING_FACE_API_KEY: process.env.HUGGING_FACE_API_KEY,
       OPENAI_API_KEY: process.env.OPENAI_API_KEY
     };
     
-    // Use the first model that has a valid API key
-    const availableModel = AVAILABLE_MODELS.find(model => apiKeys[model.apiKeyEnv]);
-    
-    if (!availableModel) {
-      console.error('No API keys configured for scheduled task');
-      return;
+    // Execute for each selected model
+    for (const modelId of schedule.selected_models) {
+      try {
+        const model = AVAILABLE_MODELS.find(m => m.id === modelId);
+        if (!model || !apiKeys[model.apiKeyEnv]) {
+          throw new Error(`Model ${modelId} not available or API key missing`);
+        }
+        
+        const response = await askQuestion(schedule.question, schedule.context, modelId, apiKeys);
+        
+        // Save the answer
+        await pool.query(
+          `INSERT INTO personal_question_answers 
+           (user_id, question_id, answer, model, model_name, confidence, schedule_id, execution_id)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+          [
+            schedule.user_id,
+            schedule.question_id,
+            response.answer,
+            response.model,
+            response.modelName,
+            response.score,
+            schedule.id,
+            execution.id
+          ]
+        );
+        
+        successCount++;
+      } catch (error) {
+        console.error(`Error executing model ${modelId}:`, error);
+        errors.push(`${modelId}: ${error.message}`);
+        failureCount++;
+      }
     }
     
-    const { question, context } = getTodaysQuestion();
-    const response = await askQuestion(question, context, availableModel.id, apiKeys);
-    
-    await saveAnswer(
-      question, 
-      context, 
-      response.answer, 
-      response.model,
-      response.score, 
-      new Date().toISOString(),
-      response.modelName
+    // Update execution record
+    await pool.query(
+      `UPDATE scheduled_executions 
+       SET success_count = $1, failure_count = $2, execution_status = $3, error_details = $4
+       WHERE id = $5`,
+      [successCount, failureCount, failureCount > 0 ? 'partial' : 'completed', errors.join('; '), execution.id]
     );
     
-    console.log('Successfully saved daily AI answer');
+    // Update schedule's last run date and calculate next run
+    const nextRunDate = calculateNextRunDate(schedule.frequency_type, schedule.frequency_value, schedule.frequency_unit);
+    await pool.query(
+      'UPDATE question_schedules SET last_run_date = CURRENT_TIMESTAMP, next_run_date = $1 WHERE id = $2',
+      [nextRunDate, schedule.id]
+    );
+    
+    return {
+      execution_id: execution.id,
+      success_count: successCount,
+      failure_count: failureCount,
+      errors: errors,
+      status: failureCount > 0 ? 'partial' : 'completed'
+    };
+  } catch (error) {
+    console.error('Error in executeSchedule:', error);
+    throw error;
+  }
+}
+
+// Schedule daily question and execute scheduled personal questions
+cron.schedule('0 0 * * *', async () => {
+  try {
+    console.log('Running daily scheduled task at:', new Date().toISOString());
+    
+    // Execute daily question
+    const apiKeys = {
+      HUGGING_FACE_API_KEY: process.env.HUGGING_FACE_API_KEY,
+      OPENAI_API_KEY: process.env.OPENAI_API_KEY
+    };
+    
+    const availableModel = AVAILABLE_MODELS.find(model => apiKeys[model.apiKeyEnv]);
+    
+    if (availableModel) {
+      const { question, context } = getTodaysQuestion();
+      const response = await askQuestion(question, context, availableModel.id, apiKeys);
+      
+      await saveAnswer(
+        question, 
+        context, 
+        response.answer, 
+        response.model,
+        response.score, 
+        new Date().toISOString(),
+        response.modelName
+      );
+      
+      console.log('Successfully saved daily AI answer');
+    }
+    
+    // Execute scheduled personal questions
+    await executeScheduledQuestions();
+    
   } catch (error) {
     console.error('Error in daily scheduled task:', error);
   }
 });
+
+// Also run scheduled questions every hour to catch any missed executions
+cron.schedule('0 * * * *', async () => {
+  try {
+    console.log('Running hourly scheduled question check at:', new Date().toISOString());
+    await executeScheduledQuestions();
+  } catch (error) {
+    console.error('Error in hourly scheduled task:', error);
+  }
+});
+
+// Execute all due scheduled questions
+async function executeScheduledQuestions() {
+  try {
+    console.log('Checking for due scheduled questions...');
+    
+    const dueSchedules = await pool.query(
+      `SELECT qs.*, pq.question, pq.context 
+       FROM question_schedules qs 
+       JOIN personal_questions pq ON qs.question_id = pq.id 
+       WHERE qs.is_active = true 
+       AND qs.next_run_date <= CURRENT_TIMESTAMP 
+       AND pq.is_active = true`
+    );
+    
+    console.log(`Found ${dueSchedules.rows.length} due schedules`);
+    
+    for (const schedule of dueSchedules.rows) {
+      try {
+        console.log(`Executing schedule ${schedule.id} for question: ${schedule.question}`);
+        await executeSchedule(schedule);
+        console.log(`Successfully executed schedule ${schedule.id}`);
+      } catch (error) {
+        console.error(`Error executing schedule ${schedule.id}:`, error);
+      }
+    }
+  } catch (error) {
+    console.error('Error in executeScheduledQuestions:', error);
+  }
+}
 
 // Start server
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
   console.log(`Visit http://localhost:${PORT} to view the application`) ;
 });
+
+// ===== ANALYTICS API ENDPOINTS =====
+
+// Get analytics for a specific question
+app.get('/api/analytics/question/:id', requireAuth, async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    // Get question details
+    const questionResult = await pool.query(
+      'SELECT * FROM personal_questions WHERE id = $1 AND user_id = $2 AND is_active = true',
+      [id, req.user.id]
+    );
+    
+    if (questionResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Question not found' });
+    }
+    
+    const question = questionResult.rows[0];
+    
+    // Get all answers for this question
+    const answersResult = await pool.query(
+      `SELECT pqa.*, qs.frequency_type, se.execution_date 
+       FROM personal_question_answers pqa
+       LEFT JOIN question_schedules qs ON pqa.schedule_id = qs.id
+       LEFT JOIN scheduled_executions se ON pqa.execution_id = se.id
+       WHERE pqa.question_id = $1 AND pqa.user_id = $2
+       ORDER BY pqa.date DESC`,
+      [id, req.user.id]
+    );
+    
+    const answers = answersResult.rows;
+    
+    // Calculate analytics
+    const analytics = {
+      question: question,
+      total_answers: answers.length,
+      models_used: [...new Set(answers.map(a => a.model))],
+      date_range: {
+        first_answer: answers.length > 0 ? answers[answers.length - 1].date : null,
+        last_answer: answers.length > 0 ? answers[0].date : null
+      },
+      scheduled_answers: answers.filter(a => a.schedule_id).length,
+      manual_answers: answers.filter(a => !a.schedule_id).length,
+      answers_by_model: {},
+      answers_by_date: {},
+      recent_answers: answers.slice(0, 10)
+    };
+    
+    // Group answers by model
+    answers.forEach(answer => {
+      const modelName = answer.model_name || answer.model;
+      if (!analytics.answers_by_model[modelName]) {
+        analytics.answers_by_model[modelName] = [];
+      }
+      analytics.answers_by_model[modelName].push(answer);
+    });
+    
+    // Group answers by date (for trend analysis)
+    answers.forEach(answer => {
+      const date = new Date(answer.date).toISOString().split('T')[0];
+      if (!analytics.answers_by_date[date]) {
+        analytics.answers_by_date[date] = [];
+      }
+      analytics.answers_by_date[date].push(answer);
+    });
+    
+    res.json(analytics);
+  } catch (error) {
+    console.error('Error fetching question analytics:', error);
+    res.status(500).json({ error: 'Failed to fetch analytics' });
+  }
+});
+
+// Compare models for a specific question
+app.get('/api/analytics/model-comparison/:id', requireAuth, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { timeframe = '30' } = req.query; // days
+    
+    const cutoffDate = new Date();
+    cutoffDate.setDate(cutoffDate.getDate() - parseInt(timeframe));
+    
+    const result = await pool.query(
+      `SELECT 
+         model, 
+         model_name,
+         COUNT(*) as answer_count,
+         AVG(confidence) as avg_confidence,
+         MIN(date) as first_answer,
+         MAX(date) as last_answer,
+         ARRAY_AGG(answer ORDER BY date DESC) as recent_answers
+       FROM personal_question_answers 
+       WHERE question_id = $1 AND user_id = $2 AND date >= $3
+       GROUP BY model, model_name
+       ORDER BY answer_count DESC`,
+      [id, req.user.id, cutoffDate]
+    );
+    
+    const comparison = {
+      timeframe_days: parseInt(timeframe),
+      models: result.rows.map(row => ({
+        model: row.model,
+        model_name: row.model_name || row.model,
+        answer_count: parseInt(row.answer_count),
+        avg_confidence: parseFloat(row.avg_confidence || 0),
+        first_answer: row.first_answer,
+        last_answer: row.last_answer,
+        recent_answers: row.recent_answers.slice(0, 3) // Last 3 answers
+      }))
+    };
+    
+    res.json(comparison);
+  } catch (error) {
+    console.error('Error fetching model comparison:', error);
+    res.status(500).json({ error: 'Failed to fetch model comparison' });
+  }
+});
+
+// Get trend analysis for a question
+app.get('/api/analytics/trend-analysis/:id', requireAuth, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { period = 'week' } = req.query; // 'week', 'month', 'quarter'
+    
+    let dateFormat, intervalDays;
+    switch (period) {
+      case 'week':
+        dateFormat = 'YYYY-MM-DD';
+        intervalDays = 7;
+        break;
+      case 'month':
+        dateFormat = 'YYYY-MM';
+        intervalDays = 30;
+        break;
+      case 'quarter':
+        dateFormat = 'YYYY-Q';
+        intervalDays = 90;
+        break;
+      default:
+        dateFormat = 'YYYY-MM-DD';
+        intervalDays = 7;
+    }
+    
+    const cutoffDate = new Date();
+    cutoffDate.setDate(cutoffDate.getDate() - intervalDays);
+    
+    const result = await pool.query(
+      `SELECT 
+         DATE_TRUNC($1, date) as period,
+         model,
+         model_name,
+         COUNT(*) as answer_count,
+         AVG(confidence) as avg_confidence
+       FROM personal_question_answers 
+       WHERE question_id = $2 AND user_id = $3 AND date >= $4
+       GROUP BY DATE_TRUNC($1, date), model, model_name
+       ORDER BY period DESC, answer_count DESC`,
+      [period, id, req.user.id, cutoffDate]
+    );
+    
+    // Group by period
+    const trendData = {};
+    result.rows.forEach(row => {
+      const periodKey = row.period.toISOString().split('T')[0];
+      if (!trendData[periodKey]) {
+        trendData[periodKey] = {
+          period: periodKey,
+          models: {},
+          total_answers: 0
+        };
+      }
+      
+      const modelName = row.model_name || row.model;
+      trendData[periodKey].models[modelName] = {
+        answer_count: parseInt(row.answer_count),
+        avg_confidence: parseFloat(row.avg_confidence || 0)
+      };
+      trendData[periodKey].total_answers += parseInt(row.answer_count);
+    });
+    
+    const trends = {
+      period: period,
+      timeframe_days: intervalDays,
+      data: Object.values(trendData).sort((a, b) => new Date(b.period) - new Date(a.period))
+    };
+    
+    res.json(trends);
+  } catch (error) {
+    console.error('Error fetching trend analysis:', error);
+    res.status(500).json({ error: 'Failed to fetch trend analysis' });
+  }
+});
+
+// Get dashboard summary for all user's scheduled questions
+app.get('/api/analytics/dashboard', requireAuth, async (req, res) => {
+  try {
+    // Get all active schedules with question details
+    const schedulesResult = await pool.query(
+      `SELECT qs.*, pq.question, pq.context,
+              COUNT(pqa.id) as total_answers,
+              MAX(pqa.date) as last_answer_date,
+              COUNT(DISTINCT pqa.model) as models_used
+       FROM question_schedules qs
+       JOIN personal_questions pq ON qs.question_id = pq.id
+       LEFT JOIN personal_question_answers pqa ON pqa.question_id = qs.question_id AND pqa.schedule_id = qs.id
+       WHERE qs.user_id = $1 AND pq.is_active = true
+       GROUP BY qs.id, pq.question, pq.context
+       ORDER BY qs.created_at DESC`,
+      [req.user.id]
+    );
+    
+    // Get recent execution summary
+    const executionsResult = await pool.query(
+      `SELECT se.*, qs.question_id, pq.question
+       FROM scheduled_executions se
+       JOIN question_schedules qs ON se.schedule_id = qs.id
+       JOIN personal_questions pq ON qs.question_id = pq.id
+       WHERE qs.user_id = $1
+       ORDER BY se.execution_date DESC
+       LIMIT 20`,
+      [req.user.id]
+    );
+    
+    // Calculate summary statistics
+    const totalSchedules = schedulesResult.rows.length;
+    const activeSchedules = schedulesResult.rows.filter(s => s.is_active).length;
+    const totalAnswers = schedulesResult.rows.reduce((sum, s) => sum + parseInt(s.total_answers || 0), 0);
+    const totalModels = new Set(schedulesResult.rows.flatMap(s => s.selected_models || [])).size;
+    
+    const dashboard = {
+      summary: {
+        total_schedules: totalSchedules,
+        active_schedules: activeSchedules,
+        total_scheduled_answers: totalAnswers,
+        unique_models_used: totalModels
+      },
+      schedules: schedulesResult.rows.map(row => ({
+        ...row,
+        total_answers: parseInt(row.total_answers || 0),
+        models_used: parseInt(row.models_used || 0)
+      })),
+      recent_executions: executionsResult.rows
+    };
+    
+    res.json(dashboard);
+  } catch (error) {
+    console.error('Error fetching dashboard data:', error);
+    res.status(500).json({ error: 'Failed to fetch dashboard data' });
+  }
+});
+
