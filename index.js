@@ -1307,14 +1307,22 @@ app.get('/api/analytics/question/:id', requireAuth, async (req, res) => {
     
     const question = questionResult.rows[0];
     
-    // Get all answers for this question
+    // Get all answers for this question - check both tables
     const answersResult = await pool.query(
-      `SELECT pqa.*, qs.frequency_type, se.execution_date 
-       FROM personal_question_answers pqa
-       LEFT JOIN question_schedules qs ON pqa.schedule_id = qs.id
-       LEFT JOIN scheduled_executions se ON pqa.execution_id = se.id
-       WHERE pqa.question_id = $1 AND pqa.user_id = $2
-       ORDER BY pqa.date DESC`,
+      `SELECT 
+         answer, model, model_name, confidence, date, 
+         NULL as schedule_id, NULL as execution_id,
+         'answers' as source_table
+       FROM answers 
+       WHERE personal_question_id = $1 AND user_id = $2
+       UNION ALL
+       SELECT 
+         answer, model, model_name, confidence, date, 
+         schedule_id, execution_id,
+         'personal_question_answers' as source_table
+       FROM personal_question_answers 
+       WHERE question_id = $1 AND user_id = $2
+       ORDER BY date DESC`,
       [id, req.user.id]
     );
     
@@ -1379,8 +1387,15 @@ app.get('/api/analytics/model-comparison/:id', requireAuth, async (req, res) => 
          MIN(date) as first_answer,
          MAX(date) as last_answer,
          ARRAY_AGG(answer ORDER BY date DESC) as recent_answers
-       FROM personal_question_answers 
-       WHERE question_id = $1 AND user_id = $2 AND date >= $3
+       FROM (
+         SELECT answer, model, model_name, confidence, date
+         FROM answers 
+         WHERE personal_question_id = $1 AND user_id = $2 AND date >= $3
+         UNION ALL
+         SELECT answer, model, model_name, confidence, date
+         FROM personal_question_answers 
+         WHERE question_id = $1 AND user_id = $2 AND date >= $3
+       ) combined_answers
        GROUP BY model, model_name
        ORDER BY answer_count DESC`,
       [id, req.user.id, cutoffDate]
@@ -1441,8 +1456,15 @@ app.get('/api/analytics/trend-analysis/:id', requireAuth, async (req, res) => {
          model_name,
          COUNT(*) as answer_count,
          AVG(confidence) as avg_confidence
-       FROM personal_question_answers 
-       WHERE question_id = $2 AND user_id = $3 AND date >= $4
+       FROM (
+         SELECT date, model, model_name, confidence
+         FROM answers 
+         WHERE personal_question_id = $2 AND user_id = $3 AND date >= $4
+         UNION ALL
+         SELECT date, model, model_name, confidence
+         FROM personal_question_answers 
+         WHERE question_id = $2 AND user_id = $3 AND date >= $4
+       ) combined_answers
        GROUP BY DATE_TRUNC($1, date), model, model_name
        ORDER BY period DESC, answer_count DESC`,
       [period, id, req.user.id, cutoffDate]
