@@ -53,19 +53,37 @@ sudo apt install -y \
     htop \
     nano
 
-# Install Node.js 18.x
-echo -e "${BLUE}📦 Installing Node.js...${NC}"
-if ! command -v node &> /dev/null; then
-    curl -fsSL https://deb.nodesource.com/setup_18.x | sudo -E bash -
-    sudo apt-get install -y nodejs
+# # Install Node.js v20
+echo -e "${BLUE}📦 Installing Node.js v20...${NC}"
+
+# Check if Node.js is installed and get version
+if command -v node &> /dev/null; then
+    CURRENT_VERSION=$(node --version | cut -d'v' -f2 | cut -d'.' -f1)
+    echo "Current Node.js version: v$CURRENT_VERSION"
+    
+    if [ "$CURRENT_VERSION" -lt 20 ]; then
+        echo -e "${YELLOW}⚠️  Upgrading Node.js to v20...${NC}"
+        # Remove old Node.js
+        sudo apt-get remove -y nodejs npm
+        
+        # Install Node.js v20 via NodeSource repository
+        curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
+        sudo apt-get install -y nodejs
+    else
+        echo -e "${GREEN}✅ Node.js v20+ already installed${NC}"
+    fi
 else
-    echo "Node.js already installed: $(node --version)"
+    echo "Node.js not found, installing v20..."
+    # Install Node.js v20 via NodeSource repository
+    curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
+    sudo apt-get install -y nodejs
 fi
 
 # Verify Node.js version
 NODE_VERSION=$(node --version | cut -d'v' -f2 | cut -d'.' -f1)
-if [ "$NODE_VERSION" -lt 16 ]; then
-    echo -e "${RED}❌ Node.js version 16+ required. Current version: $(node --version)${NC}"
+if [ "$NODE_VERSION" -lt 20 ]; then
+    echo -e "${RED}❌ Node.js version 20+ required. Current version: $(node --version)${NC}"
+    echo -e "${YELLOW}Please manually install Node.js v20 and run this script again.${NC}"
     exit 1
 fi
 
