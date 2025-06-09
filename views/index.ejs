@@ -14,30 +14,94 @@
             padding: 20px;
         }
         header {
-            text-align: center;
             margin-bottom: 40px;
             border-bottom: 1px solid #eee;
             padding-bottom: 20px;
             position: relative;
-            min-height: 80px;
         }
-        h1 {
+        
+        .header-content {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            gap: 20px;
+        }
+        
+        .header-left {
+            flex: 1;
+        }
+        
+        .header-left h1 {
             color: #d32f2f;
-            margin-top: 0;
-            margin-bottom: 10px;
+            margin: 0 0 10px 0;
+            text-align: left;
         }
-        header p {
-            margin-top: 0;
-            margin-bottom: 20px;
+        
+        .header-left p {
+            margin: 0;
+            text-align: left;
+            color: #666;
+        }
+        
+        .header-nav {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+            flex-shrink: 0;
+        }
+        
+        .nav-link {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 16px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            text-decoration: none;
+            border-radius: 6px;
+            font-weight: 500;
+            transition: transform 0.2s, box-shadow 0.2s;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        .nav-link:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+            color: white;
+            text-decoration: none;
+        }
+        
+        .nav-icon {
+            font-size: 16px;
+        }
+        
+        .nav-text {
+            font-size: 14px;
+        }
+        
+        @media (max-width: 768px) {
+            .header-content {
+                flex-direction: column;
+                align-items: stretch;
+            }
+            
+            .header-nav {
+                justify-content: space-between;
+                margin-top: 15px;
+            }
+            
+            .nav-text {
+                display: none;
+            }
+            
+            .nav-link {
+                padding: 8px 12px;
+            }
         }
         .auth-section {
-            position: absolute;
-            top: 10px;
-            right: 0;
             display: flex;
             align-items: center;
             gap: 10px;
-            z-index: 10;
         }
         .user-info {
             display: flex;
@@ -731,15 +795,25 @@
 </head>
 <body>
     <header>
-        <h1>Daily AI Question from "1984"</h1>
-        <p>Tracking AI responses to politically sensitive questions over time</p>
-        <div class="auth-section">
-            <div id="user-info" class="user-info hidden">
-                <img id="user-avatar" class="user-avatar" src="" alt="User Avatar">
-                <span id="user-name"></span>
-                <a href="/auth/logout" class="auth-button logout-button">Logout</a>
+        <div class="header-content">
+            <div class="header-left">
+                <h1>Daily AI Question from "1984"</h1>
+                <p>Tracking AI responses to politically sensitive questions over time</p>
             </div>
-            <a id="login-button" href="/auth/google" class="auth-button">Login with Google</a>
+            <div class="header-nav">
+                <a href="https://github.com/kaiserguy/ai-questions" target="_blank" class="nav-link download-link">
+                    <span class="nav-icon">📥</span>
+                    <span class="nav-text">Download Offline</span>
+                </a>
+                <div class="auth-section">
+                    <div id="user-info" class="user-info hidden">
+                        <img id="user-avatar" class="user-avatar" src="" alt="User Avatar">
+                        <span id="user-name"></span>
+                        <a href="/auth/logout" class="auth-button logout-button">Logout</a>
+                    </div>
+                    <a id="login-button" href="/auth/google" class="auth-button">Login with Google</a>
+                </div>
+            </div>
         </div>
     </header>
 
