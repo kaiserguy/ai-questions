@@ -1,0 +1,132 @@
+{
+  "example_questions": [
+    {
+      "category": "AI Ethics",
+      "questions": [
+        {
+          "question": "What are the main ethical concerns with current AI development?",
+          "context": "Consider recent advances in large language models, computer vision, and autonomous systems. Focus on practical concerns for society, not theoretical scenarios.",
+          "suggested_frequency": "monthly",
+          "suggested_models": ["gpt-3.5-turbo", "google/flan-t5-large", "meta-llama/Llama-2-7b-chat-hf"]
+        },
+        {
+          "question": "How should AI systems handle bias and fairness?",
+          "context": "Consider both technical approaches (algorithmic fairness) and policy approaches (regulation, oversight). Include examples from hiring, lending, and criminal justice.",
+          "suggested_frequency": "weekly",
+          "suggested_models": ["gpt-3.5-turbo", "google/flan-t5-large"]
+        }
+      ]
+    },
+    {
+      "category": "Technology Trends",
+      "questions": [
+        {
+          "question": "What will be the most significant technology trend in the next 12 months?",
+          "context": "Consider emerging technologies, market adoption, regulatory changes, and societal impact. Focus on realistic, near-term developments rather than speculative breakthroughs.",
+          "suggested_frequency": "monthly",
+          "suggested_models": ["gpt-3.5-turbo", "google/flan-t5-large", "mistralai/Mistral-7B-Instruct-v0.1"]
+        },
+        {
+          "question": "How is remote work changing company culture and productivity?",
+          "context": "Consider both positive and negative impacts. Include perspectives from employees, managers, and business outcomes. Focus on data-driven insights where possible.",
+          "suggested_frequency": "weekly",
+          "suggested_models": ["gpt-3.5-turbo", "google/flan-t5-large"]
+        }
+      ]
+    },
+    {
+      "category": "Business Strategy",
+      "questions": [
+        {
+          "question": "What are the key factors for startup success in the current market?",
+          "context": "Consider funding environment, market conditions, technology trends, and regulatory landscape. Focus on actionable insights for early-stage companies.",
+          "suggested_frequency": "monthly",
+          "suggested_models": ["gpt-3.5-turbo", "google/flan-t5-large"]
+        },
+        {
+          "question": "How should companies approach digital transformation in 2024?",
+          "context": "Consider cloud adoption, AI integration, cybersecurity, and employee training. Include both technical and organizational change management aspects.",
+          "suggested_frequency": "monthly",
+          "suggested_models": ["gpt-3.5-turbo", "google/flan-t5-large", "meta-llama/Llama-2-7b-chat-hf"]
+        }
+      ]
+    },
+    {
+      "category": "Personal Development",
+      "questions": [
+        {
+          "question": "What skills will be most valuable for knowledge workers in the next 5 years?",
+          "context": "Consider the impact of AI, automation, and changing work patterns. Focus on skills that complement rather than compete with AI capabilities.",
+          "suggested_frequency": "monthly",
+          "suggested_models": ["gpt-3.5-turbo", "google/flan-t5-large"]
+        },
+        {
+          "question": "How can professionals stay current with rapidly changing technology?",
+          "context": "Consider time constraints, information overload, and the need for practical application. Include both formal and informal learning approaches.",
+          "suggested_frequency": "weekly",
+          "suggested_models": ["gpt-3.5-turbo", "google/flan-t5-large"]
+        }
+      ]
+    },
+    {
+      "category": "Research & Analysis",
+      "questions": [
+        {
+          "question": "What are the most promising areas of scientific research currently?",
+          "context": "Consider breakthrough potential, funding levels, and societal impact. Include both basic and applied research across multiple disciplines.",
+          "suggested_frequency": "monthly",
+          "suggested_models": ["gpt-3.5-turbo", "google/flan-t5-large", "meta-llama/Llama-2-7b-chat-hf"]
+        },
+        {
+          "question": "How is climate change affecting global economic patterns?",
+          "context": "Consider both direct impacts (extreme weather, resource scarcity) and indirect effects (policy changes, investment shifts, migration patterns).",
+          "suggested_frequency": "monthly",
+          "suggested_models": ["gpt-3.5-turbo", "google/flan-t5-large"]
+        }
+      ]
+    }
+  ],
+  "usage_examples": [
+    {
+      "scenario": "AI Researcher",
+      "description": "Track how different AI models respond to questions about AI ethics and capabilities over time",
+      "setup": {
+        "questions": 5,
+        "frequency": "weekly",
+        "models": ["gpt-3.5-turbo", "google/flan-t5-large", "meta-llama/Llama-2-7b-chat-hf"],
+        "annual_responses": 780
+      }
+    },
+    {
+      "scenario": "Business Analyst",
+      "description": "Monitor market trends and business strategy insights from multiple AI perspectives",
+      "setup": {
+        "questions": 8,
+        "frequency": "monthly",
+        "models": ["gpt-3.5-turbo", "google/flan-t5-large"],
+        "annual_responses": 192
+      }
+    },
+    {
+      "scenario": "Technology Consultant",
+      "description": "Stay current with technology trends and provide data-driven insights to clients",
+      "setup": {
+        "questions": 12,
+        "frequency": "weekly",
+        "models": ["gpt-3.5-turbo", "google/flan-t5-large", "mistralai/Mistral-7B-Instruct-v0.1"],
+        "annual_responses": 1872
+      }
+    },
+    {
+      "scenario": "Academic Researcher",
+      "description": "Compare AI model responses on research questions to identify biases and consistency",
+      "setup": {
+        "questions": 15,
+        "frequency": "daily",
+        "models": ["gpt-3.5-turbo", "google/flan-t5-large", "meta-llama/Llama-2-7b-chat-hf", "mistralai/Mistral-7B-Instruct-v0.1"],
+        "annual_responses": 21900
+      }
+    }
+  ]
+}
+
