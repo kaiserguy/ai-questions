@@ -102,21 +102,67 @@ pool.query(`
   )
 `).catch(err => console.error('Error creating personal_questions table:', err));
 
-pool.query(`
-  CREATE TABLE IF NOT EXISTS answers (
-    id SERIAL PRIMARY KEY,
-    question TEXT NOT NULL,
-    context TEXT NOT NULL,
-    answer TEXT NOT NULL,
-    model TEXT NOT NULL,
-    model_name TEXT,
-    confidence REAL NOT NULL,
-    date TIMESTAMP NOT NULL,
-    user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
-    personal_question_id INTEGER REFERENCES personal_questions(id) ON DELETE CASCADE,
-    is_personal BOOLEAN DEFAULT false
-  )
-`).catch(err => console.error('Error creating answers table:', err));
+// Check if answers table exists and add new columns if needed
+async function migrateAnswersTable() {
+  try {
+    // First, create the table if it doesn't exist (original structure)
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS answers (
+        id SERIAL PRIMARY KEY,
+        question TEXT NOT NULL,
+        context TEXT NOT NULL,
+        answer TEXT NOT NULL,
+        model TEXT NOT NULL,
+        model_name TEXT,
+        confidence REAL NOT NULL,
+        date TIMESTAMP NOT NULL
+      )
+    `);
+
+    // Check if new columns exist and add them if they don't
+    const checkColumns = await pool.query(`
+      SELECT column_name 
+      FROM information_schema.columns 
+      WHERE table_name = 'answers' AND table_schema = 'public'
+    `);
+    
+    const existingColumns = checkColumns.rows.map(row => row.column_name);
+    
+    // Add user_id column if it doesn't exist
+    if (!existingColumns.includes('user_id')) {
+      await pool.query(`
+        ALTER TABLE answers 
+        ADD COLUMN user_id INTEGER REFERENCES users(id) ON DELETE CASCADE
+      `);
+      console.log('Added user_id column to answers table');
+    }
+    
+    // Add personal_question_id column if it doesn't exist
+    if (!existingColumns.includes('personal_question_id')) {
+      await pool.query(`
+        ALTER TABLE answers 
+        ADD COLUMN personal_question_id INTEGER REFERENCES personal_questions(id) ON DELETE CASCADE
+      `);
+      console.log('Added personal_question_id column to answers table');
+    }
+    
+    // Add is_personal column if it doesn't exist
+    if (!existingColumns.includes('is_personal')) {
+      await pool.query(`
+        ALTER TABLE answers 
+        ADD COLUMN is_personal BOOLEAN DEFAULT false
+      `);
+      console.log('Added is_personal column to answers table');
+    }
+    
+    console.log('Database migration completed successfully');
+  } catch (err) {
+    console.error('Error during database migration:', err);
+  }
+}
+
+// Run migration
+migrateAnswersTable();
 
 // Available AI models
 const AVAILABLE_MODELS = [
