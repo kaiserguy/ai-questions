@@ -513,7 +513,6 @@ async function createSchedulingTables() {
     console.error('Error creating scheduling tables:', err);
   }
 }
-createSchedulingTables();
 
 // Available AI models
 const AVAILABLE_MODELS = [
@@ -1639,7 +1638,7 @@ async function executeScheduledQuestions() {
       `SELECT qs.*, pq.question, pq.context 
        FROM question_schedules qs 
        JOIN personal_questions pq ON qs.question_id = pq.id 
-       WHERE qs.is_active = true 
+       WHERE qs.is_enabled = true 
        AND qs.next_run_date <= CURRENT_TIMESTAMP 
        AND pq.is_active = true`
     );
