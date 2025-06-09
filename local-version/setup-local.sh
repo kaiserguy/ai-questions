@@ -217,7 +217,7 @@ OLLAMA_FALLBACK_TO_CLOUD=true
 # Wikipedia database configuration
 WIKIPEDIA_ENABLED=true
 WIKIPEDIA_DB_PATH=./wikipedia.db
-WIKIPEDIA_AUTO_DOWNLOAD=false
+WIKIPEDIA_AUTO_DOWNLOAD=true
 WIKIPEDIA_DATASET=simple
 
 # ===== OPTIONAL SETTINGS =====
@@ -398,27 +398,40 @@ chmod +x backup-local.sh
 # Create logs directory
 mkdir -p logs
 
+# Download Wikipedia if enabled
+if [ "$WIKIPEDIA_AUTO_DOWNLOAD" = "true" ]; then
+    echo -e "${BLUE}📚 Downloading Wikipedia database...${NC}"
+    echo "This may take several minutes depending on your internet connection..."
+    
+    # Use the manage-wikipedia.sh script to download
+    if [ -f "./manage-wikipedia.sh" ]; then
+        chmod +x ./manage-wikipedia.sh
+        ./manage-wikipedia.sh download simple
+    else
+        echo -e "${YELLOW}⚠️  Wikipedia download script not found, skipping...${NC}"
+    fi
+fi
+
 echo ""
 echo -e "${GREEN}🎉 Installation completed successfully!${NC}"
 echo ""
 echo -e "${BLUE}📋 Next Steps:${NC}"
-echo "1. Add your AI API keys to .env.local:"
-echo "   nano .env.local"
-echo ""
-echo "2. Start the application:"
+echo "1. Start the application:"
 echo "   ./start-local.sh"
 echo ""
-echo "3. Open your browser to:"
+echo "2. Open your browser to:"
 echo "   http://localhost:$APP_PORT"
 echo ""
 echo -e "${BLUE}📚 Available Commands:${NC}"
-echo "   ./start-local.sh    - Start the application"
-echo "   ./stop-local.sh     - Stop the application"
-echo "   ./status-local.sh   - Check application status"
-echo "   ./backup-local.sh   - Create a backup"
+echo "   ./start-local.sh       - Start the application"
+echo "   ./stop-local.sh        - Stop the application"
+echo "   ./status-local.sh      - Check application status"
+echo "   ./backup-local.sh      - Create a backup"
+echo "   ./manage-models.sh     - Manage AI models"
+echo "   ./manage-wikipedia.sh  - Manage Wikipedia database"
 echo ""
 echo -e "${YELLOW}⚠️  Important:${NC}"
-echo "- Add at least one AI API key to .env.local before starting"
+echo "- No API keys required - uses local AI models only"
 echo "- The application will be accessible from other devices on your network"
 echo "- All data is stored locally and privately on this machine"
 echo ""

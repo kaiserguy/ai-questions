@@ -384,49 +384,52 @@ const pool = new Pool(LOCAL_CONFIG.enabled ? {
 });
 
 // Create tables if they don't exist
-pool.query(`
-  CREATE TABLE IF NOT EXISTS users (
-    id SERIAL PRIMARY KEY,
-    google_id VARCHAR(255) UNIQUE NOT NULL,
-    email VARCHAR(255) NOT NULL,
-    name VARCHAR(255) NOT NULL,
-    avatar_url TEXT,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-  )
-`).then(async () => {
-  // In local mode, ensure default user exists
-  if (LOCAL_CONFIG.enabled) {
-    try {
-      const existingUser = await pool.query('SELECT * FROM users WHERE google_id = $1', [LOCAL_CONFIG.defaultUser.google_id]);
-      if (existingUser.rows.length === 0) {
-        await pool.query(
-          'INSERT INTO users (google_id, email, name, avatar_url) VALUES ($1, $2, $3, $4)',
-          [LOCAL_CONFIG.defaultUser.google_id, LOCAL_CONFIG.defaultUser.email, LOCAL_CONFIG.defaultUser.name, LOCAL_CONFIG.defaultUser.avatar_url]
-        );
-        console.log('Created default local user');
-      }
-    } catch (err) {
-      console.error('Error creating default user:', err);
-    }
-  }
-}).catch(err => console.error('Error creating users table:', err));
-
-pool.query(`
-  CREATE TABLE IF NOT EXISTS personal_questions (
-    id SERIAL PRIMARY KEY,
-    user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
-    question TEXT NOT NULL,
-    context TEXT NOT NULL,
-    is_active BOOLEAN DEFAULT true,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-  )
-`).catch(err => console.error('Error creating personal_questions table:', err));
-
-// Check if answers table exists and add new columns if needed
-async function migrateAnswersTable() {
+async function initializeDatabase() {
   try {
-    // First, create the table if it doesn't exist (original structure)
+    // Create users table first
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS users (
+        id SERIAL PRIMARY KEY,
+        google_id VARCHAR(255) UNIQUE NOT NULL,
+        email VARCHAR(255) NOT NULL,
+        name VARCHAR(255) NOT NULL,
+        avatar_url TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+    console.log('Users table created/verified');
+
+    // In local mode, ensure default user exists
+    if (LOCAL_CONFIG.enabled) {
+      try {
+        const existingUser = await pool.query('SELECT * FROM users WHERE google_id = $1', [LOCAL_CONFIG.defaultUser.google_id]);
+        if (existingUser.rows.length === 0) {
+          await pool.query(
+            'INSERT INTO users (google_id, email, name, avatar_url) VALUES ($1, $2, $3, $4)',
+            [LOCAL_CONFIG.defaultUser.google_id, LOCAL_CONFIG.defaultUser.email, LOCAL_CONFIG.defaultUser.name, LOCAL_CONFIG.defaultUser.avatar_url]
+          );
+          console.log('Created default local user');
+        }
+      } catch (err) {
+        console.error('Error creating default user:', err);
+      }
+    }
+
+    // Create personal_questions table
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS personal_questions (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+        question TEXT NOT NULL,
+        context TEXT NOT NULL,
+        is_active BOOLEAN DEFAULT true,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+    console.log('Personal questions table created/verified');
+
+    // Create answers table with all columns
     await pool.query(`
       CREATE TABLE IF NOT EXISTS answers (
         id SERIAL PRIMARY KEY,
@@ -436,54 +439,25 @@ async function migrateAnswersTable() {
         model TEXT NOT NULL,
         model_name TEXT,
         confidence REAL NOT NULL,
-        date TIMESTAMP NOT NULL
+        date TIMESTAMP NOT NULL,
+        user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+        personal_question_id INTEGER REFERENCES personal_questions(id) ON DELETE CASCADE,
+        is_personal BOOLEAN DEFAULT false
       )
     `);
+    console.log('Answers table created/verified');
 
-    // Check if new columns exist and add them if they don't
-    const checkColumns = await pool.query(`
-      SELECT column_name 
-      FROM information_schema.columns 
-      WHERE table_name = 'answers' AND table_schema = 'public'
-    `);
+    // Create scheduling tables
+    await createSchedulingTables();
     
-    const existingColumns = checkColumns.rows.map(row => row.column_name);
-    
-    // Add user_id column if it doesn't exist
-    if (!existingColumns.includes('user_id')) {
-      await pool.query(`
-        ALTER TABLE answers 
-        ADD COLUMN user_id INTEGER REFERENCES users(id) ON DELETE CASCADE
-      `);
-      console.log('Added user_id column to answers table');
-    }
-    
-    // Add personal_question_id column if it doesn't exist
-    if (!existingColumns.includes('personal_question_id')) {
-      await pool.query(`
-        ALTER TABLE answers 
-        ADD COLUMN personal_question_id INTEGER REFERENCES personal_questions(id) ON DELETE CASCADE
-      `);
-      console.log('Added personal_question_id column to answers table');
-    }
-    
-    // Add is_personal column if it doesn't exist
-    if (!existingColumns.includes('is_personal')) {
-      await pool.query(`
-        ALTER TABLE answers 
-        ADD COLUMN is_personal BOOLEAN DEFAULT false
-      `);
-      console.log('Added is_personal column to answers table');
-    }
-    
-    console.log('Database migration completed successfully');
+    console.log('Database initialization completed successfully');
   } catch (err) {
-    console.error('Error during database migration:', err);
+    console.error('Error during database initialization:', err);
   }
 }
 
-// Run migration
-migrateAnswersTable();
+// Initialize database
+initializeDatabase();
 
 // Create scheduling tables
 async function createSchedulingTables() {
@@ -498,9 +472,8 @@ async function createSchedulingTables() {
         frequency_value INTEGER, -- For custom intervals (e.g., every 3 days)
         frequency_unit VARCHAR(10), -- 'days', 'weeks', 'months' for custom
         selected_models TEXT[], -- Array of model names to query
-        is_active BOOLEAN DEFAULT true,
+        is_enabled BOOLEAN DEFAULT true,
         next_run_date TIMESTAMP,
-        last_run_date TIMESTAMP,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
@@ -514,14 +487,12 @@ async function createSchedulingTables() {
         execution_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         models_executed TEXT[],
         success_count INTEGER DEFAULT 0,
-        failure_count INTEGER DEFAULT 0,
-        execution_status VARCHAR(20) DEFAULT 'pending', -- 'pending', 'running', 'completed', 'failed'
-        error_details TEXT,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        error_count INTEGER DEFAULT 0,
+        errors TEXT
       )
     `);
 
-    // Create personal_question_answers table if it doesn't exist
+    // Create personal_question_answers table
     await pool.query(`
       CREATE TABLE IF NOT EXISTS personal_question_answers (
         id SERIAL PRIMARY KEY,
@@ -542,36 +513,11 @@ async function createSchedulingTables() {
     console.error('Error creating scheduling tables:', err);
   }
 }
-
-// Run scheduling table creation
 createSchedulingTables();
 
 // Available AI models
 const AVAILABLE_MODELS = [
-  {
-    id: "deepseek-ai/DeepSeek-R1-0528",
-    name: "DeepSeek R1 (Latest)",
-    provider: "huggingface",
-    apiKeyEnv: "HUGGING_FACE_API_KEY"
-  },
-  {
-    id: "gpt-3.5-turbo",
-    name: "ChatGPT (GPT-3.5)",
-    provider: "openai",
-    apiKeyEnv: "OPENAI_API_KEY"
-  },
-  {
-    id: "meta-llama/Llama-2-7b-chat-hf",
-    name: "Meta Llama 2 (7B)",
-    provider: "huggingface",
-    apiKeyEnv: "HUGGING_FACE_API_KEY"
-  },
-  {
-    id: "mistralai/Mistral-7B-Instruct-v0.1",
-    name: "Mistral 7B",
-    provider: "huggingface",
-    apiKeyEnv: "HUGGING_FACE_API_KEY"
-  }
+  // Local models only in local mode
 ];
 
 // Questions from 1984
@@ -1019,8 +965,31 @@ app.get('/api/question', async (req, res) => {
   }
 });
 
-app.get('/api/models', (req, res) => {
-  res.json(AVAILABLE_MODELS);
+app.get('/api/models', async (req, res) => {
+  try {
+    // In local mode, only return local Ollama models
+    let localModels = [];
+    if (ollama.available) {
+      try {
+        const models = await ollama.getModels();
+        localModels = models.map(model => ({
+          id: model.name,
+          name: model.displayName || model.name,
+          provider: 'ollama',
+          type: 'local',
+          available: true,
+          api_key_required: false
+        }));
+      } catch (error) {
+        console.error('Error fetching Ollama models:', error);
+      }
+    }
+    
+    res.json(localModels);
+  } catch (error) {
+    console.error('Error in models API:', error);
+    res.json([]);
+  }
 });
 
 app.get('/api/answers', async (req, res) => {
@@ -1211,28 +1180,50 @@ app.post('/api/personal-question/:id/ask', requireAuth, async (req, res) => {
     
     const personalQuestion = questionResult.rows[0];
     
-    // Collect all API keys
-    const apiKeys = {
-      HUGGING_FACE_API_KEY: process.env.HUGGING_FACE_API_KEY,
-      OPENAI_API_KEY: process.env.OPENAI_API_KEY
-    };
+    // Check for recent answer within 24 hours
+    const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    const recentAnswerResult = await pool.query(
+      `SELECT * FROM answers 
+       WHERE personal_question_id = $1 AND user_id = $2 AND model = $3 
+       AND date > $4 
+       ORDER BY date DESC LIMIT 1`,
+      [id, req.user.id, model, twentyFourHoursAgo]
+    );
     
-    // Check if we have the required API key
-    const selectedModel = AVAILABLE_MODELS.find(m => m.id === model);
-    if (!selectedModel) {
-      return res.status(400).json({ error: 'Invalid model ID' });
+    if (recentAnswerResult.rows.length > 0) {
+      const recentAnswer = recentAnswerResult.rows[0];
+      const timeUntilNext = new Date(recentAnswer.date.getTime() + 24 * 60 * 60 * 1000);
+      const hoursRemaining = Math.ceil((timeUntilNext - new Date()) / (1000 * 60 * 60));
+      
+      return res.status(429).json({ 
+        error: 'Cooldown active',
+        message: `This question was already asked to ${recentAnswer.model_name || model} within the last 24 hours. Please wait ${hoursRemaining} hour(s) before asking again.`,
+        lastAsked: recentAnswer.date,
+        nextAvailable: timeUntilNext,
+        hoursRemaining: hoursRemaining,
+        existingAnswer: {
+          id: recentAnswer.id,
+          answer: recentAnswer.answer,
+          confidence: recentAnswer.confidence,
+          date: recentAnswer.date,
+          model: recentAnswer.model,
+          modelName: recentAnswer.model_name
+        }
+      });
     }
     
-    if (!apiKeys[selectedModel.apiKeyEnv]) {
+    // Use local Ollama model
+    if (!ollama.available) {
       return res.status(500).json({ 
-        error: `API key for ${selectedModel.name} not configured`,
+        error: 'Local AI not available',
+        message: 'Ollama service is not running. Please ensure Ollama is installed and running.',
         question: personalQuestion.question,
         context: personalQuestion.context,
         date: new Date().toISOString()
       });
     }
     
-    const response = await askQuestion(personalQuestion.question, personalQuestion.context, model, apiKeys);
+    const response = await askQuestion(personalQuestion.question, personalQuestion.context, model, {});
     
     const answer = {
       question: personalQuestion.question,
