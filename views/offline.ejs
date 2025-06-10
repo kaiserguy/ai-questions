@@ -94,11 +94,15 @@
             padding: 20px;
             cursor: pointer;
             transition: all 0.3s ease;
+            -webkit-tap-highlight-color: transparent;
+            user-select: none;
         }
 
-        .download-option:hover {
+        .download-option:hover,
+        .download-option:active {
             border-color: #6366f1;
             background: #f8fafc;
+            transform: scale(0.98);
         }
 
         .download-option.selected {
@@ -147,9 +151,13 @@
             transition: all 0.3s ease;
             width: 100%;
             margin-top: 20px;
+            -webkit-tap-highlight-color: transparent;
+            user-select: none;
+            min-height: 50px;
         }
 
-        .download-btn:hover {
+        .download-btn:hover,
+        .download-btn:active {
             transform: translateY(-2px);
             box-shadow: 0 10px 20px rgba(99, 102, 241, 0.3);
         }
@@ -308,6 +316,24 @@
             .container {
                 padding: 10px;
             }
+            
+            .download-option {
+                padding: 15px;
+                margin-bottom: 10px;
+            }
+            
+            .download-btn {
+                padding: 18px 30px;
+                font-size: 1.2rem;
+                min-height: 60px;
+            }
+            
+            .status-card,
+            .download-section,
+            .progress-section {
+                padding: 20px;
+                margin-bottom: 20px;
+            }
         }
     </style>
 </head>
@@ -427,4 +453,35 @@
     <script src="/offline/app.js"></script>
 </body>
 </html>
+
+
+    <script>
+        // Initialize the offline app when DOM is loaded
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('DOM loaded, initializing offline app...');
+            
+            // Add a small delay to ensure all scripts are loaded
+            setTimeout(() => {
+                try {
+                    if (typeof OfflineApp !== 'undefined') {
+                        window.offlineApp = new OfflineApp();
+                        console.log('✅ OfflineApp initialized successfully');
+                    } else {
+                        console.error('❌ OfflineApp class not found');
+                    }
+                } catch (error) {
+                    console.error('❌ Failed to initialize OfflineApp:', error);
+                }
+            }, 100);
+        });
+        
+        // Add touch event debugging for mobile
+        document.addEventListener('touchstart', function(e) {
+            console.log('Touch start detected on:', e.target.tagName, e.target.className);
+        });
+        
+        document.addEventListener('touchend', function(e) {
+            console.log('Touch end detected on:', e.target.tagName, e.target.className);
+        });
+    </script>
 

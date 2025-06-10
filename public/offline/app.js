@@ -15,17 +15,28 @@ class OfflineApp {
     async init() {
         console.log('🚀 Initializing AI Questions Offline Mode');
         
-        // Initialize download manager
-        await this.downloadManager.initialize();
-        
-        // Check browser capabilities
-        await this.checkCapabilities();
-        
-        // Set up event listeners
-        this.setupEventListeners();
-        
-        // Check if already offline ready
-        await this.checkOfflineStatus();
+        try {
+            // Initialize download manager
+            await this.downloadManager.initialize();
+
+            // Check browser capabilities
+            const capabilitiesSupported = await this.checkCapabilities();
+            if (!capabilitiesSupported) {
+                console.error('Browser capabilities check failed');
+                return;
+            }
+
+            // Set up event listeners
+            this.setupEventListeners();
+
+            // Check if already offline ready
+            await this.checkOfflineStatus();
+            
+            console.log('✅ AI Questions Offline Mode initialized successfully');
+        } catch (error) {
+            console.error('❌ Failed to initialize offline mode:', error);
+            this.updateStatus('error', 'Initialization failed', 'Please refresh the page and try again.');
+        }
     }
 
     async checkCapabilities() {
@@ -51,31 +62,71 @@ class OfflineApp {
     }
 
     setupEventListeners() {
-        // Package selection
+        // Package selection with both click and touch events for mobile
         document.querySelectorAll('.download-option').forEach(option => {
-            option.addEventListener('click', () => {
+            const selectPackage = () => {
                 document.querySelectorAll('.download-option').forEach(opt => opt.classList.remove('selected'));
                 option.classList.add('selected');
                 this.selectedPackage = option.dataset.package;
                 this.updateDownloadButton();
+                
+                // Visual feedback for mobile
+                option.style.transform = 'scale(0.98)';
+                setTimeout(() => {
+                    option.style.transform = '';
+                }, 150);
+            };
+            
+            option.addEventListener('click', selectPackage);
+            option.addEventListener('touchend', (e) => {
+                e.preventDefault();
+                selectPackage();
             });
         });
 
-        // Download button
-        document.getElementById('downloadBtn').addEventListener('click', () => {
-            this.startDownload();
-        });
+        // Download button with both click and touch events
+        const downloadBtn = document.getElementById('downloadBtn');
+        if (downloadBtn) {
+            const startDownloadHandler = (e) => {
+                e.preventDefault();
+                console.log('Download button clicked/tapped');
+                
+                // Visual feedback for mobile
+                downloadBtn.style.transform = 'scale(0.98)';
+                setTimeout(() => {
+                    downloadBtn.style.transform = '';
+                }, 150);
+                
+                this.startDownload();
+            };
+            
+            downloadBtn.addEventListener('click', startDownloadHandler);
+            downloadBtn.addEventListener('touchend', startDownloadHandler);
+        } else {
+            console.error('Download button not found!');
+        }
 
         // Chat functionality
-        document.getElementById('sendBtn').addEventListener('click', () => {
-            this.sendMessage();
-        });
-
-        document.getElementById('chatInput').addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') {
+        const sendBtn = document.getElementById('sendBtn');
+        const chatInput = document.getElementById('chatInput');
+        
+        if (sendBtn) {
+            sendBtn.addEventListener('click', () => {
                 this.sendMessage();
-            }
-        });
+            });
+            sendBtn.addEventListener('touchend', (e) => {
+                e.preventDefault();
+                this.sendMessage();
+            });
+        }
+
+        if (chatInput) {
+            chatInput.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') {
+                    this.sendMessage();
+                }
+            });
+        }
     }
 
     updateDownloadButton() {
@@ -148,16 +199,27 @@ class OfflineApp {
     }
 
     async startDownload() {
-        console.log(`Starting download of ${this.selectedPackage} package`);
+        console.log(`🚀 Starting download of ${this.selectedPackage} package`);
+        
+        // Show immediate feedback
+        this.updateStatus('downloading', 'Starting download...', 'Preparing to download offline components');
         
         // Hide download section, show progress
-        document.getElementById('downloadSection').style.display = 'none';
-        document.getElementById('progressSection').style.display = 'block';
+        const downloadSection = document.getElementById('downloadSection');
+        const progressSection = document.getElementById('progressSection');
+        
+        if (downloadSection && progressSection) {
+            downloadSection.style.display = 'none';
+            progressSection.style.display = 'block';
+        } else {
+            console.error('Could not find download or progress sections');
+            return;
+        }
 
         try {
             // Register service worker first
             await this.registerServiceWorker();
-            
+
             // Use the download manager for progressive download
             await this.downloadManager.startPackageDownload(
                 this.selectedPackage,
@@ -165,20 +227,25 @@ class OfflineApp {
                     this.updateProgress(percent, text, details);
                 }
             );
-            
+
             // Initialize offline components
             await this.initializeOfflineComponents();
-            
+
             // Show chat interface
             this.showChatInterface();
-            
             this.updateStatus('offline', 'Offline mode ready', 'All components downloaded successfully!');
             
         } catch (error) {
             console.error('Download failed:', error);
             this.updateProgress(0, 'Download failed', 'Please try again or check your internet connection.');
-            document.getElementById('downloadSection').style.display = 'block';
-            document.getElementById('progressSection').style.display = 'none';
+            
+            // Show download section again
+            if (downloadSection && progressSection) {
+                downloadSection.style.display = 'block';
+                progressSection.style.display = 'none';
+            }
+            
+            this.updateStatus('error', 'Download failed', error.message || 'Please try again.');
         }
     }
 
