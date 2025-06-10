@@ -92,6 +92,34 @@ pool.query(`
   )
 `).catch(err => console.error('Error creating users table:', err));
 
+// Create user API keys table
+pool.query(`
+  CREATE TABLE IF NOT EXISTS user_api_keys (
+    id SERIAL PRIMARY KEY,
+    user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+    provider VARCHAR(50) NOT NULL,
+    api_key_encrypted TEXT NOT NULL,
+    is_active BOOLEAN DEFAULT true,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(user_id, provider)
+  )
+`).catch(err => console.error('Error creating user_api_keys table:', err));
+
+// Create user model preferences table
+pool.query(`
+  CREATE TABLE IF NOT EXISTS user_model_preferences (
+    id SERIAL PRIMARY KEY,
+    user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+    model_id VARCHAR(100) NOT NULL,
+    is_enabled BOOLEAN DEFAULT true,
+    display_order INTEGER DEFAULT 0,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(user_id, model_id)
+  )
+`).catch(err => console.error('Error creating user_model_preferences table:', err));
+
 pool.query(`
   CREATE TABLE IF NOT EXISTS personal_questions (
     id SERIAL PRIMARY KEY,
@@ -228,30 +256,135 @@ async function createSchedulingTables() {
 createSchedulingTables();
 
 // Available AI models
+// Default enabled models for new users
+const DEFAULT_ENABLED_MODELS = [
+  "microsoft/DialoGPT-medium",
+  "google/flan-t5-large", 
+  "microsoft/DialoGPT-large",
+  "gpt-3.5-turbo",
+  "claude-3-haiku"
+];
+
 const AVAILABLE_MODELS = [
+  // Free models (no API key required)
   {
     id: "microsoft/DialoGPT-medium",
-    name: "Microsoft DialoGPT",
+    name: "Microsoft DialoGPT Medium",
     provider: "huggingface",
-    apiKeyEnv: "HUGGING_FACE_API_KEY"
-  },
-  {
-    id: "gpt-3.5-turbo",
-    name: "ChatGPT (GPT-3.5)",
-    provider: "openai",
-    apiKeyEnv: "OPENAI_API_KEY"
+    apiKeyEnv: "HUGGING_FACE_API_KEY",
+    free: true,
+    description: "Conversational AI model trained on Reddit conversations",
+    defaultEnabled: true
   },
   {
     id: "google/flan-t5-large",
     name: "Google Flan-T5 Large",
-    provider: "huggingface",
-    apiKeyEnv: "HUGGING_FACE_API_KEY"
+    provider: "huggingface", 
+    apiKeyEnv: "HUGGING_FACE_API_KEY",
+    free: true,
+    description: "Instruction-tuned text-to-text transformer",
+    defaultEnabled: true
   },
   {
     id: "microsoft/DialoGPT-large",
     name: "Microsoft DialoGPT Large",
     provider: "huggingface",
-    apiKeyEnv: "HUGGING_FACE_API_KEY"
+    apiKeyEnv: "HUGGING_FACE_API_KEY",
+    free: true,
+    description: "Larger conversational AI model with better responses",
+    defaultEnabled: true
+  },
+  
+  // Premium models (API key required)
+  {
+    id: "gpt-3.5-turbo",
+    name: "ChatGPT (GPT-3.5 Turbo)",
+    provider: "openai",
+    apiKeyEnv: "OPENAI_API_KEY",
+    free: false,
+    description: "OpenAI's fast and capable conversational AI model",
+    requiresAuth: true,
+    defaultEnabled: true
+  },
+  {
+    id: "gpt-4",
+    name: "ChatGPT (GPT-4)",
+    provider: "openai", 
+    apiKeyEnv: "OPENAI_API_KEY",
+    free: false,
+    description: "OpenAI's most advanced reasoning model",
+    requiresAuth: true,
+    defaultEnabled: false
+  },
+  {
+    id: "gpt-4-turbo",
+    name: "ChatGPT (GPT-4 Turbo)",
+    provider: "openai",
+    apiKeyEnv: "OPENAI_API_KEY", 
+    free: false,
+    description: "Faster GPT-4 with improved performance",
+    requiresAuth: true,
+    defaultEnabled: false
+  },
+  {
+    id: "claude-3-haiku",
+    name: "Claude 3 Haiku",
+    provider: "anthropic",
+    apiKeyEnv: "ANTHROPIC_API_KEY",
+    free: false,
+    description: "Anthropic's fastest model for simple tasks",
+    requiresAuth: true,
+    defaultEnabled: true
+  },
+  {
+    id: "claude-3-sonnet",
+    name: "Claude 3 Sonnet", 
+    provider: "anthropic",
+    apiKeyEnv: "ANTHROPIC_API_KEY",
+    free: false,
+    description: "Balanced model for complex reasoning",
+    requiresAuth: true,
+    defaultEnabled: false
+  },
+  {
+    id: "claude-3-opus",
+    name: "Claude 3 Opus",
+    provider: "anthropic",
+    apiKeyEnv: "ANTHROPIC_API_KEY",
+    free: false,
+    description: "Anthropic's most powerful model",
+    requiresAuth: true,
+    defaultEnabled: false
+  },
+  {
+    id: "gemini-pro",
+    name: "Google Gemini Pro",
+    provider: "google",
+    apiKeyEnv: "GOOGLE_AI_API_KEY",
+    free: false,
+    description: "Google's advanced multimodal AI model",
+    requiresAuth: true,
+    defaultEnabled: false
+  },
+  {
+    id: "llama-2-70b",
+    name: "Meta Llama 2 70B",
+    provider: "huggingface",
+    apiKeyEnv: "HUGGING_FACE_API_KEY",
+    free: false,
+    description: "Meta's large language model",
+    requiresAuth: true,
+    defaultEnabled: false
+  },
+  {
+    id: "mistral-7b",
+    name: "Mistral 7B",
+    provider: "huggingface", 
+    apiKeyEnv: "HUGGING_FACE_API_KEY",
+    free: false,
+    description: "Efficient and powerful open-source model",
+    requiresAuth: true,
+    defaultEnabled: false
   }
 ];
 

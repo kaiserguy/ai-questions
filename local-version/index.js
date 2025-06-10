@@ -1773,6 +1773,156 @@ app.post('/api/chat', async (req, res) => {
   }
 });
 
+// ===== STREAMING CHAT API ENDPOINT =====
+
+app.post('/api/chat/stream', async (req, res) => {
+  try {
+    const { message, model, context = [], includeWikipedia = true } = req.body;
+    
+    if (!message || !model) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Message and model are required' 
+      });
+    }
+    
+    // Check if Ollama is available
+    try {
+      const ollamaResponse = await fetch(`${LOCAL_CONFIG.ollama.url}/api/tags`);
+      if (!ollamaResponse.ok) {
+        throw new Error('Ollama service not available');
+      }
+    } catch (error) {
+      return res.status(503).json({ 
+        success: false, 
+        error: 'Local AI service (Ollama) is not available. Please ensure Ollama is running.' 
+      });
+    }
+    
+    // Set up Server-Sent Events
+    res.writeHead(200, {
+      'Content-Type': 'text/event-stream',
+      'Cache-Control': 'no-cache',
+      'Connection': 'keep-alive',
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Headers': 'Cache-Control'
+    });
+    
+    // Prepare the prompt with context
+    let prompt = '';
+    
+    // Add conversation context if provided
+    if (context && context.length > 0) {
+      prompt += 'Previous conversation:\n';
+      context.forEach(msg => {
+        prompt += `${msg.role === 'user' ? 'Human' : 'Assistant'}: ${msg.content}\n`;
+      });
+      prompt += '\n';
+    }
+    
+    // Add Wikipedia context if enabled and available
+    let wikipediaLinks = [];
+    if (includeWikipedia && wikipedia.available) {
+      try {
+        const searchResults = await wikipedia.searchRelevantArticles(message, 3);
+        if (searchResults && searchResults.length > 0) {
+          prompt += 'Relevant Wikipedia information:\n';
+          searchResults.forEach(result => {
+            prompt += `- ${result.title}: ${result.content.substring(0, 200)}...\n`;
+            wikipediaLinks.push({ title: result.title, url: `/wikipedia/article/${encodeURIComponent(result.title)}` });
+          });
+          prompt += '\n';
+        }
+      } catch (error) {
+        console.error('Error searching Wikipedia:', error);
+      }
+    }
+    
+    // Send Wikipedia links first if available
+    if (wikipediaLinks.length > 0) {
+      res.write(`data: ${JSON.stringify({ type: 'wikipedia', links: wikipediaLinks })}\n\n`);
+    }
+    
+    // Add the current message
+    prompt += `Human: ${message}\nAssistant:`;
+    
+    // Call Ollama API with streaming
+    try {
+      const ollamaResponse = await fetch(`${LOCAL_CONFIG.ollama.url}/api/generate`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          model: model,
+          prompt: prompt,
+          stream: true,
+          options: {
+            temperature: 0.7,
+            top_p: 0.9,
+            max_tokens: 1000
+          }
+        })
+      });
+      
+      if (!ollamaResponse.ok) {
+        throw new Error(`Ollama API error: ${ollamaResponse.status}`);
+      }
+      
+      // Handle streaming response
+      const reader = ollamaResponse.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+      
+      try {
+        while (true) {
+          const { done, value } = await reader.read();
+          
+          if (done) break;
+          
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split('\n');
+          buffer = lines.pop(); // Keep incomplete line in buffer
+          
+          for (const line of lines) {
+            if (line.trim()) {
+              try {
+                const data = JSON.parse(line);
+                if (data.response) {
+                  // Send each token to the client
+                  res.write(`data: ${JSON.stringify({ type: 'token', content: data.response })}\n\n`);
+                }
+                if (data.done) {
+                  // Send completion signal
+                  res.write(`data: ${JSON.stringify({ type: 'done' })}\n\n`);
+                  break;
+                }
+              } catch (parseError) {
+                console.error('Error parsing streaming response:', parseError);
+              }
+            }
+          }
+        }
+      } finally {
+        reader.releaseLock();
+      }
+      
+      res.write(`data: ${JSON.stringify({ type: 'complete' })}\n\n`);
+      res.end();
+      
+    } catch (error) {
+      console.error('Error calling Ollama streaming:', error);
+      res.write(`data: ${JSON.stringify({ type: 'error', error: `Failed to get response from AI model: ${error.message}` })}\n\n`);
+      res.end();
+    }
+    
+  } catch (error) {
+    console.error('Error in streaming chat endpoint:', error);
+    res.write(`data: ${JSON.stringify({ type: 'error', error: 'Internal server error' })}\n\n`);
+    res.end();
+  }
+});
+
 // ===== WIKIPEDIA ARTICLE ENDPOINT =====
 
 app.get('/wikipedia/article/:title', async (req, res) => {
