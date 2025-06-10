@@ -1,0 +1,409 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Model Configuration - AI Questions</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        body {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        .config-container {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+            backdrop-filter: blur(10px);
+            margin: 2rem auto;
+            max-width: 1200px;
+        }
+        
+        .model-card {
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.08);
+            transition: all 0.3s ease;
+            border: 2px solid transparent;
+        }
+        
+        .model-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
+        }
+        
+        .model-card.enabled {
+            border-color: #28a745;
+            background: linear-gradient(135deg, #f8fff9 0%, #e8f5e8 100%);
+        }
+        
+        .model-card.disabled {
+            opacity: 0.6;
+            background: #f8f9fa;
+        }
+        
+        .provider-badge {
+            font-size: 0.75rem;
+            padding: 0.25rem 0.5rem;
+            border-radius: 20px;
+        }
+        
+        .provider-openai { background: #10a37f; color: white; }
+        .provider-huggingface { background: #ff6b35; color: white; }
+        .provider-anthropic { background: #d4a574; color: white; }
+        .provider-google { background: #4285f4; color: white; }
+        
+        .api-key-section {
+            background: #f8f9fa;
+            border-radius: 10px;
+            border-left: 4px solid #007bff;
+        }
+        
+        .btn-save {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border: none;
+            border-radius: 25px;
+            padding: 0.75rem 2rem;
+            color: white;
+            font-weight: 600;
+            transition: all 0.3s ease;
+        }
+        
+        .btn-save:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+            color: white;
+        }
+        
+        .loading {
+            display: none;
+        }
+        
+        .loading.show {
+            display: inline-block;
+        }
+    </style>
+</head>
+<body>
+    <div class="container-fluid py-4">
+        <div class="config-container p-4">
+            <!-- Header -->
+            <div class="row mb-4">
+                <div class="col-12">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h1 class="h2 mb-1">
+                                <i class="fas fa-cogs text-primary me-2"></i>
+                                Model Configuration
+                            </h1>
+                            <p class="text-muted mb-0">Configure AI models and API keys for your account</p>
+                        </div>
+                        <a href="/" class="btn btn-outline-secondary">
+                            <i class="fas fa-arrow-left me-2"></i>Back to Home
+                        </a>
+                    </div>
+                </div>
+            </div>
+
+            <!-- User Status -->
+            <div class="row mb-4">
+                <div class="col-12">
+                    <div class="alert alert-info" id="userStatus">
+                        <i class="fas fa-info-circle me-2"></i>
+                        <span id="statusText">Loading user status...</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- API Keys Section -->
+            <div class="row mb-5" id="apiKeysSection" style="display: none;">
+                <div class="col-12">
+                    <div class="api-key-section p-4">
+                        <h3 class="h4 mb-3">
+                            <i class="fas fa-key text-primary me-2"></i>
+                            API Keys Configuration
+                        </h3>
+                        <p class="text-muted mb-4">Configure your own API keys to enable additional models and features.</p>
+                        
+                        <div class="row" id="apiKeysList">
+                            <!-- API keys will be loaded here -->
+                        </div>
+                        
+                        <button class="btn btn-save mt-3" onclick="saveApiKeys()">
+                            <i class="fas fa-save me-2"></i>
+                            <span class="loading"><i class="fas fa-spinner fa-spin me-2"></i></span>
+                            Save API Keys
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Models Section -->
+            <div class="row">
+                <div class="col-12">
+                    <h3 class="h4 mb-4">
+                        <i class="fas fa-robot text-primary me-2"></i>
+                        Available AI Models
+                    </h3>
+                    <div class="row" id="modelsList">
+                        <!-- Models will be loaded here -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- Save Button -->
+            <div class="row mt-4">
+                <div class="col-12 text-center">
+                    <button class="btn btn-save btn-lg" onclick="saveConfiguration()">
+                        <i class="fas fa-save me-2"></i>
+                        <span class="loading"><i class="fas fa-spinner fa-spin me-2"></i></span>
+                        Save Configuration
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        let currentUser = null;
+        let availableModels = [];
+        let userPreferences = {};
+        let apiKeys = {};
+
+        // Load user status and configuration
+        async function loadConfiguration() {
+            try {
+                // Check user status
+                const userResponse = await fetch('/api/user');
+                if (userResponse.ok) {
+                    currentUser = await userResponse.json();
+                    document.getElementById('statusText').innerHTML = 
+                        `<strong>Logged in as:</strong> ${currentUser.name} (${currentUser.email})`;
+                    document.getElementById('userStatus').className = 'alert alert-success';
+                    document.getElementById('apiKeysSection').style.display = 'block';
+                    
+                    // Load API keys for logged-in users
+                    await loadApiKeys();
+                } else {
+                    document.getElementById('statusText').innerHTML = 
+                        '<strong>Guest Mode:</strong> Log in to configure custom API keys and save preferences';
+                    document.getElementById('userStatus').className = 'alert alert-warning';
+                }
+
+                // Load models
+                await loadModels();
+            } catch (error) {
+                console.error('Error loading configuration:', error);
+                document.getElementById('statusText').innerHTML = 
+                    '<strong>Error:</strong> Failed to load configuration';
+                document.getElementById('userStatus').className = 'alert alert-danger';
+            }
+        }
+
+        // Load available models
+        async function loadModels() {
+            try {
+                const response = await fetch('/api/config/models');
+                const data = await response.json();
+                
+                availableModels = data.models;
+                userPreferences = data.userPreferences || {};
+                
+                renderModels();
+            } catch (error) {
+                console.error('Error loading models:', error);
+                document.getElementById('modelsList').innerHTML = 
+                    '<div class="col-12"><div class="alert alert-danger">Failed to load models</div></div>';
+            }
+        }
+
+        // Load API keys
+        async function loadApiKeys() {
+            try {
+                const response = await fetch('/api/config/api-keys');
+                if (response.ok) {
+                    apiKeys = await response.json();
+                }
+                renderApiKeys();
+            } catch (error) {
+                console.error('Error loading API keys:', error);
+            }
+        }
+
+        // Render API keys section
+        function renderApiKeys() {
+            const providers = [
+                { id: 'openai', name: 'OpenAI', description: 'For ChatGPT and GPT-4 models' },
+                { id: 'huggingface', name: 'Hugging Face', description: 'For open-source models' },
+                { id: 'anthropic', name: 'Anthropic', description: 'For Claude models' },
+                { id: 'google', name: 'Google AI', description: 'For Gemini and other Google models' }
+            ];
+
+            const html = providers.map(provider => `
+                <div class="col-md-6 mb-3">
+                    <label class="form-label fw-bold">${provider.name}</label>
+                    <input type="password" 
+                           class="form-control" 
+                           id="apiKey_${provider.id}"
+                           placeholder="Enter ${provider.name} API key"
+                           value="${apiKeys[provider.id] || ''}"
+                           onchange="updateApiKey('${provider.id}', this.value)">
+                    <small class="text-muted">${provider.description}</small>
+                </div>
+            `).join('');
+
+            document.getElementById('apiKeysList').innerHTML = html;
+        }
+
+        // Render models
+        function renderModels() {
+            const html = availableModels.map(model => {
+                const isEnabled = userPreferences[model.id]?.enabled !== false && model.defaultEnabled;
+                const hasApiKey = model.apiKeyEnv && (apiKeys[model.provider] || process.env[model.apiKeyEnv]);
+                
+                return `
+                    <div class="col-lg-4 col-md-6 mb-4">
+                        <div class="model-card p-4 h-100 ${isEnabled ? 'enabled' : 'disabled'}">
+                            <div class="d-flex justify-content-between align-items-start mb-3">
+                                <h5 class="card-title mb-0">${model.name}</h5>
+                                <div class="form-check form-switch">
+                                    <input class="form-check-input" 
+                                           type="checkbox" 
+                                           id="model_${model.id}"
+                                           ${isEnabled ? 'checked' : ''}
+                                           onchange="toggleModel('${model.id}', this.checked)">
+                                </div>
+                            </div>
+                            
+                            <div class="mb-3">
+                                <span class="provider-badge provider-${model.provider}">${model.provider}</span>
+                                ${model.free ? '<span class="badge bg-success ms-2">Free</span>' : '<span class="badge bg-warning text-dark ms-2">Paid</span>'}
+                            </div>
+                            
+                            <p class="text-muted small mb-3">${model.description}</p>
+                            
+                            ${model.apiKeyEnv ? `
+                                <div class="api-status">
+                                    <small class="text-muted">
+                                        <i class="fas fa-key me-1"></i>
+                                        API Key: ${hasApiKey ? 
+                                            '<span class="text-success">Configured</span>' : 
+                                            '<span class="text-danger">Required</span>'
+                                        }
+                                    </small>
+                                </div>
+                            ` : ''}
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            document.getElementById('modelsList').innerHTML = html;
+        }
+
+        // Toggle model enabled/disabled
+        function toggleModel(modelId, enabled) {
+            if (!userPreferences[modelId]) {
+                userPreferences[modelId] = {};
+            }
+            userPreferences[modelId].enabled = enabled;
+            
+            // Update visual state
+            const card = document.querySelector(`#model_${modelId}`).closest('.model-card');
+            if (enabled) {
+                card.classList.remove('disabled');
+                card.classList.add('enabled');
+            } else {
+                card.classList.remove('enabled');
+                card.classList.add('disabled');
+            }
+        }
+
+        // Update API key
+        function updateApiKey(provider, value) {
+            apiKeys[provider] = value;
+        }
+
+        // Save API keys
+        async function saveApiKeys() {
+            if (!currentUser) {
+                alert('Please log in to save API keys');
+                return;
+            }
+
+            const button = event.target;
+            const loading = button.querySelector('.loading');
+            loading.classList.add('show');
+            button.disabled = true;
+
+            try {
+                const response = await fetch('/api/config/api-keys', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(apiKeys)
+                });
+
+                if (response.ok) {
+                    alert('API keys saved successfully!');
+                    await loadModels(); // Reload to update API key status
+                } else {
+                    const error = await response.json();
+                    alert('Error saving API keys: ' + error.error);
+                }
+            } catch (error) {
+                console.error('Error saving API keys:', error);
+                alert('Error saving API keys');
+            } finally {
+                loading.classList.remove('show');
+                button.disabled = false;
+            }
+        }
+
+        // Save configuration
+        async function saveConfiguration() {
+            const button = event.target;
+            const loading = button.querySelector('.loading');
+            loading.classList.add('show');
+            button.disabled = true;
+
+            try {
+                if (currentUser) {
+                    // Save model preferences for logged-in users
+                    const response = await fetch('/api/config/models', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({ preferences: userPreferences })
+                    });
+
+                    if (response.ok) {
+                        alert('Configuration saved successfully!');
+                    } else {
+                        const error = await response.json();
+                        alert('Error saving configuration: ' + error.error);
+                    }
+                } else {
+                    alert('Configuration saved locally. Log in to save permanently.');
+                }
+            } catch (error) {
+                console.error('Error saving configuration:', error);
+                alert('Error saving configuration');
+            } finally {
+                loading.classList.remove('show');
+                button.disabled = false;
+            }
+        }
+
+        // Initialize page
+        document.addEventListener('DOMContentLoaded', loadConfiguration);
+    </script>
+</body>
+</html>
+

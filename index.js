@@ -1857,6 +1857,11 @@ app.get('/download/offline', async (req, res) => {
   }
 });
 
+// ===== CONFIG PAGE ROUTE =====
+app.get('/config', (req, res) => {
+  res.render('config');
+});
+
 // Start server
 app.use(offlinePackageRoutesNew);
 
