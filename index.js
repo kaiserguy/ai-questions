@@ -760,46 +760,111 @@ app.get('/api/question', async (req, res) => {
   } catch (error) {
     console.error('Error in question API route:', error);
     
-    // Enhanced error response for OpenAI API issues
+    // Enhanced error response with actual error details
     let errorResponse = { 
-      error: 'Failed to get answer from AI', 
-      message: error.message 
+      error: 'AI Model Error', 
+      message: error.message || 'Unknown error occurred',
+      model: modelId,
+      timestamp: new Date().toISOString()
     };
     
-    // Check for OpenAI-specific 429 errors
-    if (error.response && error.response.status === 429) {
+    // Check for specific error types and provide detailed information
+    if (error.response) {
+      const status = error.response.status;
       const errorData = error.response.data;
-      if (errorData && errorData.error) {
-        // Check for quota/billing issues
-        if (errorData.error.code === 'insufficient_quota' || 
-            errorData.error.type === 'insufficient_quota' ||
-            errorData.error.message.includes('quota') ||
-            errorData.error.message.includes('billing')) {
-          
-          errorResponse = {
-            error: 'OpenAI API Key Issue Detected',
-            message: 'Your OpenAI API key may not be properly linked to your billing account.',
-            details: [
-              '🔑 This is a known OpenAI issue where older API keys become disconnected from billing',
-              '💡 Solution: Create a new API key at https://platform.openai.com/api-keys',
-              '⚠️ Make sure to create the key from the main API keys page, not from profile settings',
-              '💰 Your account has sufficient credits, but the API key cannot access them'
-            ],
-            technicalDetails: {
-              status: error.response.status,
-              openaiError: errorData.error
-            }
-          };
+      
+      errorResponse.httpStatus = status;
+      errorResponse.details = errorData;
+      
+      if (status === 429) {
+        if (errorData && errorData.error) {
+          // Check for quota/billing issues
+          if (errorData.error.code === 'insufficient_quota' || 
+              errorData.error.type === 'insufficient_quota' ||
+              errorData.error.message.includes('quota') ||
+              errorData.error.message.includes('billing')) {
+            
+            errorResponse = {
+              error: 'OpenAI API Key Issue Detected',
+              message: 'Your OpenAI API key may not be properly linked to your billing account.',
+              details: [
+                '🔑 This is a known OpenAI issue where older API keys become disconnected from billing',
+                '💡 Solution: Create a new API key at https://platform.openai.com/api-keys',
+                '⚠️ Make sure to create the key from the main API keys page, not from profile settings',
+                '💰 Your account has sufficient credits, but the API key cannot access them'
+              ],
+              technicalDetails: {
+                status: status,
+                openaiError: errorData.error
+              }
+            };
+          } else {
+            errorResponse.error = 'Rate Limit Exceeded';
+            errorResponse.message = `Too many requests to ${selectedModel?.name || modelId}. Please wait and try again.`;
+          }
         }
+      } else if (status === 401) {
+        errorResponse.error = 'Authentication Failed';
+        errorResponse.message = `Invalid API key for ${selectedModel?.name || modelId}`;
+      } else if (status === 403) {
+        errorResponse.error = 'Access Forbidden';
+        errorResponse.message = `Access denied for ${selectedModel?.name || modelId}. Check your API key permissions.`;
+      } else if (status === 404) {
+        errorResponse.error = 'Model Not Found';
+        errorResponse.message = `Model "${selectedModel?.name || modelId}" is not available through the API provider.`;
+      } else if (status === 503) {
+        errorResponse.error = 'Service Unavailable';
+        errorResponse.message = `${selectedModel?.name || modelId} is temporarily unavailable. Try again later.`;
       }
+    } else if (error.code === 'ECONNREFUSED' || error.code === 'ENOTFOUND') {
+      errorResponse.error = 'Connection Failed';
+      errorResponse.message = `Cannot connect to ${selectedModel?.name || modelId} API. Check your internet connection.`;
+    } else if (error.code === 'ETIMEDOUT') {
+      errorResponse.error = 'Request Timeout';
+      errorResponse.message = `Request to ${selectedModel?.name || modelId} timed out. Try again.`;
     }
     
     res.status(500).json(errorResponse);
   }
 });
 
-app.get('/api/models', (req, res) => {
-  res.json(AVAILABLE_MODELS);
+app.get('/api/models', async (req, res) => {
+  try {
+    let enabledModels;
+    
+    if (req.user) {
+      // For logged-in users, get their enabled models
+      const userPrefs = await pool.query(
+        'SELECT model_id FROM user_model_preferences WHERE user_id = $1 AND is_enabled = true ORDER BY display_order',
+        [req.user.id]
+      );
+      
+      if (userPrefs.rows.length > 0) {
+        // User has preferences, filter models
+        const enabledModelIds = userPrefs.rows.map(row => row.model_id);
+        enabledModels = AVAILABLE_MODELS.filter(model => enabledModelIds.includes(model.id));
+      } else {
+        // No preferences yet, create default preferences and return default models
+        for (let i = 0; i < DEFAULT_ENABLED_MODELS.length; i++) {
+          await pool.query(
+            'INSERT INTO user_model_preferences (user_id, model_id, is_enabled, display_order) VALUES ($1, $2, true, $3) ON CONFLICT (user_id, model_id) DO NOTHING',
+            [req.user.id, DEFAULT_ENABLED_MODELS[i], i]
+          );
+        }
+        enabledModels = AVAILABLE_MODELS.filter(model => model.defaultEnabled);
+      }
+    } else {
+      // For non-logged-in users, return only default enabled models
+      enabledModels = AVAILABLE_MODELS.filter(model => model.defaultEnabled);
+    }
+    
+    res.json(enabledModels);
+  } catch (error) {
+    console.error('Error getting models:', error);
+    // Fallback to default models
+    const defaultModels = AVAILABLE_MODELS.filter(model => model.defaultEnabled);
+    res.json(defaultModels);
+  }
 });
 
 app.get('/api/answers', async (req, res) => {
@@ -1479,6 +1544,65 @@ async function executeScheduledQuestions() {
     console.error('Error in executeScheduledQuestions:', error);
   }
 }
+
+// ===== DOWNLOAD ENDPOINT =====
+app.get('/download/offline', async (req, res) => {
+  try {
+    const archiver = require('archiver');
+    const path = require('path');
+    const fs = require('fs');
+    
+    // Set response headers for zip download
+    res.setHeader('Content-Type', 'application/zip');
+    res.setHeader('Content-Disposition', 'attachment; filename="ai-questions-offline.zip"');
+    
+    // Create archiver instance
+    const archive = archiver('zip', {
+      zlib: { level: 9 } // Maximum compression
+    });
+    
+    // Handle archiver errors
+    archive.on('error', (err) => {
+      console.error('Archive error:', err);
+      if (!res.headersSent) {
+        res.status(500).json({ error: 'Failed to create download package' });
+      }
+    });
+    
+    // Pipe archive to response
+    archive.pipe(res);
+    
+    // Add install script
+    archive.file(path.join(__dirname, 'install.sh'), { name: 'install.sh' });
+    
+    // Add readme
+    archive.file(path.join(__dirname, 'README-OFFLINE.md'), { name: 'README.md' });
+    
+    // Create inner zip with local version files
+    const innerArchive = archiver('zip', { zlib: { level: 9 } });
+    const innerZipBuffer = [];
+    
+    innerArchive.on('data', (chunk) => {
+      innerZipBuffer.push(chunk);
+    });
+    
+    innerArchive.on('end', () => {
+      const buffer = Buffer.concat(innerZipBuffer);
+      archive.append(buffer, { name: 'ai-questions-local.zip' });
+      archive.finalize();
+    });
+    
+    // Add local version files to inner zip
+    innerArchive.directory(path.join(__dirname, 'local-version'), false);
+    innerArchive.finalize();
+    
+  } catch (error) {
+    console.error('Error creating download package:', error);
+    if (!res.headersSent) {
+      res.status(500).json({ error: 'Failed to create download package' });
+    }
+  }
+});
 
 // Start server
 app.listen(PORT, () => {
