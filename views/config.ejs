@@ -263,7 +263,7 @@
         function renderModels() {
             const html = availableModels.map(model => {
                 const isEnabled = userPreferences[model.id]?.enabled !== false && model.defaultEnabled;
-                const hasApiKey = model.apiKeyEnv && (apiKeys[model.provider] || process.env[model.apiKeyEnv]);
+                const hasApiKey = model.apiKeyEnv && apiKeys[model.provider];
                 
                 return `
                     <div class="col-lg-4 col-md-6 mb-4">
