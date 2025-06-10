@@ -6,7 +6,7 @@ const path = require('path');
 const session = require('express-session');
 const passport = require('passport');
 const GoogleStrategy = require('passport-google-oauth20').Strategy;
-const { addOfflinePackageRoutes } = require('./offline-package-routes');
+// const { addOfflinePackageRoutes } = require('./offline-package-routes');
 const offlinePackageRoutesNew = require('./offline-package-routes-new');
 
 // Create Express app
@@ -32,47 +32,51 @@ app.use(passport.initialize());
 app.use(passport.session());
 
 // Google OAuth Strategy
-passport.use(new GoogleStrategy({
-  clientID: process.env.GOOGLE_CLIENT_ID,
-  clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-  callbackURL: process.env.NODE_ENV === 'production' 
-    ? "https://peaceful-sierra-40313-4a09d237c70e.herokuapp.com/auth/google/callback"
-    : "/auth/google/callback"
-}, async (accessToken, refreshToken, profile, done) => {
-  try {
-    // Check if user exists
-    let result = await pool.query('SELECT * FROM users WHERE google_id = $1', [profile.id]);
-    
-    if (result.rows.length > 0) {
-      // User exists, return user
-      return done(null, result.rows[0]);
-    } else {
-      // Create new user
-      const newUser = await pool.query(
-        'INSERT INTO users (google_id, email, name, avatar_url) VALUES ($1, $2, $3, $4) RETURNING *',
-        [profile.id, profile.emails[0].value, profile.displayName, profile.photos[0].value]
-      );
-      return done(null, newUser.rows[0]);
+if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
+  passport.use(new GoogleStrategy({
+    clientID: process.env.GOOGLE_CLIENT_ID,
+    clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+    callbackURL: process.env.NODE_ENV === 'production' 
+      ? "https://peaceful-sierra-40313-4a09d237c70e.herokuapp.com/auth/google/callback"
+      : "/auth/google/callback"
+  }, async (accessToken, refreshToken, profile, done) => {
+    try {
+      // Check if user exists
+      let result = await pool.query('SELECT * FROM users WHERE google_id = $1', [profile.id]);
+      
+      if (result.rows.length > 0) {
+        // User exists, return user
+        return done(null, result.rows[0]);
+      } else {
+        // Create new user
+        const newUser = await pool.query(
+          'INSERT INTO users (google_id, email, name, avatar_url) VALUES ($1, $2, $3, $4) RETURNING *',
+          [profile.id, profile.emails[0].value, profile.displayName, profile.photos[0].value]
+        );
+        return done(null, newUser.rows[0]);
+      }
+    } catch (error) {
+      return done(error, null);
     }
-  } catch (error) {
-    return done(error, null);
-  }
-}));
+  }));
 
-// Serialize user for session
-passport.serializeUser((user, done) => {
-  done(null, user.id);
-});
+  // Serialize user for session
+  passport.serializeUser((user, done) => {
+    done(null, user.id);
+  });
 
-// Deserialize user from session
-passport.deserializeUser(async (id, done) => {
-  try {
-    const result = await pool.query('SELECT * FROM users WHERE id = $1', [id]);
-    done(null, result.rows[0]);
-  } catch (error) {
-    done(error, null);
-  }
-});
+  // Deserialize user from session
+  passport.deserializeUser(async (id, done) => {
+    try {
+      const result = await pool.query('SELECT * FROM users WHERE id = $1', [id]);
+      done(null, result.rows[0]);
+    } catch (error) {
+      done(error, null);
+    }
+  });
+} else {
+  console.log('Google OAuth not configured - running without authentication');
+}
 
 // Initialize PostgreSQL connection
 const pool = new Pool({
@@ -713,8 +717,8 @@ app.get('/history', async (req, res) => {
 });
 
 // API Routes
-// Add offline package routes
-addOfflinePackageRoutes(app);
+// Add offline package routes (commented out old version)
+// addOfflinePackageRoutes(app);
 
 app.get('/api/question', async (req, res) => {
   try {
