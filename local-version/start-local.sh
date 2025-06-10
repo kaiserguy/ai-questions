@@ -21,13 +21,21 @@ fi
 # Load environment variables
 export $(cat .env.local | grep -v '^#' | grep -v '^$' | xargs)
 
-# Check if required API keys are set
-if [ -z "$HUGGING_FACE_API_KEY" ] && [ -z "$OPENAI_API_KEY" ]; then
-    echo -e "${RED}❌ Error: No AI API keys configured${NC}"
-    echo "Please add at least one API key to .env.local:"
-    echo "  HUGGING_FACE_API_KEY=your_key_here"
-    echo "  OPENAI_API_KEY=your_key_here"
+# Check if required services are available
+echo -e "${BLUE}🔍 Checking local services...${NC}"
+
+# Check if Ollama is available
+if ! command -v ollama &> /dev/null; then
+    echo -e "${RED}❌ Error: Ollama not found${NC}"
+    echo "Please run ./setup-local.sh first to install Ollama"
     exit 1
+fi
+
+# Start Ollama if not running
+if ! pgrep -x "ollama" > /dev/null; then
+    echo -e "${BLUE}🤖 Starting Ollama service...${NC}"
+    ollama serve &
+    sleep 3
 fi
 
 # Check if PostgreSQL is running
@@ -37,9 +45,9 @@ if ! systemctl is-active --quiet postgresql; then
 fi
 
 # Check database connection
-if ! psql "$DATABASE_URL" -c '\q' 2>/dev/null; then
+if ! psql "postgresql://$DB_USER:$DB_PASSWORD@localhost:5432/$DB_NAME" -c '\q' 2>/dev/null; then
     echo -e "${RED}❌ Error: Cannot connect to database${NC}"
-    echo "Please check your PostgreSQL installation and DATABASE_URL in .env.local"
+    echo "Please check your PostgreSQL installation and database configuration"
     exit 1
 fi
 
@@ -56,6 +64,8 @@ mkdir -p logs
 echo -e "${GREEN}✅ Environment checks passed${NC}"
 echo -e "${BLUE}🌐 Starting server on http://localhost:$PORT${NC}"
 echo -e "${BLUE}📝 Logs will be written to logs/app.log${NC}"
+echo -e "${BLUE}🤖 Using local AI models via Ollama${NC}"
+echo -e "${BLUE}📚 Wikipedia database: $WIKIPEDIA_DB_PATH${NC}"
 echo ""
 echo "Press Ctrl+C to stop the server"
 echo ""
