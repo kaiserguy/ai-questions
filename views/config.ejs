@@ -210,7 +210,7 @@
                 const response = await fetch('/api/config/models');
                 const data = await response.json();
                 
-                availableModels = data.models;
+                availableModels = data.allModels || data.models || [];
                 userPreferences = data.userPreferences || {};
                 
                 renderModels();
