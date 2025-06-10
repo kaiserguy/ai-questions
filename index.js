@@ -1137,10 +1137,12 @@ app.post('/api/personal-question/:id/ask', requireAuth, async (req, res) => {
       });
     }
     
-    // Collect all API keys
+    // Collect all API keys (including additional ones for comprehensive support)
     const apiKeys = {
       HUGGING_FACE_API_KEY: process.env.HUGGING_FACE_API_KEY,
-      OPENAI_API_KEY: process.env.OPENAI_API_KEY
+      OPENAI_API_KEY: process.env.OPENAI_API_KEY,
+      ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY,
+      GOOGLE_AI_API_KEY: process.env.GOOGLE_AI_API_KEY
     };
     
     // Check if we have the required API key
@@ -1149,15 +1151,21 @@ app.post('/api/personal-question/:id/ask', requireAuth, async (req, res) => {
       return res.status(400).json({ error: 'Invalid model ID' });
     }
     
+    // Enhanced API key validation with specific error messages
     if (!apiKeys[selectedModel.apiKeyEnv]) {
+      console.error(`Missing API key for ${selectedModel.name}: ${selectedModel.apiKeyEnv}`);
       return res.status(500).json({ 
-        error: `API key for ${selectedModel.name} not configured`,
+        error: `API key for ${selectedModel.name} not configured on server`,
+        details: `Missing environment variable: ${selectedModel.apiKeyEnv}`,
+        model: selectedModel.name,
+        provider: selectedModel.provider,
         question: personalQuestion.question,
         context: personalQuestion.context,
         date: new Date().toISOString()
       });
     }
     
+    console.log(`Asking personal question to ${selectedModel.name} (${model})`);
     const response = await askQuestion(personalQuestion.question, personalQuestion.context, model, apiKeys);
     
     const answer = {
@@ -1189,9 +1197,16 @@ app.post('/api/personal-question/:id/ask', requireAuth, async (req, res) => {
     res.json(answer);
   } catch (error) {
     console.error('Error in personal question API route:', error);
+    console.error('Error details:', {
+      message: error.message,
+      stack: error.stack,
+      model: req.body.model,
+      questionId: req.params.id
+    });
     res.status(500).json({ 
       error: 'Failed to get answer from AI', 
-      message: error.message 
+      message: error.message,
+      details: error.stack ? error.stack.split('\n')[0] : 'No additional details'
     });
   }
 });
