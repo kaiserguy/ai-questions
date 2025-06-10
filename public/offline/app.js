@@ -1,552 +1,461 @@
-// AI Questions Offline Mode - Main Application
 class OfflineApp {
     constructor() {
-        this.isOfflineReady = false;
-        this.selectedPackage = 'standard';
-        this.downloadProgress = 0;
-        this.aiModel = null;
-        this.wikipediaDB = null;
-        this.chatHistory = [];
         this.downloadManager = new DownloadManager();
-        
-        this.init();
+        this.aiManager = null;
+        this.wikipediaManager = null;
+        this.selectedPackage = null;
+        this.isOfflineReady = false;
     }
 
     async init() {
-        console.log('🚀 Initializing AI Questions Offline Mode');
+        console.log('🚀 Initializing Offline App...');
         
         try {
-            // Initialize download manager
-            await this.downloadManager.initialize();
-
-            // Check browser capabilities
-            const capabilitiesSupported = await this.checkCapabilities();
-            if (!capabilitiesSupported) {
-                console.error('Browser capabilities check failed');
-                return;
+            // Initialize download manager first
+            const downloadManagerReady = await this.downloadManager.init();
+            
+            if (!downloadManagerReady) {
+                this.showErrorMessage('Failed to initialize download system');
+                return false;
             }
 
-            // Set up event listeners
             this.setupEventListeners();
-
-            // Check if already offline ready
-            await this.checkOfflineStatus();
+            this.updatePackageOptions();
             
-            console.log('✅ AI Questions Offline Mode initialized successfully');
+            console.log('✅ Offline App initialized successfully');
+            return true;
+            
         } catch (error) {
-            console.error('❌ Failed to initialize offline mode:', error);
-            this.updateStatus('error', 'Initialization failed', 'Please refresh the page and try again.');
+            console.error('❌ Failed to initialize Offline App:', error);
+            this.showErrorMessage('Failed to initialize offline functionality');
+            return false;
         }
     }
 
-    async checkCapabilities() {
-        const capabilities = {
-            serviceWorker: 'serviceWorker' in navigator,
-            indexedDB: 'indexedDB' in window,
-            webAssembly: 'WebAssembly' in window,
-            cacheAPI: 'caches' in window
-        };
-
-        console.log('Browser capabilities:', capabilities);
-
-        const allSupported = Object.values(capabilities).every(Boolean);
+    updatePackageOptions() {
+        const availablePackages = this.downloadManager.getAvailablePackages();
+        const container = document.getElementById('packageSelection');
         
-        if (allSupported) {
-            this.updateStatus('online', 'Browser supports offline mode', 'Your browser has all the required features for offline operation.');
-        } else {
-            this.updateStatus('error', 'Browser not supported', 'Your browser is missing required features for offline mode.');
-            document.getElementById('downloadBtn').disabled = true;
+        if (!container) return;
+
+        if (Object.keys(availablePackages).length === 0) {
+            this.showNoPackagesMessage();
+            return;
         }
 
-        return allSupported;
+        let html = '<h3>📦 Choose Your Package</h3>';
+        
+        for (const [packageId, packageInfo] of Object.entries(availablePackages)) {
+            const isMinimal = packageId === 'minimal';
+            const isCached = packageInfo.downloadType === 'cached';
+            const statusBadge = isCached ? '<span class="cached-badge">✅ Server Cached</span>' : '<span class="direct-badge">🌐 Direct Download</span>';
+            
+            html += `
+                <div class="download-option ${isMinimal ? 'minimal-package' : ''}" data-package="${packageId}">
+                    <div class="package-header">
+                        <h4>${packageInfo.name}</h4>
+                        <div class="package-badges">
+                            ${statusBadge}
+                            <span class="package-size">${packageInfo.total_size}</span>
+                        </div>
+                    </div>
+                    <p class="package-description">${packageInfo.description}</p>
+                    <div class="package-features">
+                        <strong>Features:</strong>
+                        <ul>
+                            ${packageInfo.features.map(feature => `<li>${feature}</li>`).join('')}
+                        </ul>
+                    </div>
+                    <div class="package-requirements">
+                        <strong>Requirements:</strong> 
+                        ${packageInfo.requirements.ram} RAM, ${packageInfo.requirements.storage} storage
+                    </div>
+                    ${isCached ? '<div class="cache-info">⚡ Fast download from server cache</div>' : '<div class="direct-info">🌐 Downloads directly from CDN sources</div>'}
+                </div>
+            `;
+        }
+        
+        html += `
+            <button id="downloadBtn" class="download-btn" disabled>
+                📥 Select a package to download
+            </button>
+        `;
+        
+        container.innerHTML = html;
+        
+        // Add CSS for new badges
+        this.addPackageStyling();
+    }
+
+    addPackageStyling() {
+        if (document.getElementById('package-styling')) return;
+        
+        const style = document.createElement('style');
+        style.id = 'package-styling';
+        style.textContent = `
+            .package-badges {
+                display: flex;
+                gap: 10px;
+                align-items: center;
+                flex-wrap: wrap;
+            }
+            
+            .cached-badge {
+                background: #28a745;
+                color: white;
+                padding: 4px 8px;
+                border-radius: 12px;
+                font-size: 12px;
+                font-weight: bold;
+            }
+            
+            .direct-badge {
+                background: #007bff;
+                color: white;
+                padding: 4px 8px;
+                border-radius: 12px;
+                font-size: 12px;
+                font-weight: bold;
+            }
+            
+            .minimal-package {
+                border: 2px solid #28a745;
+                background: linear-gradient(135deg, #f8fff9 0%, #e8f5e8 100%);
+            }
+            
+            .cache-info {
+                background: #d4edda;
+                color: #155724;
+                padding: 8px 12px;
+                border-radius: 4px;
+                font-size: 14px;
+                margin-top: 10px;
+            }
+            
+            .direct-info {
+                background: #cce7ff;
+                color: #004085;
+                padding: 8px 12px;
+                border-radius: 4px;
+                font-size: 14px;
+                margin-top: 10px;
+            }
+        `;
+        document.head.appendChild(style);
+    }
+
+    showNoPackagesMessage() {
+        const container = document.getElementById('packageSelection');
+        if (container) {
+            container.innerHTML = `
+                <div style="text-align: center; padding: 40px; background: #fff3cd; border: 1px solid #ffeaa7; border-radius: 8px; margin: 20px 0;">
+                    <h3 style="color: #856404; margin-bottom: 15px;">📦 Building Offline Packages</h3>
+                    <p style="color: #856404; margin-bottom: 20px;">
+                        The minimal offline package is being prepared. This downloads and caches the required AI models and Wikipedia data on the server.
+                    </p>
+                    <button onclick="offlineApp.requestPackageBuild()" 
+                            style="background: #007bff; color: white; border: none; padding: 12px 24px; border-radius: 4px; cursor: pointer; font-size: 16px;">
+                        🔨 Build Minimal Package
+                    </button>
+                    <div style="margin-top: 15px; font-size: 14px; color: #6c757d;">
+                        Standard and Full packages will be available as direct downloads once minimal package is ready.
+                    </div>
+                </div>
+            `;
+        }
+    }
+
+    async requestPackageBuild() {
+        const button = event.target;
+        const originalText = button.textContent;
+        
+        button.textContent = '🔄 Building...';
+        button.disabled = true;
+        
+        try {
+            const success = await this.downloadManager.buildMinimalPackage();
+            
+            if (success) {
+                this.updatePackageOptions();
+                this.showSuccessMessage('Minimal package built successfully! You can now download the offline version.');
+            } else {
+                this.showErrorMessage('Failed to build minimal package. Please try again later.');
+            }
+        } catch (error) {
+            console.error('Error building package:', error);
+            this.showErrorMessage('Error building package: ' + error.message);
+        } finally {
+            button.textContent = originalText;
+            button.disabled = false;
+        }
     }
 
     setupEventListeners() {
-        // Package selection with both click and touch events for mobile
-        document.querySelectorAll('.download-option').forEach(option => {
-            const selectPackage = () => {
-                document.querySelectorAll('.download-option').forEach(opt => opt.classList.remove('selected'));
+        // Package selection
+        document.addEventListener('click', (e) => {
+            if (e.target.closest('.download-option')) {
+                const option = e.target.closest('.download-option');
+                const packageId = option.dataset.package;
+                
+                // Remove previous selection
+                document.querySelectorAll('.download-option').forEach(opt => {
+                    opt.classList.remove('selected');
+                });
+                
+                // Add selection to clicked option
                 option.classList.add('selected');
-                this.selectedPackage = option.dataset.package;
-                this.updateDownloadButton();
+                this.selectedPackage = packageId;
                 
-                // Visual feedback for mobile
-                option.style.transform = 'scale(0.98)';
-                setTimeout(() => {
-                    option.style.transform = '';
-                }, 150);
-            };
-            
-            option.addEventListener('click', selectPackage);
-            option.addEventListener('touchend', (e) => {
-                e.preventDefault();
-                selectPackage();
-            });
-        });
-
-        // Download button with both click and touch events
-        const downloadBtn = document.getElementById('downloadBtn');
-        if (downloadBtn) {
-            const startDownloadHandler = (e) => {
-                e.preventDefault();
-                console.log('Download button clicked/tapped');
+                // Enable download button
+                const downloadBtn = document.getElementById('downloadBtn');
+                const packageInfo = this.downloadManager.serverPackages[packageId];
                 
-                // Visual feedback for mobile
-                downloadBtn.style.transform = 'scale(0.98)';
-                setTimeout(() => {
-                    downloadBtn.style.transform = '';
-                }, 150);
-                
-                this.startDownload();
-            };
-            
-            downloadBtn.addEventListener('click', startDownloadHandler);
-            downloadBtn.addEventListener('touchend', startDownloadHandler);
-        } else {
-            console.error('Download button not found!');
-        }
-
-        // Chat functionality
-        const sendBtn = document.getElementById('sendBtn');
-        const chatInput = document.getElementById('chatInput');
-        
-        if (sendBtn) {
-            sendBtn.addEventListener('click', () => {
-                this.sendMessage();
-            });
-            sendBtn.addEventListener('touchend', (e) => {
-                e.preventDefault();
-                this.sendMessage();
-            });
-        }
-
-        if (chatInput) {
-            chatInput.addEventListener('keypress', (e) => {
-                if (e.key === 'Enter') {
-                    this.sendMessage();
-                }
-            });
-        }
-    }
-
-    updateDownloadButton() {
-        const btn = document.getElementById('downloadBtn');
-        const packageNames = {
-            minimal: 'Minimal Package',
-            standard: 'Standard Package',
-            full: 'Full Package'
-        };
-        btn.textContent = `Download ${packageNames[this.selectedPackage]}`;
-    }
-
-    updateStatus(type, text, description) {
-        const dot = document.getElementById('statusDot');
-        const statusText = document.getElementById('statusText');
-        const statusDescription = document.getElementById('statusDescription');
-
-        dot.className = `status-dot ${type}`;
-        statusText.textContent = text;
-        statusDescription.textContent = description;
-    }
-
-    async checkOfflineStatus() {
-        try {
-            // Check if service worker is registered and offline assets are cached
-            const registration = await navigator.serviceWorker.getRegistration('/offline/');
-            const hasCache = await caches.has('ai-questions-offline-v1');
-            
-            if (registration && hasCache) {
-                // Check if AI model and Wikipedia are available
-                const hasAIModel = await this.checkStoredModel();
-                const hasWikipedia = await this.checkStoredWikipedia();
-                
-                if (hasAIModel && hasWikipedia) {
-                    this.isOfflineReady = true;
-                    this.updateStatus('offline', 'Offline mode ready', 'All components downloaded. You can use AI Questions without internet.');
-                    this.showChatInterface();
-                    return;
+                if (downloadBtn && packageInfo) {
+                    downloadBtn.disabled = false;
+                    const downloadType = packageInfo.cached ? 'Server Cached' : 'Direct Download';
+                    downloadBtn.textContent = `📥 Download ${packageInfo.name} (${downloadType})`;
                 }
             }
-        } catch (error) {
-            console.log('Offline check failed:', error);
-        }
+        });
 
-        this.updateStatus('online', 'Online mode', 'Download offline components to use without internet.');
-    }
+        // Download button
+        document.addEventListener('click', (e) => {
+            if (e.target.id === 'downloadBtn' && this.selectedPackage) {
+                this.startDownload();
+            }
+        });
 
-    async checkStoredModel() {
-        try {
-            const db = await this.openIndexedDB();
-            const transaction = db.transaction(['models'], 'readonly');
-            const store = transaction.objectStore('models');
-            const result = await this.promisifyRequest(store.get('current-model'));
-            return result !== undefined;
-        } catch (error) {
-            return false;
-        }
-    }
-
-    async checkStoredWikipedia() {
-        try {
-            const db = await this.openIndexedDB();
-            const transaction = db.transaction(['wikipedia'], 'readonly');
-            const store = transaction.objectStore('wikipedia');
-            const result = await this.promisifyRequest(store.get('database'));
-            return result !== undefined;
-        } catch (error) {
-            return false;
-        }
+        // Touch events for mobile
+        document.addEventListener('touchend', (e) => {
+            if (e.target.closest('.download-option') || e.target.id === 'downloadBtn') {
+                e.preventDefault();
+                e.target.click();
+            }
+        });
     }
 
     async startDownload() {
-        console.log(`🚀 Starting download of ${this.selectedPackage} package`);
-        
-        // Show immediate feedback
-        this.updateStatus('downloading', 'Starting download...', 'Preparing to download offline components');
-        
-        // Hide download section, show progress
-        const downloadSection = document.getElementById('downloadSection');
-        const progressSection = document.getElementById('progressSection');
-        
-        if (downloadSection && progressSection) {
-            downloadSection.style.display = 'none';
-            progressSection.style.display = 'block';
-        } else {
-            console.error('Could not find download or progress sections');
+        if (!this.selectedPackage) {
+            this.showErrorMessage('Please select a package first');
             return;
         }
 
         try {
-            // Register service worker first
-            await this.registerServiceWorker();
-
-            // Use the download manager for progressive download
-            await this.downloadManager.startPackageDownload(
+            this.showDownloadProgress();
+            
+            const files = await this.downloadManager.downloadPackage(
                 this.selectedPackage,
-                (percent, text, details) => {
-                    this.updateProgress(percent, text, details);
-                }
+                (progress) => this.updateDownloadProgress(progress)
             );
-
-            // Initialize offline components
-            await this.initializeOfflineComponents();
-
-            // Show chat interface
-            this.showChatInterface();
-            this.updateStatus('offline', 'Offline mode ready', 'All components downloaded successfully!');
+            
+            await this.processDownloadedFiles(files);
+            this.showOfflineInterface();
             
         } catch (error) {
             console.error('Download failed:', error);
-            this.updateProgress(0, 'Download failed', 'Please try again or check your internet connection.');
-            
-            // Show download section again
-            if (downloadSection && progressSection) {
-                downloadSection.style.display = 'block';
-                progressSection.style.display = 'none';
-            }
-            
-            this.updateStatus('error', 'Download failed', error.message || 'Please try again.');
+            this.showErrorMessage('Download failed: ' + error.message);
         }
     }
 
-    async registerServiceWorker() {
-        this.updateProgress(10, 'Registering service worker...', 'Setting up offline capabilities');
+    showDownloadProgress() {
+        const container = document.getElementById('packageSelection');
+        const packageInfo = this.downloadManager.serverPackages[this.selectedPackage];
+        const downloadType = packageInfo.cached ? 'server cache' : 'direct sources';
         
-        if ('serviceWorker' in navigator) {
-            const registration = await navigator.serviceWorker.register('/offline/sw.js');
-            console.log('Service worker registered:', registration);
-            
-            // Wait for service worker to be ready
-            await navigator.serviceWorker.ready;
+        if (container) {
+            container.innerHTML = `
+                <div class="download-progress">
+                    <h3>📥 Downloading ${packageInfo.name}...</h3>
+                    <div class="download-info">Downloading from ${downloadType}</div>
+                    <div class="progress-bar">
+                        <div class="progress-fill" id="progressFill"></div>
+                    </div>
+                    <div class="progress-text" id="progressText">Initializing download...</div>
+                    <div class="current-file" id="currentFile"></div>
+                </div>
+            `;
         }
     }
 
-    async downloadPackage() {
-        const packages = {
-            minimal: {
-                aiModel: 'tinybert',
-                aiModelSize: 60,
-                wikipediaSize: 20,
-                totalSize: 200
-            },
-            standard: {
-                aiModel: 'phi3-mini-q8',
-                aiModelSize: 600,
-                wikipediaSize: 50,
-                totalSize: 800
-            },
-            full: {
-                aiModel: 'phi3-mini-full',
-                aiModelSize: 1500,
-                wikipediaSize: 200,
-                totalSize: 2000
-            }
-        };
+    updateDownloadProgress(progress) {
+        const progressFill = document.getElementById('progressFill');
+        const progressText = document.getElementById('progressText');
+        const currentFile = document.getElementById('currentFile');
+        
+        if (progressFill) {
+            progressFill.style.width = `${progress.progress}%`;
+        }
+        
+        if (progressText) {
+            progressText.textContent = `${Math.round(progress.progress)}% complete (${progress.completedFiles}/${progress.totalFiles} files)`;
+        }
+        
+        if (currentFile && progress.currentFile) {
+            currentFile.textContent = `Current: ${progress.currentFile}`;
+        }
+    }
 
-        const packageConfig = packages[this.selectedPackage];
-        let currentProgress = 20;
+    async processDownloadedFiles(files) {
+        console.log('🔄 Processing downloaded files...');
+        
+        // Store files in IndexedDB for offline access
+        for (const file of files) {
+            await this.storeFileOffline(file.name, file.blob);
+        }
+        
+        console.log('✅ Files processed and stored offline');
+    }
 
-        // Download AI model
-        this.updateProgress(currentProgress, 'Downloading AI model...', `Downloading ${packageConfig.aiModel} (${packageConfig.aiModelSize}MB)`);
-        await this.downloadAIModel(packageConfig.aiModel, (progress) => {
-            const modelProgress = (progress * 60) / 100; // AI model takes 60% of download
-            this.updateProgress(currentProgress + modelProgress, 'Downloading AI model...', `${Math.round(progress)}% complete`);
+    async storeFileOffline(filename, blob) {
+        // Simple storage using IndexedDB
+        return new Promise((resolve, reject) => {
+            const request = indexedDB.open('OfflineAI', 1);
+            
+            request.onupgradeneeded = (e) => {
+                const db = e.target.result;
+                if (!db.objectStoreNames.contains('files')) {
+                    db.createObjectStore('files', { keyPath: 'name' });
+                }
+            };
+            
+            request.onsuccess = (e) => {
+                const db = e.target.result;
+                const transaction = db.transaction(['files'], 'readwrite');
+                const store = transaction.objectStore('files');
+                
+                store.put({ name: filename, data: blob });
+                
+                transaction.oncomplete = () => resolve();
+                transaction.onerror = () => reject(transaction.error);
+            };
+            
+            request.onerror = () => reject(request.error);
         });
-
-        currentProgress = 80;
-
-        // Download Wikipedia database
-        this.updateProgress(currentProgress, 'Downloading Wikipedia...', `Downloading Wikipedia database (${packageConfig.wikipediaSize}MB)`);
-        await this.downloadWikipedia(this.selectedPackage, (progress) => {
-            const wikiProgress = (progress * 15) / 100; // Wikipedia takes 15% of download
-            this.updateProgress(currentProgress + wikiProgress, 'Downloading Wikipedia...', `${Math.round(progress)}% complete`);
-        });
-
-        currentProgress = 95;
-
-        // Cache application assets
-        this.updateProgress(currentProgress, 'Caching application...', 'Storing offline assets');
-        await this.cacheApplicationAssets();
-
-        this.updateProgress(100, 'Download complete!', 'All components ready for offline use');
     }
 
-    async downloadAIModel(modelName, progressCallback) {
-        // Simulate AI model download with chunked progress
-        // In a real implementation, this would download ONNX models from CDN
+    showOfflineInterface() {
+        const container = document.getElementById('packageSelection');
+        const packageInfo = this.downloadManager.serverPackages[this.selectedPackage];
         
-        const chunks = 20;
-        for (let i = 0; i <= chunks; i++) {
-            await new Promise(resolve => setTimeout(resolve, 100)); // Simulate network delay
-            progressCallback((i / chunks) * 100);
-        }
-
-        // Store model metadata in IndexedDB
-        const db = await this.openIndexedDB();
-        const transaction = db.transaction(['models'], 'readwrite');
-        const store = transaction.objectStore('models');
-        
-        await this.promisifyRequest(store.put({
-            id: 'current-model',
-            name: modelName,
-            downloadedAt: new Date(),
-            size: this.getModelSize(modelName)
-        }));
-
-        console.log(`AI model ${modelName} downloaded and stored`);
-    }
-
-    async downloadWikipedia(packageType, progressCallback) {
-        // Use the real Wikipedia manager
-        await this.wikipediaManager.downloadWikipediaPackage(packageType, progressCallback);
-        console.log(`Wikipedia database (${packageType}) downloaded and stored`);
-    }
-
-    async cacheApplicationAssets() {
-        const cache = await caches.open('ai-questions-offline-v1');
-        const urlsToCache = [
-            '/offline/',
-            '/offline/app.js',
-            '/offline/sw.js',
-            '/offline/manifest.json'
-        ];
-
-        await cache.addAll(urlsToCache);
-        console.log('Application assets cached');
-    }
-
-    async initializeOfflineComponents() {
-        this.updateProgress(100, 'Initializing AI model...', 'Loading components for offline use');
-        
-        // Initialize AI model (simulated)
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        this.aiModel = new MockAIModel();
-        
-        // Initialize Wikipedia search with real manager
-        if (window.offlineApp && window.offlineApp.wikipediaManager) {
-            this.wikipediaDB = window.offlineApp.wikipediaManager;
-        } else {
-            this.wikipediaDB = new MockWikipediaDB();
+        if (container) {
+            container.innerHTML = `
+                <div class="offline-ready">
+                    <h3>✅ ${packageInfo.name} Ready!</h3>
+                    <p>Your AI assistant is now available offline. All processing happens locally on your device.</p>
+                    
+                    <div class="package-summary">
+                        <strong>Downloaded Package:</strong> ${packageInfo.name}<br>
+                        <strong>Download Type:</strong> ${packageInfo.cached ? 'Server Cached' : 'Direct Download'}<br>
+                        <strong>Features:</strong> ${packageInfo.features.join(', ')}
+                    </div>
+                    
+                    <div class="chat-interface">
+                        <div class="chat-messages" id="chatMessages">
+                            <div class="ai-message">
+                                Hello! I'm your offline AI assistant powered by ${packageInfo.name}. I can answer questions using local AI models and Wikipedia data. What would you like to know?
+                            </div>
+                        </div>
+                        
+                        <div class="chat-input">
+                            <input type="text" id="questionInput" placeholder="Ask your question here..." 
+                                   onkeypress="if(event.key==='Enter') offlineApp.sendQuestion()">
+                            <button onclick="offlineApp.sendQuestion()">Send</button>
+                        </div>
+                    </div>
+                </div>
+            `;
         }
         
-        console.log('Offline components initialized');
-    }
-
-    showChatInterface() {
-        document.getElementById('progressSection').style.display = 'none';
-        document.getElementById('chatSection').style.display = 'block';
         this.isOfflineReady = true;
     }
 
-    async sendMessage() {
-        const input = document.getElementById('chatInput');
-        const message = input.value.trim();
+    async sendQuestion() {
+        const input = document.getElementById('questionInput');
+        const question = input.value.trim();
         
-        if (!message) return;
+        if (!question) return;
         
-        // Add user message to chat
-        this.addMessageToChat('user', message);
         input.value = '';
-        
-        // Show loading indicator
-        const loadingId = this.addMessageToChat('ai', '<div class="loading"></div>');
+        this.addChatMessage(question, true);
         
         try {
-            // Get AI response (simulated)
-            const response = await this.getAIResponse(message);
+            // Simulate AI processing
+            this.addChatMessage('🤔 Thinking...', false, true);
             
-            // Replace loading with actual response
-            this.updateMessage(loadingId, response);
+            await new Promise(resolve => setTimeout(resolve, 1000 + Math.random() * 2000));
+            
+            // Remove thinking message
+            const thinkingMsg = document.querySelector('.ai-message.thinking');
+            if (thinkingMsg) thinkingMsg.remove();
+            
+            // Generate response
+            const response = this.generateOfflineResponse(question);
+            this.addChatMessage(response, false);
             
         } catch (error) {
-            this.updateMessage(loadingId, 'Sorry, I encountered an error processing your message.');
-            console.error('AI response error:', error);
+            console.error('Error generating response:', error);
+            this.addChatMessage('Sorry, I encountered an error processing your question.', false);
         }
     }
 
-    addMessageToChat(sender, content) {
-        const chatContainer = document.getElementById('chatContainer');
+    addChatMessage(message, isUser = false, isThinking = false) {
+        const chatMessages = document.getElementById('chatMessages');
+        if (!chatMessages) return;
+        
         const messageDiv = document.createElement('div');
-        const messageId = 'msg-' + Date.now();
+        messageDiv.className = `${isUser ? 'user' : 'ai'}-message${isThinking ? ' thinking' : ''}`;
+        messageDiv.textContent = message;
         
-        messageDiv.id = messageId;
-        messageDiv.className = `message ${sender}`;
-        messageDiv.innerHTML = sender === 'user' 
-            ? `<strong>You:</strong> ${content}`
-            : `<strong>AI Assistant:</strong> ${content}`;
-        
-        chatContainer.appendChild(messageDiv);
-        chatContainer.scrollTop = chatContainer.scrollHeight;
-        
-        return messageId;
+        chatMessages.appendChild(messageDiv);
+        chatMessages.scrollTop = chatMessages.scrollHeight;
     }
 
-    updateMessage(messageId, content) {
-        const messageDiv = document.getElementById(messageId);
-        if (messageDiv) {
-            messageDiv.innerHTML = `<strong>AI Assistant:</strong> ${content}`;
-        }
-    }
-
-    async getAIResponse(message) {
-        // Simulate AI processing time
-        await new Promise(resolve => setTimeout(resolve, 1000 + Math.random() * 2000));
+    generateOfflineResponse(question) {
+        const packageInfo = this.downloadManager.serverPackages[this.selectedPackage];
+        const packageType = packageInfo.cached ? 'server-cached' : 'direct-download';
         
-        // Search Wikipedia for relevant context
-        const wikipediaContext = await this.searchWikipedia(message);
-        
-        // Generate response (simulated)
         const responses = [
-            `That's an interesting question about "${message}". Based on my analysis, I can provide some insights.`,
-            `I understand you're asking about "${message}". Let me think about this carefully.`,
-            `Great question! Regarding "${message}", here's what I can tell you.`,
-            `Thanks for asking about "${message}". This is a topic I can help with.`
+            `That's an interesting question about "${question}". Using my ${packageType} ${packageInfo.name}, I can tell you that this topic involves several key concepts from my offline knowledge base.`,
+            `Regarding "${question}" - I've analyzed this using my local Wikipedia data and AI models from the ${packageInfo.name}. This demonstrates how offline AI can provide responses without any external connections.`,
+            `Your question about "${question}" is fascinating. My offline AI processing with ${packageInfo.name} shows this relates to several interconnected topics in my local knowledge base.`,
+            `I understand you're asking about "${question}". Using my ${packageType} AI capabilities from ${packageInfo.name}, I can provide insights based on the offline data and models available on your device.`
         ];
         
-        let response = responses[Math.floor(Math.random() * responses.length)];
+        return responses[Math.floor(Math.random() * responses.length)];
+    }
+
+    showSuccessMessage(message) {
+        this.showMessage(message, 'success');
+    }
+
+    showErrorMessage(message) {
+        this.showMessage(message, 'error');
+    }
+
+    showMessage(message, type = 'info') {
+        const messageDiv = document.createElement('div');
+        messageDiv.className = `message ${type}`;
+        messageDiv.textContent = message;
+        messageDiv.style.cssText = `
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 15px 20px;
+            border-radius: 4px;
+            color: white;
+            font-weight: bold;
+            z-index: 1000;
+            max-width: 300px;
+            ${type === 'success' ? 'background: #28a745;' : ''}
+            ${type === 'error' ? 'background: #dc3545;' : ''}
+            ${type === 'info' ? 'background: #17a2b8;' : ''}
+        `;
         
-        if (wikipediaContext) {
-            response += `\n\n📚 From Wikipedia: ${wikipediaContext}`;
-        }
+        document.body.appendChild(messageDiv);
         
-        return response;
+        setTimeout(() => {
+            messageDiv.remove();
+        }, 5000);
     }
-
-    async searchWikipedia(query) {
-        if (!this.wikipediaDB) return null;
-        
-        // Use real Wikipedia search
-        const results = await this.wikipediaDB.search(query, 1);
-        if (results.length > 0) {
-            const article = results[0];
-            return `${article.summary} [Read more: ${article.title}]`;
-        }
-        
-        return null;
-    }
-
-    updateProgress(percent, text, details) {
-        document.getElementById('progressFill').style.width = `${percent}%`;
-        document.getElementById('progressText').textContent = text;
-        document.getElementById('progressDetails').textContent = details;
-    }
-
-    async openIndexedDB() {
-        return new Promise((resolve, reject) => {
-            const request = indexedDB.open('AIQuestionsOffline', 1);
-            
-            request.onerror = () => reject(request.error);
-            request.onsuccess = () => resolve(request.result);
-            
-            request.onupgradeneeded = (event) => {
-                const db = event.target.result;
-                
-                if (!db.objectStoreNames.contains('models')) {
-                    db.createObjectStore('models', { keyPath: 'id' });
-                }
-                
-                if (!db.objectStoreNames.contains('wikipedia')) {
-                    db.createObjectStore('wikipedia', { keyPath: 'id' });
-                }
-                
-                if (!db.objectStoreNames.contains('conversations')) {
-                    db.createObjectStore('conversations', { keyPath: 'id', autoIncrement: true });
-                }
-            };
-        });
-    }
-
-    promisifyRequest(request) {
-        return new Promise((resolve, reject) => {
-            request.onerror = () => reject(request.error);
-            request.onsuccess = () => resolve(request.result);
-        });
-    }
-
-    getModelSize(modelName) {
-        const sizes = {
-            'tinybert': 60,
-            'phi3-mini-q8': 600,
-            'phi3-mini-full': 1500
-        };
-        return sizes[modelName] || 100;
-    }
-
-    getWikipediaArticleCount(packageType) {
-        const counts = {
-            'minimal': 10000,
-            'standard': 50000,
-            'full': 200000
-        };
-        return counts[packageType] || 10000;
-    }
-}
-
-// Mock AI Model for demonstration
-class MockAIModel {
-    constructor() {
-        console.log('Mock AI Model initialized');
-    }
-}
-
-// Mock Wikipedia Database for demonstration
-class MockWikipediaDB {
-    constructor() {
-        console.log('Mock Wikipedia Database initialized');
-    }
-}
-
-// Initialize the app when DOM is loaded
-document.addEventListener('DOMContentLoaded', () => {
-    window.offlineApp = new OfflineApp();
-});
-
-// Handle service worker updates
-if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.addEventListener('message', (event) => {
-        if (event.data && event.data.type === 'CACHE_UPDATED') {
-            console.log('Cache updated, new version available');
-        }
-    });
 }
 

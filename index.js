@@ -6,6 +6,8 @@ const path = require('path');
 const session = require('express-session');
 const passport = require('passport');
 const GoogleStrategy = require('passport-google-oauth20').Strategy;
+const { addOfflinePackageRoutes } = require('./offline-package-routes');
+const offlinePackageRoutesNew = require('./offline-package-routes-new');
 
 // Create Express app
 const app = express();
@@ -711,6 +713,9 @@ app.get('/history', async (req, res) => {
 });
 
 // API Routes
+// Add offline package routes
+addOfflinePackageRoutes(app);
+
 app.get('/api/question', async (req, res) => {
   try {
     const { question, context } = getTodaysQuestion();
@@ -1743,6 +1748,8 @@ app.get('/download/offline', async (req, res) => {
 });
 
 // Start server
+app.use(offlinePackageRoutesNew);
+
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
   console.log(`Visit http://localhost:${PORT} to view the application`) ;
