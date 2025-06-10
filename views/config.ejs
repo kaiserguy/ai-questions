@@ -259,11 +259,17 @@
             document.getElementById('apiKeysList').innerHTML = html;
         }
 
+        // Helper function to create safe CSS selector from model ID
+        function createSafeId(modelId) {
+            return modelId.replace(/[^a-zA-Z0-9_-]/g, '_');
+        }
+
         // Render models
         function renderModels() {
             const html = availableModels.map(model => {
                 const isEnabled = userPreferences[model.id]?.enabled !== false && model.defaultEnabled;
                 const hasApiKey = model.apiKeyEnv && apiKeys[model.provider];
+                const safeId = createSafeId(model.id);
                 
                 return `
                     <div class="col-lg-4 col-md-6 mb-4">
@@ -273,7 +279,8 @@
                                 <div class="form-check form-switch">
                                     <input class="form-check-input" 
                                            type="checkbox" 
-                                           id="model_${model.id}"
+                                           id="model_${safeId}"
+                                           data-model-id="${model.id}"
                                            ${isEnabled ? 'checked' : ''}
                                            onchange="toggleModel('${model.id}', this.checked)">
                                 </div>
@@ -312,8 +319,9 @@
             }
             userPreferences[modelId].enabled = enabled;
             
-            // Update visual state
-            const card = document.querySelector(`#model_${modelId}`).closest('.model-card');
+            // Update visual state using data attribute selector
+            const safeId = createSafeId(modelId);
+            const card = document.querySelector(`#model_${safeId}`).closest('.model-card');
             if (enabled) {
                 card.classList.remove('disabled');
                 card.classList.add('enabled');
