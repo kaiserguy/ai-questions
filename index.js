@@ -1545,6 +1545,140 @@ async function executeScheduledQuestions() {
   }
 }
 
+// ===== CONFIG API ENDPOINTS =====
+
+// Get all models and user preferences for config page
+app.get('/api/config/models', async (req, res) => {
+  try {
+    let userPreferences = null;
+    
+    if (req.user) {
+      const prefs = await pool.query(
+        'SELECT model_id, is_enabled, display_order FROM user_model_preferences WHERE user_id = $1 ORDER BY display_order',
+        [req.user.id]
+      );
+      userPreferences = prefs.rows;
+      
+      // If no preferences exist, create defaults
+      if (userPreferences.length === 0) {
+        for (let i = 0; i < DEFAULT_ENABLED_MODELS.length; i++) {
+          await pool.query(
+            'INSERT INTO user_model_preferences (user_id, model_id, is_enabled, display_order) VALUES ($1, $2, true, $3)',
+            [req.user.id, DEFAULT_ENABLED_MODELS[i], i]
+          );
+        }
+        
+        // Reload preferences
+        const newPrefs = await pool.query(
+          'SELECT model_id, is_enabled, display_order FROM user_model_preferences WHERE user_id = $1 ORDER BY display_order',
+          [req.user.id]
+        );
+        userPreferences = newPrefs.rows;
+      }
+    }
+    
+    res.json({
+      allModels: AVAILABLE_MODELS,
+      userPreferences: userPreferences
+    });
+  } catch (error) {
+    console.error('Error getting config models:', error);
+    res.status(500).json({ error: 'Failed to load model configuration' });
+  }
+});
+
+// Save user model preferences
+app.post('/api/config/models', requireAuth, async (req, res) => {
+  try {
+    const { preferences } = req.body;
+    
+    if (!preferences || typeof preferences !== 'object') {
+      return res.status(400).json({ error: 'Invalid preferences data' });
+    }
+    
+    // Update preferences for each model
+    for (const [modelId, isEnabled] of Object.entries(preferences)) {
+      await pool.query(
+        `INSERT INTO user_model_preferences (user_id, model_id, is_enabled, display_order) 
+         VALUES ($1, $2, $3, 0) 
+         ON CONFLICT (user_id, model_id) 
+         DO UPDATE SET is_enabled = $3`,
+        [req.user.id, modelId, isEnabled]
+      );
+    }
+    
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Error saving model preferences:', error);
+    res.status(500).json({ error: 'Failed to save model preferences' });
+  }
+});
+
+// Get user API keys (masked)
+app.get('/api/config/api-keys', requireAuth, async (req, res) => {
+  try {
+    const result = await pool.query(
+      'SELECT provider, created_at FROM user_api_keys WHERE user_id = $1',
+      [req.user.id]
+    );
+    
+    res.json(result.rows);
+  } catch (error) {
+    console.error('Error getting API keys:', error);
+    res.status(500).json({ error: 'Failed to load API keys' });
+  }
+});
+
+// Save user API key
+app.post('/api/config/api-keys', requireAuth, async (req, res) => {
+  try {
+    const { provider, apiKey } = req.body;
+    
+    if (!provider || !apiKey) {
+      return res.status(400).json({ error: 'Provider and API key are required' });
+    }
+    
+    // Validate provider
+    const validProviders = ['openai', 'anthropic', 'google', 'huggingface'];
+    if (!validProviders.includes(provider)) {
+      return res.status(400).json({ error: 'Invalid provider' });
+    }
+    
+    // Encrypt API key (simple base64 for now - in production use proper encryption)
+    const encryptedKey = Buffer.from(apiKey).toString('base64');
+    
+    await pool.query(
+      `INSERT INTO user_api_keys (user_id, provider, encrypted_key, created_at) 
+       VALUES ($1, $2, $3, NOW()) 
+       ON CONFLICT (user_id, provider) 
+       DO UPDATE SET encrypted_key = $3, created_at = NOW()`,
+      [req.user.id, provider, encryptedKey]
+    );
+    
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Error saving API key:', error);
+    res.status(500).json({ error: 'Failed to save API key' });
+  }
+});
+
+// Delete user API key
+app.delete('/api/config/api-keys/:provider', requireAuth, async (req, res) => {
+  try {
+    const { provider } = req.params;
+    
+    await pool.query(
+      'DELETE FROM user_api_keys WHERE user_id = $1 AND provider = $2',
+      [req.user.id, provider]
+    );
+    
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Error deleting API key:', error);
+    res.status(500).json({ error: 'Failed to delete API key' });
+  }
+});
+
 // ===== DOWNLOAD ENDPOINT =====
 app.get('/download/offline', async (req, res) => {
   try {

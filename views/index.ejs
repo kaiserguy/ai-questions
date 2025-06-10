@@ -1060,44 +1060,68 @@
             </div>
         </div>
     </div>
+    
+    <!-- Offline Version Download Section - Visible to All Users -->
+    <div id="offline-version-section" class="offline-version-section" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border-radius: 12px; padding: 20px; margin: 25px 0; box-shadow: 0 4px 15px rgba(0,0,0,0.1);">
+        <div style="display: flex; align-items: center; gap: 15px; margin-bottom: 15px;">
+            <div style="font-size: 48px;">🏠</div>
+            <div>
+                <h4 style="margin: 0; color: white; font-size: 20px;">Want Complete Privacy?</h4>
+                <p style="margin: 5px 0 0 0; opacity: 0.9; font-size: 16px;">Download the offline version for your own computer</p>
+            </div>
+        </div>
+        
+        <div style="background: rgba(255,255,255,0.1); border-radius: 8px; padding: 15px; margin-bottom: 15px;">
+            <h5 style="margin: 0 0 10px 0; color: white;">✨ Offline Version Features:</h5>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; font-size: 14px;">
+                <div>• 🔒 Complete privacy - no data leaves your computer</div>
+                <div>• 🤖 Local AI models (Ollama integration)</div>
+                <div>• 📚 Local Wikipedia database</div>
+                <div>• 💬 Private chat with AI models</div>
+                <div>• 🚫 No API keys or internet required</div>
+                <div>• ⚡ Fast responses from local models</div>
+            </div>
+        </div>
+        
+        <div style="display: flex; gap: 12px; align-items: center; flex-wrap: wrap;">
+            <a href="/download/offline" style="
+                background: white; 
+                color: #667eea; 
+                text-decoration: none; 
+                padding: 12px 20px; 
+                border-radius: 6px; 
+                font-weight: 600;
+                display: flex;
+                align-items: center;
+                gap: 8px;
+                transition: transform 0.2s;
+            " onmouseover="this.style.transform='translateY(-2px)'" onmouseout="this.style.transform='translateY(0)'">
+                <span style="font-size: 16px;">📥</span>
+                Download Offline Version
+            </a>
+            <button onclick="showInstallInstructions()" style="
+                background: rgba(255,255,255,0.2); 
+                color: white; 
+                border: 1px solid rgba(255,255,255,0.3); 
+                padding: 12px 20px; 
+                border-radius: 6px; 
+                cursor: pointer;
+                font-weight: 500;
+                display: flex;
+                align-items: center;
+                gap: 8px;
+            ">
+                <span style="font-size: 16px;">📋</span>
+                Installation Guide
+            </button>
+        </div>
+    </div>
+    
     <div id="personal-questions-section" class="personal-questions-section hidden">
         <h3>📝 Your Personal Questions</h3>
         <p>Create and track your own custom questions to monitor AI responses over time.</p>
         
-        <!-- Offline Version Download Section -->
-        <div id="offline-version-section" class="offline-version-section" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border-radius: 12px; padding: 20px; margin-bottom: 25px; box-shadow: 0 4px 15px rgba(0,0,0,0.1);">
-            <div style="display: flex; align-items: center; gap: 15px; margin-bottom: 15px;">
-                <div style="font-size: 48px;">🏠</div>
-                <div>
-                    <h4 style="margin: 0; color: white; font-size: 20px;">Want Complete Privacy?</h4>
-                    <p style="margin: 5px 0 0 0; opacity: 0.9; font-size: 16px;">Download the offline version for your own computer</p>
-                </div>
-            </div>
-            
-            <div style="background: rgba(255,255,255,0.1); border-radius: 8px; padding: 15px; margin-bottom: 15px;">
-                <h5 style="margin: 0 0 10px 0; color: white;">✨ Offline Version Features:</h5>
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; font-size: 14px;">
-                    <div>• 🔒 Complete privacy - no data leaves your computer</div>
-                    <div>• 🤖 Local AI models (Ollama integration)</div>
-                    <div>• 📚 Local Wikipedia database</div>
-                    <div>• 💬 Private chat with AI models</div>
-                    <div>• 🚫 No API keys or internet required</div>
-                    <div>• ⚡ Fast responses from local models</div>
-                </div>
-            </div>
-            
-            <div style="display: flex; gap: 12px; align-items: center; flex-wrap: wrap;">
-                <a href="https://github.com/kaiserguy/ai-questions" target="_blank" style="
-                    background: white; 
-                    color: #667eea; 
-                    text-decoration: none; 
-                    padding: 12px 20px; 
-                    border-radius: 6px; 
-                    font-weight: 600;
-                    display: flex;
-                    align-items: center;
-                    gap: 8px;
-                    transition: transform 0.2s;
+        <!-- Model Selector for Personal Questions -->
                 " onmouseover="this.style.transform='translateY(-2px)'" onmouseout="this.style.transform='translateY(0)'">
                     <span style="font-size: 18px;">📥</span>
                     Download Offline Version
@@ -1395,18 +1419,19 @@
                 });
         }
 
-        function showUserInfo(user) {
+         function showUserInfo(user) {
             document.getElementById('login-button').classList.add('hidden');
             document.getElementById('user-info').classList.remove('hidden');
             document.getElementById('user-avatar').src = user.avatar_url;
             document.getElementById('user-name').textContent = user.name;
             document.getElementById('personal-questions-section').classList.remove('hidden');
+            document.getElementById('config-nav-link').style.display = 'flex';
         }
-
         function showLoginButton() {
             document.getElementById('user-info').classList.add('hidden');
             document.getElementById('login-button').classList.remove('hidden');
             document.getElementById('personal-questions-section').classList.add('hidden');
+            document.getElementById('config-nav-link').style.display = 'none';
         }
 
         // Personal questions functions
