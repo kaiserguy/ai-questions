@@ -1,6 +1,6 @@
 # AI Questions - Cloud Version
 
-A web application for tracking AI responses to politically sensitive questions over time, deployed on Heroku.
+A web application for tracking AI responses to questions over time, deployed on Heroku.
 
 ## Features
 

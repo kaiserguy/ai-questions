@@ -40,7 +40,7 @@
 ## 🚀 **Current Capabilities**
 
 ### **For Anonymous Users:**
-- View daily 1984 question and AI response
+- View daily question and AI response
 - Use "Ask AI Now" with any available model
 - View answer history and comparison feature
 - Access all public functionality
@@ -65,12 +65,12 @@
 ## 🎯 **What This Means**
 
 Your AI Questions application is now a **complete personal AI tracking platform** that allows users to:
-- Monitor AI response evolution on both public (1984) and personal questions
+- Monitor AI response evolution on both public and personal questions
 - Maintain private collections of questions for individual research
 - Compare responses across different AI models and time periods
 - Track changes in AI behavior and capabilities over time
 
-The application successfully combines the original concept of tracking AI responses to politically sensitive questions with a powerful personal research tool for individual users.
+The application successfully combines the original concept of tracking AI responses to questions with a powerful personal research tool for individual users.
 
 **Status: FULLY OPERATIONAL** 🚀
 

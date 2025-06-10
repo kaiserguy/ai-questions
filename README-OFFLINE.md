@@ -73,7 +73,7 @@ The application runs with these default settings:
 
 ### 🎮 Features
 
-#### **Daily Questions from "1984"**
+#### **AI Questions**
 - Automated daily questions about George Orwell's novel
 - Track how different AI models respond over time
 - Historical comparison and analysis

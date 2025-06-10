@@ -1,8 +1,8 @@
 # AI Questions Project - 5 Valuable Improvements Analysis
 
 ## Current Project Assessment
-The AI Questions project is a daily question tracker focused on George Orwell's "1984" that:
-- Asks AI models politically sensitive questions daily
+The AI Questions project is a daily question tracker that:
+- Asks AI models questions daily
 - Tracks responses over time to monitor AI behavior changes
 - Supports multiple AI models (Hugging Face, OpenAI)
 - Stores historical answers in a database

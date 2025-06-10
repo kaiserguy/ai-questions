@@ -55,7 +55,7 @@ Users can now:
 3. **Ask AI** - Get responses from any available AI model
 4. **Track history** - View all AI responses over time
 5. **Manage questions** - Edit or delete questions as needed
-6. **Separate tracking** - Personal questions don't mix with daily 1984 questions
+6. **Separate tracking** - Personal questions don't mix with daily public questions
 
 ## 🔒 **Security Features**
 - **OAuth 2.0** industry-standard authentication

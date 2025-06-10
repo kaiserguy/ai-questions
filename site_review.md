@@ -3,7 +3,7 @@
 ## Deployed Site Analysis
 - URL: https://peaceful-sierra-40313-4a09d237c70e.herokuapp.com/
 - Title: AI Questions
-- Purpose: Tracking AI responses to politically sensitive questions over time
+- Purpose: Tracking AI responses to questions over time
 
 ## Current Issue with "Ask AI Now" Button
 - Button is visible and clickable
