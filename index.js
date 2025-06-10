@@ -283,6 +283,37 @@ const AVAILABLE_MODELS = [
     requiresAuth: false, // Changed to false to allow guest usage
     defaultEnabled: true
   },
+  
+  // Hugging Face models (re-enabled with paid API key)
+  {
+    id: "microsoft/DialoGPT-medium",
+    name: "Microsoft DialoGPT Medium",
+    provider: "huggingface",
+    apiKeyEnv: "HUGGING_FACE_API_KEY",
+    free: false, // Changed to false since using paid API
+    description: "Conversational AI model trained on Reddit conversations",
+    defaultEnabled: true // Re-enabled
+  },
+  {
+    id: "google/flan-t5-large",
+    name: "Google Flan-T5 Large",
+    provider: "huggingface", 
+    apiKeyEnv: "HUGGING_FACE_API_KEY",
+    free: false, // Changed to false since using paid API
+    description: "Instruction-tuned text-to-text transformer",
+    defaultEnabled: true // Re-enabled
+  },
+  {
+    id: "microsoft/DialoGPT-large",
+    name: "Microsoft DialoGPT Large",
+    provider: "huggingface",
+    apiKeyEnv: "HUGGING_FACE_API_KEY",
+    free: false, // Changed to false since using paid API
+    description: "Larger conversational AI model with better responses",
+    defaultEnabled: true // Re-enabled
+  },
+  
+  // Additional OpenAI models
   {
     id: "gpt-4",
     name: "ChatGPT (GPT-4)",
@@ -302,35 +333,6 @@ const AVAILABLE_MODELS = [
     description: "Faster GPT-4 with improved performance",
     requiresAuth: false, // Changed to false to allow guest usage
     defaultEnabled: false
-  },
-  
-  // Free models (may have issues) - moved to bottom
-  {
-    id: "microsoft/DialoGPT-medium",
-    name: "Microsoft DialoGPT Medium",
-    provider: "huggingface",
-    apiKeyEnv: "HUGGING_FACE_API_KEY",
-    free: true,
-    description: "Conversational AI model (may be unreliable)",
-    defaultEnabled: false // Disabled by default due to issues
-  },
-  {
-    id: "google/flan-t5-large",
-    name: "Google Flan-T5 Large",
-    provider: "huggingface", 
-    apiKeyEnv: "HUGGING_FACE_API_KEY",
-    free: true,
-    description: "Instruction-tuned transformer (may be unreliable)",
-    defaultEnabled: false // Disabled by default due to issues
-  },
-  {
-    id: "microsoft/DialoGPT-large",
-    name: "Microsoft DialoGPT Large",
-    provider: "huggingface",
-    apiKeyEnv: "HUGGING_FACE_API_KEY",
-    free: true,
-    description: "Larger conversational AI model (may be unreliable)",
-    defaultEnabled: false // Disabled by default due to issues
   },
   {
     id: "claude-3-haiku",
@@ -486,49 +488,73 @@ Answer:`;
     
     // Handle different providers
     if (selectedModel.provider === 'huggingface') {
-      // Hugging Face API call
+      // Hugging Face API call with improved error handling
+      console.log(`Calling Hugging Face model: ${selectedModel.id}`);
+      
       const response = await axios.post(
         `https://api-inference.huggingface.co/models/${selectedModel.id}`,
         {
           inputs: prompt,
           parameters: {
-            max_length: 500,
+            max_new_tokens: 500,
             temperature: 0.7,
             top_p: 0.95,
-            do_sample: true
+            do_sample: true,
+            return_full_text: false // Only return the generated text, not the prompt
+          },
+          options: {
+            wait_for_model: true, // Wait for model to load if needed
+            use_cache: false // Get fresh responses
           }
         },
         {
           headers: {
             'Authorization': `Bearer ${apiKey}`,
             'Content-Type': 'application/json'
-          }
+          },
+          timeout: 30000 // 30 second timeout
         }
-      ) ;
+      );
       
       // Handle different response formats from Hugging Face
       console.log('Hugging Face raw response:', JSON.stringify(response.data, null, 2));
       
       if (Array.isArray(response.data) && response.data.length > 0) {
         // For text generation models, the response includes the original prompt
-        const fullText = response.data[0].generated_text || response.data[0];
-        // Remove the original prompt from the response to get just the answer
-        answer = fullText.replace(prompt, '').trim();
-        
-        // If the answer is still empty or very short, use the full text
-        if (!answer || answer.length < 10) {
-          answer = fullText;
+        const firstResult = response.data[0];
+        if (typeof firstResult === 'string') {
+          answer = firstResult.trim();
+        } else if (firstResult.generated_text) {
+          const fullText = firstResult.generated_text;
+          // Remove the original prompt from the response to get just the answer
+          answer = fullText.replace(prompt, '').trim();
+          
+          // If the answer is still empty or very short, use the full text
+          if (!answer || answer.length < 10) {
+            answer = fullText.trim();
+          }
+        } else {
+          answer = JSON.stringify(firstResult);
         }
       } else if (typeof response.data === 'string') {
-        answer = response.data;
+        answer = response.data.trim();
       } else if (response.data.generated_text) {
         const fullText = response.data.generated_text;
         answer = fullText.replace(prompt, '').trim();
         if (!answer || answer.length < 10) {
-          answer = fullText;
+          answer = fullText.trim();
         }
+      } else if (response.data.error) {
+        throw new Error(`Hugging Face API Error: ${response.data.error}`);
       } else {
+        // Fallback for unexpected response format
+        console.warn('Unexpected Hugging Face response format:', response.data);
         answer = JSON.stringify(response.data);
+      }
+      
+      // Ensure we have a meaningful answer
+      if (!answer || answer.length < 5) {
+        throw new Error(`Model "${selectedModel.name}" returned an empty or very short response. This may indicate the model is not suitable for this type of question.`);
       }
     } 
     else if (selectedModel.provider === 'openai') {
@@ -581,13 +607,22 @@ Answer:`;
       
       // Provide specific error messages for common Hugging Face issues
       if (error.response.status === 404) {
-        throw new Error(`Model "${selectedModel.name}" is not available. Please try ChatGPT instead.`);
+        throw new Error(`Model "${selectedModel.name}" is not available through the Hugging Face Inference API. The model may not exist or may not support text generation.`);
       } else if (error.response.status === 503) {
-        throw new Error(`Model "${selectedModel.name}" is currently loading. Please try ChatGPT for immediate results.`);
+        throw new Error(`Model "${selectedModel.name}" is currently loading. Please try again in a few minutes.`);
       } else if (error.response.status === 429) {
-        throw new Error('Rate limit exceeded. Please try ChatGPT or wait a few minutes.');
+        throw new Error('Rate limit exceeded for Hugging Face API. Please try again later.');
+      } else if (error.response.status === 401) {
+        throw new Error('Hugging Face API authentication failed. Please check the API key configuration.');
+      } else if (error.response.status === 400) {
+        const errorData = error.response.data;
+        if (errorData && errorData.error) {
+          throw new Error(`Hugging Face API Error: ${errorData.error}`);
+        } else {
+          throw new Error(`Bad request to Hugging Face API for model "${selectedModel.name}". The model may not support the requested parameters.`);
+        }
       } else {
-        throw new Error(`Model "${selectedModel.name}" is currently unavailable. Please try ChatGPT instead.`);
+        throw new Error(`Hugging Face API Error (${error.response.status}): ${error.response.statusText}`);
       }
     }
     
