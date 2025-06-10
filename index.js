@@ -1062,6 +1062,19 @@ app.post('/api/personal-questions', requireAuth, async (req, res) => {
       return res.status(400).json({ error: 'Question and context are required' });
     }
     
+    // Handle debug user - ensure debug user exists in database
+    if (req.user.id === 999999) {
+      // Check if debug user exists, create if not
+      const debugUserCheck = await pool.query('SELECT id FROM users WHERE id = $1', [999999]);
+      if (debugUserCheck.rows.length === 0) {
+        await pool.query(
+          'INSERT INTO users (id, google_id, name, email, avatar_url) VALUES ($1, $2, $3, $4, $5) ON CONFLICT (id) DO NOTHING',
+          [999999, 'debug-user-id', 'Debug User', 'debug@test.com', 'https://via.placeholder.com/40']
+        );
+        console.log('🔧 Debug user created in database');
+      }
+    }
+    
     const result = await pool.query(
       'INSERT INTO personal_questions (user_id, question, context) VALUES ($1, $2, $3) RETURNING *',
       [req.user.id, question, context]
