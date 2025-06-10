@@ -272,36 +272,7 @@ const DEFAULT_ENABLED_MODELS = [
 ];
 
 const AVAILABLE_MODELS = [
-  // Free models (no API key required)
-  {
-    id: "microsoft/DialoGPT-medium",
-    name: "Microsoft DialoGPT Medium",
-    provider: "huggingface",
-    apiKeyEnv: "HUGGING_FACE_API_KEY",
-    free: true,
-    description: "Conversational AI model trained on Reddit conversations",
-    defaultEnabled: true
-  },
-  {
-    id: "google/flan-t5-large",
-    name: "Google Flan-T5 Large",
-    provider: "huggingface", 
-    apiKeyEnv: "HUGGING_FACE_API_KEY",
-    free: true,
-    description: "Instruction-tuned text-to-text transformer",
-    defaultEnabled: true
-  },
-  {
-    id: "microsoft/DialoGPT-large",
-    name: "Microsoft DialoGPT Large",
-    provider: "huggingface",
-    apiKeyEnv: "HUGGING_FACE_API_KEY",
-    free: true,
-    description: "Larger conversational AI model with better responses",
-    defaultEnabled: true
-  },
-  
-  // Premium models (API key required)
+  // Premium models (API key required) - ChatGPT first as default
   {
     id: "gpt-3.5-turbo",
     name: "ChatGPT (GPT-3.5 Turbo)",
@@ -309,7 +280,7 @@ const AVAILABLE_MODELS = [
     apiKeyEnv: "OPENAI_API_KEY",
     free: false,
     description: "OpenAI's fast and capable conversational AI model",
-    requiresAuth: true,
+    requiresAuth: false, // Changed to false to allow guest usage
     defaultEnabled: true
   },
   {
@@ -319,7 +290,7 @@ const AVAILABLE_MODELS = [
     apiKeyEnv: "OPENAI_API_KEY",
     free: false,
     description: "OpenAI's most advanced reasoning model",
-    requiresAuth: true,
+    requiresAuth: false, // Changed to false to allow guest usage
     defaultEnabled: false
   },
   {
@@ -329,8 +300,37 @@ const AVAILABLE_MODELS = [
     apiKeyEnv: "OPENAI_API_KEY", 
     free: false,
     description: "Faster GPT-4 with improved performance",
-    requiresAuth: true,
+    requiresAuth: false, // Changed to false to allow guest usage
     defaultEnabled: false
+  },
+  
+  // Free models (may have issues) - moved to bottom
+  {
+    id: "microsoft/DialoGPT-medium",
+    name: "Microsoft DialoGPT Medium",
+    provider: "huggingface",
+    apiKeyEnv: "HUGGING_FACE_API_KEY",
+    free: true,
+    description: "Conversational AI model (may be unreliable)",
+    defaultEnabled: false // Disabled by default due to issues
+  },
+  {
+    id: "google/flan-t5-large",
+    name: "Google Flan-T5 Large",
+    provider: "huggingface", 
+    apiKeyEnv: "HUGGING_FACE_API_KEY",
+    free: true,
+    description: "Instruction-tuned transformer (may be unreliable)",
+    defaultEnabled: false // Disabled by default due to issues
+  },
+  {
+    id: "microsoft/DialoGPT-large",
+    name: "Microsoft DialoGPT Large",
+    provider: "huggingface",
+    apiKeyEnv: "HUGGING_FACE_API_KEY",
+    free: true,
+    description: "Larger conversational AI model (may be unreliable)",
+    defaultEnabled: false // Disabled by default due to issues
   },
   {
     id: "claude-3-haiku",
@@ -581,11 +581,13 @@ Answer:`;
       
       // Provide specific error messages for common Hugging Face issues
       if (error.response.status === 404) {
-        throw new Error(`Model "${selectedModel.name}" is not available through the Hugging Face Inference API. This model may require a different API or provider.`);
+        throw new Error(`Model "${selectedModel.name}" is not available. Please try ChatGPT instead.`);
       } else if (error.response.status === 503) {
-        throw new Error(`Model "${selectedModel.name}" is currently loading. Please try again in a few minutes.`);
+        throw new Error(`Model "${selectedModel.name}" is currently loading. Please try ChatGPT for immediate results.`);
       } else if (error.response.status === 429) {
-        throw new Error('Rate limit exceeded. Please try again later.');
+        throw new Error('Rate limit exceeded. Please try ChatGPT or wait a few minutes.');
+      } else {
+        throw new Error(`Model "${selectedModel.name}" is currently unavailable. Please try ChatGPT instead.`);
       }
     }
     

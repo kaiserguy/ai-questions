@@ -1061,6 +1061,70 @@
         </div>
     </div>
     
+    <!-- Welcome/Onboarding Section for New Users -->
+    <div id="welcome-section" class="welcome-section" style="background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%); color: white; border-radius: 12px; padding: 25px; margin: 25px 0; box-shadow: 0 4px 15px rgba(0,0,0,0.1); display: none;">
+        <div style="display: flex; align-items: center; gap: 15px; margin-bottom: 20px;">
+            <div style="font-size: 48px;">👋</div>
+            <div>
+                <h3 style="margin: 0; color: white; font-size: 24px;">Welcome to AI Questions!</h3>
+                <p style="margin: 5px 0 0 0; opacity: 0.9; font-size: 16px;">Track how AI models respond to politically sensitive questions over time</p>
+            </div>
+        </div>
+        
+        <div style="background: rgba(255,255,255,0.1); border-radius: 8px; padding: 20px; margin-bottom: 20px;">
+            <h4 style="margin: 0 0 15px 0; color: white;">🎯 How it works:</h4>
+            <div style="display: grid; gap: 12px; font-size: 15px; line-height: 1.5;">
+                <div style="display: flex; align-items: flex-start; gap: 10px;">
+                    <span style="background: rgba(255,255,255,0.2); border-radius: 50%; width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: bold; flex-shrink: 0;">1</span>
+                    <span><strong>Daily Questions:</strong> We ask AI models thought-provoking questions about politics, ethics, and society</span>
+                </div>
+                <div style="display: flex; align-items: flex-start; gap: 10px;">
+                    <span style="background: rgba(255,255,255,0.2); border-radius: 50%; width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: bold; flex-shrink: 0;">2</span>
+                    <span><strong>Multiple AI Models:</strong> Compare responses from ChatGPT, Claude, and other leading AI systems</span>
+                </div>
+                <div style="display: flex; align-items: flex-start; gap: 10px;">
+                    <span style="background: rgba(255,255,255,0.2); border-radius: 50%; width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: bold; flex-shrink: 0;">3</span>
+                    <span><strong>Track Changes:</strong> See how AI responses evolve over time and across different models</span>
+                </div>
+                <div style="display: flex; align-items: flex-start; gap: 10px;">
+                    <span style="background: rgba(255,255,255,0.2); border-radius: 50%; width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: bold; flex-shrink: 0;">4</span>
+                    <span><strong>Your Questions:</strong> Add your own questions and get AI responses (login required)</span>
+                </div>
+            </div>
+        </div>
+        
+        <div style="display: flex; gap: 12px; align-items: center; flex-wrap: wrap;">
+            <button onclick="startTour()" style="
+                background: white; 
+                color: #4CAF50; 
+                border: none;
+                padding: 12px 20px; 
+                border-radius: 6px; 
+                font-weight: 600;
+                cursor: pointer;
+                display: flex;
+                align-items: center;
+                gap: 8px;
+                transition: transform 0.2s;
+            " onmouseover="this.style.transform='translateY(-2px)'" onmouseout="this.style.transform='translateY(0)'">
+                <span style="font-size: 16px;">🚀</span>
+                Start Tour
+            </button>
+            <button onclick="dismissWelcome()" style="
+                background: rgba(255,255,255,0.2); 
+                color: white; 
+                border: 1px solid rgba(255,255,255,0.3);
+                padding: 12px 20px; 
+                border-radius: 6px; 
+                font-weight: 600;
+                cursor: pointer;
+                transition: background 0.2s;
+            " onmouseover="this.style.background='rgba(255,255,255,0.3)'" onmouseout="this.style.background='rgba(255,255,255,0.2)'">
+                Skip for now
+            </button>
+        </div>
+    </div>
+
     <!-- Offline Version Download Section - Visible to All Users -->
     <div id="offline-version-section" class="offline-version-section" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border-radius: 12px; padding: 20px; margin: 25px 0; box-shadow: 0 4px 15px rgba(0,0,0,0.1);">
         <div style="display: flex; align-items: center; gap: 15px; margin-bottom: 15px;">
@@ -2635,6 +2699,232 @@
                 showNotification('Export Started', 'CSV download should begin shortly', 'success', 3000);
             }, 1000);
         }
+
+        // Onboarding and Welcome Functions
+        function showWelcome() {
+            const welcomeSection = document.getElementById('welcome-section');
+            if (welcomeSection) {
+                welcomeSection.style.display = 'block';
+                welcomeSection.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+        }
+
+        function dismissWelcome() {
+            const welcomeSection = document.getElementById('welcome-section');
+            if (welcomeSection) {
+                welcomeSection.style.display = 'none';
+                localStorage.setItem('ai-questions-welcome-dismissed', 'true');
+            }
+        }
+
+        function startTour() {
+            dismissWelcome();
+            
+            // Highlight the daily question section
+            const questionSection = document.querySelector('.question-section');
+            if (questionSection) {
+                questionSection.style.border = '3px solid #4CAF50';
+                questionSection.style.borderRadius = '8px';
+                questionSection.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                
+                // Show tour tooltip
+                showTourTooltip(questionSection, 'This is today\'s question. Try selecting ChatGPT and clicking "Ask AI Now" to see how AI responds!', 'bottom');
+                
+                // Remove highlight after tour
+                setTimeout(() => {
+                    questionSection.style.border = '';
+                    questionSection.style.borderRadius = '';
+                }, 10000);
+            }
+        }
+
+        function showTourTooltip(element, message, position = 'top') {
+            // Remove any existing tooltips
+            const existingTooltip = document.querySelector('.tour-tooltip');
+            if (existingTooltip) {
+                existingTooltip.remove();
+            }
+
+            const tooltip = document.createElement('div');
+            tooltip.className = 'tour-tooltip';
+            tooltip.innerHTML = `
+                <div style="
+                    background: #333;
+                    color: white;
+                    padding: 12px 16px;
+                    border-radius: 8px;
+                    font-size: 14px;
+                    max-width: 300px;
+                    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+                    position: absolute;
+                    z-index: 1000;
+                    line-height: 1.4;
+                ">
+                    ${message}
+                    <button onclick="this.parentElement.parentElement.remove()" style="
+                        background: #4CAF50;
+                        color: white;
+                        border: none;
+                        padding: 4px 8px;
+                        border-radius: 4px;
+                        font-size: 12px;
+                        margin-left: 8px;
+                        cursor: pointer;
+                    ">Got it!</button>
+                </div>
+            `;
+
+            document.body.appendChild(tooltip);
+
+            // Position the tooltip
+            const rect = element.getBoundingClientRect();
+            const tooltipRect = tooltip.getBoundingClientRect();
+            
+            if (position === 'bottom') {
+                tooltip.style.left = (rect.left + rect.width / 2 - tooltipRect.width / 2) + 'px';
+                tooltip.style.top = (rect.bottom + 10) + 'px';
+            } else {
+                tooltip.style.left = (rect.left + rect.width / 2 - tooltipRect.width / 2) + 'px';
+                tooltip.style.top = (rect.top - tooltipRect.height - 10) + 'px';
+            }
+
+            // Auto-remove after 15 seconds
+            setTimeout(() => {
+                if (tooltip.parentElement) {
+                    tooltip.remove();
+                }
+            }, 15000);
+        }
+
+        // Check if user is new and show welcome
+        document.addEventListener('DOMContentLoaded', function() {
+            const hasSeenWelcome = localStorage.getItem('ai-questions-welcome-dismissed');
+            const hasAnswers = document.querySelectorAll('.answer-item').length > 0;
+            
+            // Show welcome to new users (no local storage flag and no visible answers)
+            if (!hasSeenWelcome && !hasAnswers) {
+                setTimeout(showWelcome, 1000); // Delay to let page load
+            }
+        });
+
+        // Improve error handling for Ask AI Now button
+        async function askAI() {
+            const button = document.querySelector('button[onclick="askAI()"]');
+            const modelSelect = document.querySelector('select[name="model"]');
+            const originalText = button.textContent;
+            
+            try {
+                button.textContent = 'Asking AI...';
+                button.disabled = true;
+                
+                const selectedModel = modelSelect.value;
+                const response = await fetch(`/api/question?model=${selectedModel}`);
+                const data = await response.json();
+                
+                if (!response.ok) {
+                    throw new Error(data.message || data.error || 'Failed to get AI response');
+                }
+                
+                // Success - reload page to show new answer
+                showNotification('Success!', 'AI response generated successfully', 'success', 2000);
+                setTimeout(() => {
+                    window.location.reload();
+                }, 1500);
+                
+            } catch (error) {
+                console.error('Error asking AI:', error);
+                
+                // Show specific error message
+                let errorMessage = error.message;
+                if (errorMessage.includes('ChatGPT')) {
+                    showNotification('Model Issue', errorMessage, 'warning', 8000);
+                } else {
+                    showNotification('Error', errorMessage, 'error', 6000);
+                }
+                
+                // Reset button
+                button.textContent = originalText;
+                button.disabled = false;
+            }
+        }
+
+        // Enhanced notification function
+        function showNotification(title, message, type = 'info', duration = 5000) {
+            // Remove existing notifications
+            const existing = document.querySelector('.notification');
+            if (existing) {
+                existing.remove();
+            }
+
+            const notification = document.createElement('div');
+            notification.className = 'notification';
+            
+            const colors = {
+                success: '#4CAF50',
+                error: '#f44336',
+                warning: '#ff9800',
+                info: '#2196F3'
+            };
+            
+            notification.innerHTML = `
+                <div style="
+                    position: fixed;
+                    top: 20px;
+                    right: 20px;
+                    background: ${colors[type]};
+                    color: white;
+                    padding: 16px 20px;
+                    border-radius: 8px;
+                    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+                    z-index: 1000;
+                    max-width: 400px;
+                    animation: slideIn 0.3s ease-out;
+                ">
+                    <div style="font-weight: bold; margin-bottom: 4px;">${title}</div>
+                    <div style="font-size: 14px; line-height: 1.4;">${message}</div>
+                    <button onclick="this.parentElement.parentElement.remove()" style="
+                        position: absolute;
+                        top: 8px;
+                        right: 8px;
+                        background: none;
+                        border: none;
+                        color: white;
+                        font-size: 18px;
+                        cursor: pointer;
+                        width: 24px;
+                        height: 24px;
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                    ">×</button>
+                </div>
+            `;
+
+            document.body.appendChild(notification);
+
+            // Auto-remove
+            setTimeout(() => {
+                if (notification.parentElement) {
+                    notification.remove();
+                }
+            }, duration);
+        }
+
+        // Add CSS animation for notifications
+        const style = document.createElement('style');
+        style.textContent = `
+            @keyframes slideIn {
+                from {
+                    transform: translateX(100%);
+                    opacity: 0;
+                }
+                to {
+                    transform: translateX(0);
+                    opacity: 1;
+                }
+            }
+        `;
+        document.head.appendChild(style);
         </script>
         
 </body>
