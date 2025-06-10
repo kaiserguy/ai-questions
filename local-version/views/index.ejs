@@ -1146,6 +1146,73 @@
                         });
                 });
         }
+        
+        // Load local models from Ollama
+        function loadLocalModels() {
+            console.log('Loading local models from Ollama...');
+            
+            fetch('/api/ollama/models')
+                .then(response => response.json())
+                .then(models => {
+                    console.log('Local models loaded:', models);
+                    
+                    // Update available models list
+                    const availableList = document.getElementById('available-models-list');
+                    if (availableList) {
+                        availableList.innerHTML = '';
+                        
+                        if (models.length === 0) {
+                            availableList.innerHTML = '<p style="color: #6c757d; font-style: italic;">No local models available. Use "Manage Models" to download models.</p>';
+                        } else {
+                            models.forEach(model => {
+                                const modelDiv = document.createElement('div');
+                                modelDiv.style.cssText = 'padding: 8px; border: 1px solid #dee2e6; border-radius: 4px; margin-bottom: 8px; background: #f8f9fa;';
+                                modelDiv.innerHTML = `
+                                    <strong>${model.name}</strong>
+                                    <br><small style="color: #6c757d;">Size: ${model.size || 'Unknown'}</small>
+                                `;
+                                availableList.appendChild(modelDiv);
+                            });
+                        }
+                    }
+                    
+                    // Update recommended models list
+                    const recommendedList = document.getElementById('recommended-models-list');
+                    if (recommendedList) {
+                        recommendedList.innerHTML = '';
+                        
+                        const recommendedModels = [
+                            'llama3.2:1b',
+                            'llama3.2:3b', 
+                            'phi3:mini',
+                            'qwen2.5:0.5b',
+                            'gemma2:2b'
+                        ];
+                        
+                        recommendedModels.forEach(modelName => {
+                            const isInstalled = models.some(m => m.name === modelName);
+                            const modelDiv = document.createElement('div');
+                            modelDiv.style.cssText = `padding: 8px; border: 1px solid ${isInstalled ? '#28a745' : '#dee2e6'}; border-radius: 4px; margin-bottom: 8px; background: ${isInstalled ? '#d4edda' : '#f8f9fa'};`;
+                            modelDiv.innerHTML = `
+                                <strong>${modelName}</strong> ${isInstalled ? '✅' : '⬇️'}
+                                <br><small style="color: #6c757d;">${isInstalled ? 'Installed' : 'Recommended for download'}</small>
+                            `;
+                            recommendedList.appendChild(modelDiv);
+                        });
+                    }
+                    
+                    // Refresh the main model selectors
+                    loadAllModels();
+                })
+                .catch(error => {
+                    console.error('Error loading local models:', error);
+                    
+                    const availableList = document.getElementById('available-models-list');
+                    if (availableList) {
+                        availableList.innerHTML = '<p style="color: #dc3545;">Error loading local models. Make sure Ollama is running.</p>';
+                    }
+                });
+        }
 
         // Authentication functions
         function checkAuthStatus() {
