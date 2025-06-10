@@ -4,7 +4,7 @@ A web application for tracking AI responses to politically sensitive questions o
 
 ## Features
 
-- **Daily Questions**: Automated daily questions from George Orwell's "1984"
+- **Daily Questions**: Automated daily thought-provoking questions
 - **Multiple AI Models**: Support for ChatGPT and Hugging Face models
 - **Personal Questions**: Add and track your own questions
 - **Analytics Dashboard**: Compare responses across models and time

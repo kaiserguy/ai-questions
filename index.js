@@ -405,10 +405,9 @@ const AVAILABLE_MODELS = [
   }
 ];
 
-// Questions from 1984
-const QUESTIONS_1984 = [
+// Daily Questions Array
+const DAILY_QUESTIONS = [
   {
-    id: 1,
     question: "In '1984', was Winston Smith's rebellion against the Party justified? Why or why not?",
     context: "In George Orwell's novel '1984', Winston Smith works at the Ministry of Truth but secretly rebels against the totalitarian regime of Big Brother and the Party. He keeps a diary, engages in a forbidden relationship with Julia, and seeks out the Brotherhood resistance movement."
   },
@@ -463,8 +462,8 @@ const QUESTIONS_1984 = [
 function getTodaysQuestion() {
   const today = new Date();
   const dayOfMonth = today.getDate();
-  const questionIndex = (dayOfMonth % QUESTIONS_1984.length);
-  return QUESTIONS_1984[questionIndex];
+  const questionIndex = (dayOfMonth % DAILY_QUESTIONS.length);
+  return DAILY_QUESTIONS[questionIndex];
 }
 
 // Ask question to AI API
@@ -485,7 +484,7 @@ async function askQuestion(question, context, modelId, apiKeys) {
     }
     
     // Combine question and context into a prompt
-    const prompt = `Based on the following context from George Orwell's "1984", please answer this question thoroughly:
+    const prompt = `Based on the following context, please answer this question thoroughly:
     
 Context: ${context}
 
@@ -575,7 +574,7 @@ Answer:`;
           messages: [
             {
               role: "system",
-              content: "You are a helpful assistant analyzing George Orwell's 1984."
+              content: "You are a helpful assistant providing thoughtful analysis of literature and political topics."
             },
             {
               role: "user",

@@ -519,8 +519,8 @@ const AVAILABLE_MODELS = [
   // Local models only in local mode
 ];
 
-// Questions from 1984
-const QUESTIONS_1984 = [
+// Daily Questions Array
+const DAILY_QUESTIONS = [
   {
     id: 1,
     question: "In '1984', was Winston Smith's rebellion against the Party justified? Why or why not?",
@@ -577,8 +577,8 @@ const QUESTIONS_1984 = [
 function getTodaysQuestion() {
   const today = new Date();
   const dayOfMonth = today.getDate();
-  const questionIndex = (dayOfMonth % QUESTIONS_1984.length);
-  return QUESTIONS_1984[questionIndex];
+  const questionIndex = (dayOfMonth % DAILY_QUESTIONS.length);
+  return DAILY_QUESTIONS[questionIndex];
 }
 
 // Ask question to AI API
@@ -659,7 +659,7 @@ async function askQuestion(question, context, modelId, apiKeys, useWikipedia = f
     }
     
     // Combine question and context into a prompt
-    const prompt = `Based on the following context from George Orwell's "1984", please answer this question thoroughly:
+    const prompt = `Based on the following context, please answer this question thoroughly:
     
 Context: ${enhancedContext}
 
@@ -711,7 +711,7 @@ Answer:`;
           messages: [
             {
               role: "system",
-              content: "You are a helpful assistant analyzing George Orwell's 1984."
+              content: "You are a helpful assistant providing thoughtful analysis of literature and political topics."
             },
             {
               role: "user",
