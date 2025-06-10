@@ -1153,18 +1153,22 @@
             
             fetch('/api/ollama/models')
                 .then(response => response.json())
-                .then(models => {
-                    console.log('Local models loaded:', models);
+                .then(data => {
+                    console.log('Local models loaded:', data);
+                    
+                    // Extract available and recommended models from the response
+                    const availableModels = data.available || [];
+                    const recommendedModels = data.recommended || [];
                     
                     // Update available models list
                     const availableList = document.getElementById('available-models-list');
                     if (availableList) {
                         availableList.innerHTML = '';
                         
-                        if (models.length === 0) {
+                        if (availableModels.length === 0) {
                             availableList.innerHTML = '<p style="color: #6c757d; font-style: italic;">No local models available. Use "Manage Models" to download models.</p>';
                         } else {
-                            models.forEach(model => {
+                            availableModels.forEach(model => {
                                 const modelDiv = document.createElement('div');
                                 modelDiv.style.cssText = 'padding: 8px; border: 1px solid #dee2e6; border-radius: 4px; margin-bottom: 8px; background: #f8f9fa;';
                                 modelDiv.innerHTML = `
@@ -1181,24 +1185,39 @@
                     if (recommendedList) {
                         recommendedList.innerHTML = '';
                         
-                        const recommendedModels = [
-                            'llama3.2:1b',
-                            'llama3.2:3b', 
-                            'phi3:mini',
-                            'qwen2.5:0.5b',
-                            'gemma2:2b'
-                        ];
-                        
-                        recommendedModels.forEach(modelName => {
-                            const isInstalled = models.some(m => m.name === modelName);
-                            const modelDiv = document.createElement('div');
-                            modelDiv.style.cssText = `padding: 8px; border: 1px solid ${isInstalled ? '#28a745' : '#dee2e6'}; border-radius: 4px; margin-bottom: 8px; background: ${isInstalled ? '#d4edda' : '#f8f9fa'};`;
-                            modelDiv.innerHTML = `
-                                <strong>${modelName}</strong> ${isInstalled ? '✅' : '⬇️'}
-                                <br><small style="color: #6c757d;">${isInstalled ? 'Installed' : 'Recommended for download'}</small>
-                            `;
-                            recommendedList.appendChild(modelDiv);
-                        });
+                        if (recommendedModels.length === 0) {
+                            // Fallback to hardcoded recommended models if none provided by API
+                            const fallbackRecommended = [
+                                'llama3.2:1b',
+                                'llama3.2:3b', 
+                                'phi3:mini',
+                                'qwen2.5:0.5b',
+                                'gemma2:2b'
+                            ];
+                            
+                            fallbackRecommended.forEach(modelName => {
+                                const isInstalled = availableModels.some(m => m.name === modelName);
+                                const modelDiv = document.createElement('div');
+                                modelDiv.style.cssText = `padding: 8px; border: 1px solid ${isInstalled ? '#28a745' : '#dee2e6'}; border-radius: 4px; margin-bottom: 8px; background: ${isInstalled ? '#d4edda' : '#f8f9fa'};`;
+                                modelDiv.innerHTML = `
+                                    <strong>${modelName}</strong> ${isInstalled ? '✅' : '⬇️'}
+                                    <br><small style="color: #6c757d;">${isInstalled ? 'Installed' : 'Recommended for download'}</small>
+                                `;
+                                recommendedList.appendChild(modelDiv);
+                            });
+                        } else {
+                            // Use recommended models from API
+                            recommendedModels.forEach(model => {
+                                const isInstalled = availableModels.some(m => m.name === model.name);
+                                const modelDiv = document.createElement('div');
+                                modelDiv.style.cssText = `padding: 8px; border: 1px solid ${isInstalled ? '#28a745' : '#dee2e6'}; border-radius: 4px; margin-bottom: 8px; background: ${isInstalled ? '#d4edda' : '#f8f9fa'};`;
+                                modelDiv.innerHTML = `
+                                    <strong>${model.name}</strong> ${isInstalled ? '✅' : '⬇️'}
+                                    <br><small style="color: #6c757d;">${isInstalled ? 'Installed' : model.description || 'Recommended for download'}</small>
+                                `;
+                                recommendedList.appendChild(modelDiv);
+                            });
+                        }
                     }
                     
                     // Refresh the main model selectors
