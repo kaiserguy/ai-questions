@@ -1857,13 +1857,13 @@ app.get('/download/offline', async (req, res) => {
   }
 });
 
+// Start server
+app.use(offlinePackageRoutesNew);
+
 // ===== CONFIG PAGE ROUTE =====
 app.get('/config', (req, res) => {
   res.render('config');
 });
-
-// Start server
-app.use(offlinePackageRoutesNew);
 
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
