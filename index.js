@@ -284,7 +284,7 @@ const AVAILABLE_MODELS = [
     defaultEnabled: true
   },
   
-  // Hugging Face models (re-enabled with paid API key)
+  // Hugging Face models (updated with working model names)
   {
     id: "microsoft/DialoGPT-medium",
     name: "Microsoft DialoGPT Medium",
@@ -295,12 +295,12 @@ const AVAILABLE_MODELS = [
     defaultEnabled: true // Re-enabled
   },
   {
-    id: "google/flan-t5-large",
-    name: "Google Flan-T5 Large",
+    id: "google/flan-t5-base",
+    name: "Google Flan-T5 Base",
     provider: "huggingface", 
     apiKeyEnv: "HUGGING_FACE_API_KEY",
     free: false, // Changed to false since using paid API
-    description: "Instruction-tuned text-to-text transformer",
+    description: "Instruction-tuned text-to-text transformer (base model)",
     defaultEnabled: true // Re-enabled
   },
   {
@@ -311,6 +311,15 @@ const AVAILABLE_MODELS = [
     free: false, // Changed to false since using paid API
     description: "Larger conversational AI model with better responses",
     defaultEnabled: true // Re-enabled
+  },
+  {
+    id: "facebook/blenderbot-400M-distill",
+    name: "Facebook BlenderBot",
+    provider: "huggingface",
+    apiKeyEnv: "HUGGING_FACE_API_KEY",
+    free: false,
+    description: "Open-domain chatbot with engaging conversations",
+    defaultEnabled: true
   },
   
   // Additional OpenAI models
