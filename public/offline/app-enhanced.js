@@ -5,6 +5,8 @@ class OfflineAppEnhanced {
         this.aiModel = null;
         this.wikipediaDB = null;
         this.conversationHistory = [];
+        this.queryLogger = null;
+        this.enhancedWikipediaSearch = null;
         this.init();
     }
 
@@ -23,6 +25,9 @@ class OfflineAppEnhanced {
         // Initialize UI
         this.setupEventListeners();
         this.updateUI();
+        
+        // Initialize query logger
+        this.initializeQueryLogger();
         
         // Register service worker
         await this.registerServiceWorker();
@@ -334,6 +339,106 @@ class OfflineAppEnhanced {
 
     showError(message) {
         this.showMessage(message, 'error');
+    }
+
+    initializeQueryLogger() {
+        // Initialize the query logger
+        if (typeof OfflineQueryLogger !== 'undefined') {
+            this.queryLogger = new OfflineQueryLogger();
+            console.log('✅ Query logger initialized');
+        } else {
+            console.warn('⚠️ OfflineQueryLogger not available');
+        }
+    }
+
+    async searchWikipedia(query) {
+        if (!this.wikipediaDB) {
+            console.warn('Wikipedia database not available');
+            return [];
+        }
+
+        // Log search start
+        if (this.queryLogger) {
+            this.queryLogger.logSearchStart(query);
+        }
+
+        try {
+            // Initialize enhanced search if not already done
+            if (!this.enhancedWikipediaSearch && typeof EnhancedWikipediaSearch !== 'undefined') {
+                this.enhancedWikipediaSearch = new EnhancedWikipediaSearch(this.wikipediaDB);
+            }
+
+            let searchResults;
+            
+            if (this.enhancedWikipediaSearch) {
+                // Use enhanced search with logging
+                const result = await this.enhancedWikipediaSearch.enhancedSearch(query, 5);
+                
+                // Add logs to query logger
+                if (this.queryLogger && result.status_log) {
+                    this.queryLogger.addLogs(result.status_log);
+                }
+                
+                searchResults = result.results || [];
+            } else {
+                // Fallback to basic search
+                searchResults = await this.basicWikipediaSearch(query);
+            }
+
+            // Log search completion
+            if (this.queryLogger) {
+                this.queryLogger.logSearchComplete(searchResults.length);
+            }
+
+            return searchResults;
+
+        } catch (error) {
+            console.error('Wikipedia search failed:', error);
+            
+            // Log search error
+            if (this.queryLogger) {
+                this.queryLogger.logSearchError(error.message);
+            }
+            
+            return [];
+        }
+    }
+
+    async basicWikipediaSearch(query) {
+        // Basic search implementation for fallback
+        if (!this.wikipediaDB || !this.wikipediaDB.db) {
+            return [];
+        }
+
+        try {
+            const stmt = this.wikipediaDB.db.prepare(`
+                SELECT title, content, snippet(wikipedia_fts, 1, '<mark>', '</mark>', '...', 32) as snippet
+                FROM wikipedia_fts 
+                WHERE wikipedia_fts MATCH ?
+                ORDER BY rank 
+                LIMIT 5
+            `);
+            
+            const results = [];
+            stmt.bind([query.toLowerCase()]);
+            
+            while (stmt.step()) {
+                const row = stmt.getAsObject();
+                results.push({
+                    title: row.title,
+                    content: row.content,
+                    snippet: row.snippet || row.content?.substring(0, 200) + '...',
+                    url: `/offline/wikipedia/article/${encodeURIComponent(row.title)}`
+                });
+            }
+            
+            stmt.free();
+            return results;
+            
+        } catch (error) {
+            console.error('Basic Wikipedia search failed:', error);
+            return [];
+        }
     }
 }
 

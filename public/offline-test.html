@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Offline Wikipedia Test</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f8f9fa;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+            padding-bottom: 20px;
+            border-bottom: 2px solid #e9ecef;
+        }
+        .test-section {
+            margin: 30px 0;
+            padding: 20px;
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+            background: #f8f9fa;
+        }
+        .test-button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 10px;
+            transition: all 0.3s ease;
+        }
+        .test-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+        }
+        .status {
+            margin: 15px 0;
+            padding: 10px;
+            border-radius: 6px;
+            font-weight: 500;
+        }
+        .status.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .status.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        .status.info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🧪 Offline Wikipedia Features Test</h1>
+            <p>Testing the enhanced Wikipedia search and query logging features</p>
+        </div>
+
+        <div class="test-section">
+            <h3>📋 Query Logger Test</h3>
+            <p>This tests the client-side query logging system with collapsible UI.</p>
+            <button class="test-button" onclick="testQueryLogger()">Initialize Query Logger</button>
+            <button class="test-button" onclick="addTestLogs()">Add Test Logs</button>
+            <div id="queryLoggerStatus" class="status info">Click "Initialize Query Logger" to start</div>
+        </div>
+
+        <div class="test-section">
+            <h3>🔍 Enhanced Wikipedia Search Test</h3>
+            <p>This tests the enhanced Wikipedia search with LLM-driven queries and SQL logging.</p>
+            <button class="test-button" onclick="testEnhancedSearch()">Test Enhanced Search</button>
+            <div id="searchStatus" class="status info">Click "Test Enhanced Search" to start</div>
+        </div>
+
+        <div class="test-section">
+            <h3>📄 Wikipedia Content Parser Test</h3>
+            <p>This tests the Wikipedia content parser that removes infobox clutter.</p>
+            <button class="test-button" onclick="testContentParser()">Test Content Parser</button>
+            <div id="parserStatus" class="status info">Click "Test Content Parser" to start</div>
+        </div>
+
+        <div class="test-section">
+            <h3>🔗 Wikipedia Router Test</h3>
+            <p>This tests the Wikipedia article routing and display system.</p>
+            <button class="test-button" onclick="testRouter()">Test Router</button>
+            <div id="routerStatus" class="status info">Click "Test Router" to start</div>
+        </div>
+    </div>
+
+    <!-- Load the offline Wikipedia components -->
+    <script src="/offline/query-logger.js"></script>
+    <script src="/offline/enhanced-wikipedia-search.js"></script>
+    <script src="/offline/wikipedia-content-parser.js"></script>
+    <script src="/offline/wikipedia-router.js"></script>
+
+    <script>
+        let queryLogger = null;
+
+        function updateStatus(elementId, message, type = 'info') {
+            const element = document.getElementById(elementId);
+            element.textContent = message;
+            element.className = `status ${type}`;
+        }
+
+        function testQueryLogger() {
+            try {
+                if (typeof OfflineQueryLogger !== 'undefined') {
+                    queryLogger = new OfflineQueryLogger();
+                    updateStatus('queryLoggerStatus', '✅ Query Logger initialized successfully!', 'success');
+                } else {
+                    updateStatus('queryLoggerStatus', '❌ OfflineQueryLogger class not found', 'error');
+                }
+            } catch (error) {
+                updateStatus('queryLoggerStatus', `❌ Error: ${error.message}`, 'error');
+            }
+        }
+
+        function addTestLogs() {
+            if (!queryLogger) {
+                updateStatus('queryLoggerStatus', '⚠️ Please initialize Query Logger first', 'error');
+                return;
+            }
+
+            try {
+                // Add sample logs to demonstrate functionality
+                queryLogger.addLog('search', '🔍 Starting search for: "Poland"');
+                queryLogger.addLog('sql', 'SQL: SELECT * FROM wikipedia_fts WHERE wikipedia_fts MATCH \'Poland\' ORDER BY rank LIMIT 5');
+                queryLogger.addLog('search', 'Found 3 articles for query \'Poland\'');
+                queryLogger.addLog('review', 'Reviewing article 1 of 3: \'Poland\'');
+                queryLogger.addLog('result', 'Article \'Poland\' deemed relevant (score: 1.00)');
+                queryLogger.addLog('review', 'Reviewing article 2 of 3: \'2004\'');
+                queryLogger.addLog('result', 'Article \'2004\' not relevant to question');
+                queryLogger.addLog('result', '✅ Search completed. Found 1 relevant articles.');
+                
+                updateStatus('queryLoggerStatus', '✅ Test logs added! Check the query log UI above.', 'success');
+            } catch (error) {
+                updateStatus('queryLoggerStatus', `❌ Error adding logs: ${error.message}`, 'error');
+            }
+        }
+
+        function testEnhancedSearch() {
+            try {
+                if (typeof EnhancedWikipediaSearch !== 'undefined') {
+                    updateStatus('searchStatus', '✅ EnhancedWikipediaSearch class available!', 'success');
+                    
+                    // Test the search functionality (without actual database)
+                    const mockDB = {
+                        db: {
+                            prepare: () => ({
+                                bind: () => {},
+                                step: () => false,
+                                free: () => {},
+                                getAsObject: () => ({})
+                            })
+                        }
+                    };
+                    
+                    const enhancedSearch = new EnhancedWikipediaSearch(mockDB);
+                    updateStatus('searchStatus', '✅ Enhanced search initialized with mock database', 'success');
+                } else {
+                    updateStatus('searchStatus', '❌ EnhancedWikipediaSearch class not found', 'error');
+                }
+            } catch (error) {
+                updateStatus('searchStatus', `❌ Error: ${error.message}`, 'error');
+            }
+        }
+
+        function testContentParser() {
+            try {
+                if (typeof parseWikipediaContent !== 'undefined') {
+                    const testContent = `{{Infobox country
+|name = Poland
+|native_name = Polska
+|capital = Warsaw
+}}
+
+Poland is a country in the eastern region of Central Europe. It is bordered by Germany to the west, Czech Republic and Slovakia to the south, Ukraine and Belarus to the east, and Lithuania and the Russian province of Kaliningrad Oblast to the northeast.`;
+
+                    const cleanContent = parseWikipediaContent(testContent);
+                    
+                    if (cleanContent.includes('Poland is a country') && !cleanContent.includes('{{Infobox')) {
+                        updateStatus('parserStatus', '✅ Content parser working! Infobox removed successfully.', 'success');
+                    } else {
+                        updateStatus('parserStatus', '⚠️ Content parser may not be working correctly', 'error');
+                    }
+                } else {
+                    updateStatus('parserStatus', '❌ parseWikipediaContent function not found', 'error');
+                }
+            } catch (error) {
+                updateStatus('parserStatus', `❌ Error: ${error.message}`, 'error');
+            }
+        }
+
+        function testRouter() {
+            try {
+                if (typeof OfflineWikipediaRouter !== 'undefined') {
+                    updateStatus('routerStatus', '✅ OfflineWikipediaRouter class available!', 'success');
+                    
+                    // Test router initialization
+                    const mockWikipediaManager = {
+                        db: {
+                            prepare: () => ({
+                                bind: () => {},
+                                step: () => false,
+                                free: () => {},
+                                getAsObject: () => ({})
+                            })
+                        }
+                    };
+                    
+                    const router = new OfflineWikipediaRouter(mockWikipediaManager);
+                    updateStatus('routerStatus', '✅ Wikipedia router initialized successfully', 'success');
+                } else {
+                    updateStatus('routerStatus', '❌ OfflineWikipediaRouter class not found', 'error');
+                }
+            } catch (error) {
+                updateStatus('routerStatus', `❌ Error: ${error.message}`, 'error');
+            }
+        }
+
+        // Auto-run tests when page loads
+        document.addEventListener('DOMContentLoaded', () => {
+            console.log('🧪 Offline Wikipedia Features Test Page Loaded');
+            console.log('Available classes:', {
+                OfflineQueryLogger: typeof OfflineQueryLogger,
+                EnhancedWikipediaSearch: typeof EnhancedWikipediaSearch,
+                parseWikipediaContent: typeof parseWikipediaContent,
+                OfflineWikipediaRouter: typeof OfflineWikipediaRouter
+            });
+        });
+    </script>
+</body>
+</html>
+

@@ -2,9 +2,9 @@
   "name": "simple-daily-ai-question",
   "version": "1.0.0",
   "description": "A simple website that asks a public free AI the same question every day via an API call and shows the answer",
-  "main": "index.js",
+  "main": "index.cjs",
   "scripts": {
-    "start": "node index.js",
+    "start": "node index.cjs",
     "dev": "nodemon index.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
