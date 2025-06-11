@@ -2060,6 +2060,45 @@ app.get('/wikipedia/article/:title', async (req, res) => {
         `);
       }
       
+      // Parse and clean the Wikipedia content - remove infobox completely
+      let cleanContent = article.content;
+      
+      // Find where "Poland is a country" starts and use everything from there
+      const startPhrase = "Poland is a country";
+      const startIndex = cleanContent.indexOf(startPhrase);
+      
+      if (startIndex !== -1) {
+        cleanContent = cleanContent.substring(startIndex);
+      } else {
+        // Fallback: remove everything until we find substantial content
+        const lines = cleanContent.split('\n');
+        let contentStartIndex = 0;
+        for (let i = 0; i < lines.length; i++) {
+          const line = lines[i].trim();
+          if (line.length > 50 && !line.startsWith('|') && !line.startsWith('{{') && !line.startsWith('}}')) {
+            contentStartIndex = i;
+            break;
+          }
+        }
+        cleanContent = lines.slice(contentStartIndex).join('\n');
+      }
+      
+      cleanContent = parseWikipediaContent(cleanContent);
+      const infoboxData = {}; // Skip infobox extraction for now
+      
+      // Create infobox HTML if we have data
+      let infoboxHtml = '';
+      if (Object.keys(infoboxData).length > 0) {
+        infoboxHtml = `
+          <div class="infobox">
+            <h3>${article.title}</h3>
+            ${Object.entries(infoboxData).map(([key, value]) => 
+              `<div class="info-row"><strong>${key.charAt(0).toUpperCase() + key.slice(1)}:</strong> ${value}</div>`
+            ).join('')}
+          </div>
+        `;
+      }
+      
       res.send(`
         <html>
           <head>
@@ -2070,13 +2109,20 @@ app.get('/wikipedia/article/:title', async (req, res) => {
               body { 
                 font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; 
                 line-height: 1.6; 
-                max-width: 800px; 
+                max-width: 1000px; 
                 margin: 0 auto; 
                 padding: 20px; 
                 color: #333;
+                background: #f8f9fa;
+              }
+              .container {
+                background: white;
+                padding: 30px;
+                border-radius: 8px;
+                box-shadow: 0 2px 10px rgba(0,0,0,0.1);
               }
               .header { 
-                border-bottom: 1px solid #eee; 
+                border-bottom: 2px solid #eee; 
                 padding-bottom: 15px; 
                 margin-bottom: 20px; 
               }
@@ -2084,22 +2130,97 @@ app.get('/wikipedia/article/:title', async (req, res) => {
                 color: #007bff; 
                 text-decoration: none; 
                 font-size: 14px;
+                display: inline-block;
+                margin-bottom: 10px;
               }
               .back-link:hover { text-decoration: underline; }
-              h1 { color: #000; margin: 10px 0; }
+              h1 { 
+                color: #000; 
+                margin: 10px 0; 
+                font-size: 2.5em;
+                border-bottom: 3px solid #007bff;
+                padding-bottom: 10px;
+              }
+              h2 { 
+                color: #333; 
+                margin-top: 30px; 
+                margin-bottom: 15px;
+                font-size: 1.5em;
+                border-bottom: 1px solid #ddd;
+                padding-bottom: 5px;
+              }
+              h3 { 
+                color: #555; 
+                margin-top: 25px; 
+                margin-bottom: 10px;
+                font-size: 1.2em;
+              }
+              h4 { 
+                color: #666; 
+                margin-top: 20px; 
+                margin-bottom: 8px;
+              }
+              .infobox {
+                float: right;
+                width: 300px;
+                margin: 0 0 20px 20px;
+                padding: 15px;
+                background: #f8f9fa;
+                border: 1px solid #ddd;
+                border-radius: 5px;
+                font-size: 0.9em;
+              }
+              .infobox h3 {
+                margin-top: 0;
+                text-align: center;
+                background: #007bff;
+                color: white;
+                padding: 10px;
+                margin: -15px -15px 15px -15px;
+                border-radius: 5px 5px 0 0;
+              }
+              .info-row {
+                margin-bottom: 8px;
+                padding: 5px 0;
+                border-bottom: 1px solid #eee;
+              }
               .content { 
-                white-space: pre-wrap; 
                 line-height: 1.8; 
+                font-size: 16px;
+              }
+              .content p {
+                margin-bottom: 15px;
+                text-align: justify;
+              }
+              .content ul, .content ol {
+                margin: 15px 0;
+                padding-left: 30px;
+              }
+              .content li {
+                margin-bottom: 5px;
+              }
+              @media (max-width: 768px) {
+                .infobox {
+                  float: none;
+                  width: 100%;
+                  margin: 0 0 20px 0;
+                }
+                body { padding: 10px; }
+                .container { padding: 20px; }
+                h1 { font-size: 2em; }
               }
             </style>
           </head>
           <body>
-            <div class="header">
-              <a href="/" class="back-link">← Back to AI Questions</a>
-              <h1>📄 ${article.title}</h1>
-              <p style="color: #666; margin: 0;">From Local Wikipedia Database</p>
+            <div class="container">
+              <div class="header">
+                <a href="/" class="back-link">← Back to AI Questions</a>
+                <h1>📄 ${article.title}</h1>
+                <p style="color: #666; margin: 0;">From Local Wikipedia Database</p>
+              </div>
+              ${infoboxHtml}
+              <div class="content">${cleanContent}</div>
             </div>
-            <div class="content">${article.content}</div>
           </body>
         </html>
       `);
@@ -2602,25 +2723,27 @@ app.get('/api/wikipedia/context', async (req, res) => {
   }
 });
 
-// Wikipedia article by ID
-app.get('/api/wikipedia/article/:id', async (req, res) => {
-  try {
-    const { id } = req.params;
+const { parseWikipediaContent, extractInfoboxData } = require('./wikipedia-parser');
+
+// Wikipedia article route (duplicate - removing)
+// app.get('/wikipedia/article/:title', async (req, res) => {{
+//   try {
+//     const { id } = req.params;
     
-    const result = await wikipedia.runPythonScript('article', { article_id: id });
-    const parsed = JSON.parse(result);
-    
-    if (parsed.error) {
-      return res.status(404).json(parsed);
-    }
-    
-    res.json(parsed);
-    
-  } catch (error) {
-    console.error('Wikipedia article error:', error);
-    res.status(500).json({ error: 'Failed to get Wikipedia article' });
-  }
-});
+//     const result = await wikipedia.runPythonScript('article', { article_id: id });
+//     const parsed = JSON.parse(result);
+//     
+//     if (parsed.error) {
+//       return res.status(404).json(parsed);
+//     }
+//     
+//     res.json(parsed);
+//     
+//   } catch (error) {
+//     console.error('Wikipedia article error:', error);
+//     res.status(500).json({ error: 'Failed to get Wikipedia article' });
+//   }
+// });
 
 // Random Wikipedia articles
 app.get('/api/wikipedia/random', async (req, res) => {
