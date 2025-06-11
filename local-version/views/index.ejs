@@ -1154,7 +1154,7 @@
             fetch('/api/ollama/models')
                 .then(response => response.json())
                 .then(data => {
-                    console.log('Local models loaded:', data);
+                    console.log('Local models loading:', data);
                     
                     // Extract available and recommended models from the response
                     const availableModels = data.available || [];
@@ -1196,6 +1196,8 @@
                             ];
                             
                             fallbackRecommended.forEach(modelName => {
+                                console.log('Local model loading:', modelName);
+
                                 const isInstalled = availableModels.some(m => m.name === modelName);
                                 const modelDiv = document.createElement('div');
                                 modelDiv.style.cssText = `padding: 8px; border: 1px solid ${isInstalled ? '#28a745' : '#dee2e6'}; border-radius: 4px; margin-bottom: 8px; background: ${isInstalled ? '#d4edda' : '#f8f9fa'};`;
@@ -1204,10 +1206,14 @@
                                     <br><small style="color: #6c757d;">${isInstalled ? 'Installed' : 'Recommended for download'}</small>
                                 `;
                                 recommendedList.appendChild(modelDiv);
+                                console.log('Local model loaded:', modelName);
                             });
+                            console.log('Local models loaded with fallback models:', fallbackRecommended);
                         } else {
                             // Use recommended models from API
                             recommendedModels.forEach(model => {
+                                console.log('Local model loading:', model);
+
                                 const isInstalled = availableModels.some(m => m.name === model.name);
                                 const modelDiv = document.createElement('div');
                                 modelDiv.style.cssText = `padding: 8px; border: 1px solid ${isInstalled ? '#28a745' : '#dee2e6'}; border-radius: 4px; margin-bottom: 8px; background: ${isInstalled ? '#d4edda' : '#f8f9fa'};`;
@@ -1216,10 +1222,11 @@
                                     <br><small style="color: #6c757d;">${isInstalled ? 'Installed' : model.description || 'Recommended for download'}</small>
                                 `;
                                 recommendedList.appendChild(modelDiv);
+                                console.log('Local model loaded:', model);
                             });
+                            console.log('Local models loaded with recommended models:', recommendedModels);
                         }
                     }
-                    
                     // Refresh the main model selectors
                     loadAllModels();
                 })
