@@ -1711,23 +1711,90 @@ app.post('/api/chat', async (req, res) => {
     
     // Add Wikipedia context if enabled and available
     let wikipediaLinks = [];
-    // log if Wikipedia is available
-    console.log('Wikipedia available:', wikipedia.available);
-    console.log('includeWikipedia:', includeWikipedia);
+    let wikipediaSearchLog = [];
+    
     if (includeWikipedia && wikipedia.available) {
       try {
-        const searchResults = await wikipedia.searchWikipedia(message, 3);
-        console.log('Wikipedia search results:', searchResults);
-        if (searchResults && searchResults.length > 0) {
-          prompt += 'Relevant Wikipedia information:\n';
-          searchResults.forEach(result => {
-            prompt += `- ${result.title}: ${result.content.substring(0, 200)}...\n`;
-            wikipediaLinks.push({ title: result.title, url: `/wikipedia/article/${encodeURIComponent(result.title)}` });
+        // Use enhanced Wikipedia search with logging
+        const { spawn } = require('child_process');
+        
+        // Add search status log
+        wikipediaSearchLog.push("🔍 Starting Wikipedia search...");
+        
+        const enhancedSearch = spawn('python3', ['enhanced_wikipedia_api.py', 'enhanced_search', JSON.stringify({
+          question: message,
+          limit: 3
+        })], { cwd: __dirname });
+        
+        let searchOutput = '';
+        let searchError = '';
+        
+        enhancedSearch.stdout.on('data', (data) => {
+          searchOutput += data.toString();
+        });
+        
+        enhancedSearch.stderr.on('data', (data) => {
+          searchError += data.toString();
+        });
+        
+        await new Promise((resolve, reject) => {
+          enhancedSearch.on('close', (code) => {
+            if (code === 0) {
+              resolve();
+            } else {
+              reject(new Error(`Enhanced search failed with code ${code}: ${searchError}`));
+            }
           });
-          prompt += '\n';
+        });
+        
+        if (searchOutput) {
+          const searchResults = JSON.parse(searchOutput);
+          
+          // Add search log entries
+          if (searchResults.status_log) {
+            wikipediaSearchLog.push(...searchResults.status_log);
+          }
+          
+          if (searchResults.results && searchResults.results.length > 0) {
+            prompt += 'Relevant Wikipedia information:\n';
+            searchResults.results.forEach(result => {
+              prompt += `- ${result.title}: ${result.content.substring(0, 300)}...\n`;
+              wikipediaLinks.push({ 
+                title: result.title, 
+                url: `/wikipedia/article/${encodeURIComponent(result.title)}`,
+                relevance: result.relevance_score 
+              });
+            });
+            prompt += '\n';
+            
+            wikipediaSearchLog.push(`✅ Found ${searchResults.results.length} relevant articles`);
+          } else {
+            wikipediaSearchLog.push("ℹ️ No relevant Wikipedia articles found");
+          }
         }
+        
       } catch (error) {
-        console.error('Error searching Wikipedia:', error);
+        console.error('Error with enhanced Wikipedia search:', error);
+        wikipediaSearchLog.push(`❌ Wikipedia search error: ${error.message}`);
+        
+        // Fallback to basic search
+        try {
+          wikipediaSearchLog.push("🔄 Falling back to basic Wikipedia search...");
+          const searchResults = await wikipedia.searchWikipedia(message, 3);
+          
+          if (searchResults && searchResults.length > 0) {
+            prompt += 'Relevant Wikipedia information:\n';
+            searchResults.forEach(result => {
+              prompt += `- ${result.title}: ${result.content.substring(0, 200)}...\n`;
+              wikipediaLinks.push({ title: result.title, url: `/wikipedia/article/${encodeURIComponent(result.title)}` });
+            });
+            prompt += '\n';
+            wikipediaSearchLog.push(`✅ Basic search found ${searchResults.length} articles`);
+          }
+        } catch (fallbackError) {
+          console.error('Fallback Wikipedia search also failed:', fallbackError);
+          wikipediaSearchLog.push(`❌ Fallback search failed: ${fallbackError.message}`);
+        }
       }
     }
     
@@ -1767,7 +1834,8 @@ app.post('/api/chat', async (req, res) => {
         success: true,
         response: result.response.trim(),
         model: model,
-        wikipediaLinks: wikipediaLinks
+        wikipediaLinks: wikipediaLinks,
+        wikipediaSearchLog: wikipediaSearchLog
       });
       
     } catch (error) {
