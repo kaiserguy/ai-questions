@@ -37,6 +37,12 @@ const LOCAL_CONFIG = {
     host: '0.0.0.0', // Allow external connections
     title: 'AI Questions - Local Instance',
     description: 'Private AI monitoring and analysis platform'
+  },
+  // Ollama settings
+  ollama: {
+    url: process.env.OLLLAMA_URL || 'http://localhost:11434',
+    enabled: process.env.OLLAMA_ENABLED === 'true',
+    fallbackToCloud: process.env.OLLAMA_FALLBACK_TO_CLOUD === 'true',
   }
 };
 
