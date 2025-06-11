@@ -1186,26 +1186,35 @@
         <p>Create and track your own custom questions to monitor AI responses over time.</p>
         
         <!-- Model Selector for Personal Questions -->
-                " onmouseover="this.style.transform='translateY(-2px)'" onmouseout="this.style.transform='translateY(0)'">
-                    <span style="font-size: 18px;">📥</span>
-                    Download Offline Version
-                </a>
-                <button onclick="showInstallInstructions()" style="
-                    background: rgba(255,255,255,0.2); 
-                    color: white; 
-                    border: 1px solid rgba(255,255,255,0.3); 
-                    padding: 12px 20px; 
-                    border-radius: 6px; 
-                    cursor: pointer;
-                    font-weight: 500;
-                    display: flex;
-                    align-items: center;
-                    gap: 8px;
-                ">
-                    <span style="font-size: 16px;">📋</span>
-                    Installation Guide
-                </button>
-            </div>
+        <div class="model-selector">
+            <label for="personal-model-select">Select AI Model for Personal Questions:</label>
+            <select id="personal-model-select">
+              <!-- Will be populated via JavaScript -->
+            </select>
+        </div>
+        
+        <div id="personal-questions-list">
+            <!-- Personal questions will be loaded here -->
+        </div>
+        
+        <button id="add-question-btn" class="auth-button" onclick="toggleAddQuestionForm()">+ Add New Question</button>
+        
+        <div id="add-question-form" class="add-question-form hidden">
+            <h4>Add New Personal Question</h4>
+            <form onsubmit="addPersonalQuestion(event)">
+                <div class="form-group">
+                    <label for="new-question">Question:</label>
+                    <input type="text" id="new-question" required placeholder="Enter your question...">
+                </div>
+                <div class="form-group">
+                    <label for="new-context">Context:</label>
+                    <textarea id="new-context" required placeholder="Provide context for the question..."></textarea>
+                </div>
+                <div class="form-group">
+                    <button type="submit" class="auth-button">Add Question</button>
+                    <button type="button" class="auth-button logout-button" onclick="toggleAddQuestionForm()">Cancel</button>
+                </div>
+            </form>
         </div>
         
         <!-- Installation Instructions Modal -->
@@ -1329,38 +1338,6 @@
                     <button class="schedule-btn schedule-btn-primary" onclick="saveModelConfig()">Save Configuration</button>
                 </div>
             </div>
-        </div>
-        
-        <!-- Model Selector for Personal Questions -->
-        <div class="model-selector">
-            <label for="personal-model-select">Select AI Model for Personal Questions:</label>
-            <select id="personal-model-select">
-              <!-- Will be populated via JavaScript -->
-            </select>
-        </div>
-        
-        <div id="personal-questions-list">
-            <!-- Personal questions will be loaded here -->
-        </div>
-        
-        <button id="add-question-btn" class="auth-button" onclick="toggleAddQuestionForm()">+ Add New Question</button>
-        
-        <div id="add-question-form" class="add-question-form hidden">
-            <h4>Add New Personal Question</h4>
-            <form onsubmit="addPersonalQuestion(event)">
-                <div class="form-group">
-                    <label for="new-question">Question:</label>
-                    <input type="text" id="new-question" required placeholder="Enter your question...">
-                </div>
-                <div class="form-group">
-                    <label for="new-context">Context:</label>
-                    <textarea id="new-context" required placeholder="Provide context for the question..."></textarea>
-                </div>
-                <div class="form-group">
-                    <button type="submit" class="auth-button">Add Question</button>
-                    <button type="button" class="auth-button logout-button" onclick="toggleAddQuestionForm()">Cancel</button>
-                </div>
-            </form>
         </div>
     </div>
 
