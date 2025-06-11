@@ -1122,6 +1122,28 @@
                             personalSelect.appendChild(option);
                         });
                     }
+                    // Populate chat questions model selector
+                    const chatSelect = document.getElementById('chat-model-select');
+                    if (chatSelect) {
+                        chatSelect.innerHTML = '<option value="">Choose a model...</option>';
+                        
+                        // Add cloud models
+                        data.cloud_models.forEach(model => {
+                            const option = document.createElement('option');
+                            option.value = model.id;
+                            option.textContent = model.name + (model.available ? '' : ' (API key required)');
+                            option.disabled = !model.available;
+                            chatSelect.appendChild(option);
+                        });
+                        
+                        // Add local models
+                        data.local_models.forEach(model => {
+                            const option = document.createElement('option');
+                            option.value = model.id;
+                            option.textContent = model.name;
+                            chatSelect.appendChild(option);
+                        });
+                    }
                 })
                 .catch(error => {
                     console.error('Error fetching models:', error);
