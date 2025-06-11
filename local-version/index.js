@@ -369,23 +369,32 @@ if (LOCAL_CONFIG.enabled) {
   });
 }
 
-// Initialize PostgreSQL connection
-const pool = new Pool(LOCAL_CONFIG.enabled ? {
-  host: LOCAL_CONFIG.database.host,
-  port: LOCAL_CONFIG.database.port,
-  database: LOCAL_CONFIG.database.database,
-  user: LOCAL_CONFIG.database.user,
-  password: LOCAL_CONFIG.database.password,
-  ssl: false
-} : {
-  connectionString: process.env.DATABASE_URL,
-  ssl: {
-    rejectUnauthorized: false
-  }
-});
+// Initialize database connection
+let pool;
+
+if (LOCAL_CONFIG.enabled) {
+  // Use mock database for local mode to avoid PostgreSQL dependency
+  const MockDatabase = require('./mock-database');
+  pool = new MockDatabase();
+  console.log('Using mock database for local mode');
+} else {
+  // Use PostgreSQL for production
+  pool = new Pool({
+    connectionString: process.env.DATABASE_URL,
+    ssl: {
+      rejectUnauthorized: false
+    }
+  });
+}
 
 // Create tables if they don't exist
 async function initializeDatabase() {
+  if (LOCAL_CONFIG.enabled) {
+    // Skip database initialization for mock database
+    console.log('Skipping database initialization for mock database');
+    return;
+  }
+  
   try {
     // Create users table first
     await pool.query(`

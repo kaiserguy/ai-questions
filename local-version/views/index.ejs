@@ -685,6 +685,78 @@
             overflow: hidden;
             text-overflow: ellipsis;
         }
+        
+        /* Query Log Styles */
+        .query-log-empty {
+            color: #6c757d;
+            font-style: italic;
+            text-align: center;
+            padding: 20px;
+        }
+        
+        .query-log-entry {
+            margin-bottom: 8px;
+            padding: 8px;
+            border-radius: 4px;
+            border-left: 3px solid #dee2e6;
+        }
+        
+        .query-log-search {
+            background: #e3f2fd;
+            border-left-color: #2196f3;
+        }
+        
+        .query-log-review {
+            background: #fff3e0;
+            border-left-color: #ff9800;
+        }
+        
+        .query-log-result {
+            background: #e8f5e8;
+            border-left-color: #4caf50;
+        }
+        
+        .query-log-error {
+            background: #ffebee;
+            border-left-color: #f44336;
+        }
+        
+        .query-log-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 4px;
+        }
+        
+        .query-log-time {
+            font-size: 10px;
+            color: #6c757d;
+        }
+        
+        .query-log-type {
+            font-size: 10px;
+            font-weight: bold;
+            padding: 2px 6px;
+            border-radius: 3px;
+            background: rgba(0,0,0,0.1);
+        }
+        
+        .query-log-message {
+            font-size: 11px;
+            line-height: 1.3;
+        }
+        
+        .query-log-details {
+            margin-top: 4px;
+            padding: 4px;
+            background: rgba(0,0,0,0.05);
+            border-radius: 3px;
+            font-family: monospace;
+            font-size: 10px;
+            white-space: pre-wrap;
+            max-height: 100px;
+            overflow-y: auto;
+        }
     </style>
 </head>
 <body>
@@ -949,7 +1021,7 @@
             </div>
             
             <!-- Chat Options -->
-            <div style="margin-top: 10px; display: flex; gap: 15px; align-items: center; font-size: 14px;">
+            <div style="margin-top: 10px; display: flex; gap: 15px; align-items: center; font-size: 14px; flex-wrap: wrap;">
                 <label style="display: flex; align-items: center; gap: 5px;">
                     <input type="checkbox" id="chat-wikipedia-enabled" checked>
                     <span>🔗 Include Wikipedia links</span>
@@ -958,6 +1030,61 @@
                     <input type="checkbox" id="chat-context-enabled" checked>
                     <span>🧠 Use conversation context</span>
                 </label>
+                <button onclick="toggleQueryLog()" id="query-log-toggle" style="
+                    background: #f8f9fa; 
+                    border: 1px solid #dee2e6; 
+                    padding: 4px 8px; 
+                    border-radius: 4px; 
+                    cursor: pointer; 
+                    font-size: 12px;
+                    color: #495057;
+                ">
+                    🔍 Show Query Logs <span id="query-log-indicator"></span>
+                </button>
+            </div>
+            
+            <!-- Query Log Container (Hidden by default) -->
+            <div id="query-log-container" style="
+                display: none;
+                margin-top: 15px;
+                border: 1px solid #dee2e6;
+                border-radius: 6px;
+                background: #f8f9fa;
+                max-height: 300px;
+                overflow: hidden;
+            ">
+                <div style="
+                    padding: 10px 15px;
+                    background: #e9ecef;
+                    border-bottom: 1px solid #dee2e6;
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: center;
+                    font-weight: 500;
+                    font-size: 14px;
+                ">
+                    <span>🔍 Wikipedia Query Logs</span>
+                    <button onclick="clearQueryLogs()" style="
+                        background: none;
+                        border: none;
+                        color: #6c757d;
+                        cursor: pointer;
+                        font-size: 12px;
+                        padding: 2px 6px;
+                        border-radius: 3px;
+                    " onmouseover="this.style.background='#dee2e6'" onmouseout="this.style.background='none'">
+                        Clear
+                    </button>
+                </div>
+                <div id="query-log-content" style="
+                    padding: 10px;
+                    max-height: 250px;
+                    overflow-y: auto;
+                    font-size: 12px;
+                    line-height: 1.4;
+                ">
+                    <div class="query-log-empty">No query logs yet. Start a conversation to see Wikipedia search details.</div>
+                </div>
             </div>
         </div>
         
@@ -2567,6 +2694,122 @@
             }
         });
         
+        </script>
+        
+        <!-- Query Logging JavaScript -->
+        <script>
+        // Query logging system for Wikipedia searches
+        let queryLogs = [];
+        let queryLogVisible = false;
+        
+        function addQueryLog(type, message, details = null) {
+            const timestamp = new Date().toLocaleTimeString();
+            const logEntry = {
+                timestamp,
+                type, // 'search', 'review', 'result', 'error'
+                message,
+                details
+            };
+            queryLogs.push(logEntry);
+            
+            // Update query log display if visible
+            if (queryLogVisible) {
+                updateQueryLogDisplay();
+            }
+            
+            // Update query log indicator
+            updateQueryLogIndicator();
+        }
+        
+        function toggleQueryLog() {
+            queryLogVisible = !queryLogVisible;
+            const logContainer = document.getElementById('query-log-container');
+            const toggleBtn = document.getElementById('query-log-toggle');
+            
+            if (queryLogVisible) {
+                logContainer.style.display = 'block';
+                toggleBtn.innerHTML = '🔍 Hide Query Logs <span id="query-log-indicator">' + (queryLogs.length > 0 ? `(${queryLogs.length})` : '') + '</span>';
+                updateQueryLogDisplay();
+            } else {
+                logContainer.style.display = 'none';
+                toggleBtn.innerHTML = '🔍 Show Query Logs <span id="query-log-indicator">' + (queryLogs.length > 0 ? `(${queryLogs.length})` : '') + '</span>';
+            }
+        }
+        
+        function updateQueryLogDisplay() {
+            const logContent = document.getElementById('query-log-content');
+            if (!logContent) return;
+            
+            if (queryLogs.length === 0) {
+                logContent.innerHTML = '<div class="query-log-empty">No query logs yet. Start a conversation to see Wikipedia search details.</div>';
+                return;
+            }
+            
+            const logsHtml = queryLogs.map(log => {
+                const typeClass = `query-log-${log.type}`;
+                const detailsHtml = log.details ? `<div class="query-log-details">${JSON.stringify(log.details, null, 2)}</div>` : '';
+                
+                return `
+                    <div class="query-log-entry ${typeClass}">
+                        <div class="query-log-header">
+                            <span class="query-log-time">${log.timestamp}</span>
+                            <span class="query-log-type">${log.type.toUpperCase()}</span>
+                        </div>
+                        <div class="query-log-message">${log.message}</div>
+                        ${detailsHtml}
+                    </div>
+                `;
+            }).join('');
+            
+            logContent.innerHTML = logsHtml;
+            
+            // Auto-scroll to bottom
+            logContent.scrollTop = logContent.scrollHeight;
+        }
+        
+        function updateQueryLogIndicator() {
+            const indicator = document.getElementById('query-log-indicator');
+            if (indicator) {
+                indicator.textContent = queryLogs.length > 0 ? `(${queryLogs.length})` : '';
+            }
+        }
+        
+        function clearQueryLogs() {
+            queryLogs = [];
+            updateQueryLogDisplay();
+            updateQueryLogIndicator();
+            
+            // Update toggle button text
+            const toggleBtn = document.getElementById('query-log-toggle');
+            if (toggleBtn) {
+                if (queryLogVisible) {
+                    toggleBtn.innerHTML = '🔍 Hide Query Logs <span id="query-log-indicator"></span>';
+                } else {
+                    toggleBtn.innerHTML = '🔍 Show Query Logs <span id="query-log-indicator"></span>';
+                }
+            }
+        }
+        
+        // Override the original sendChatMessage function to add logging
+        const originalSendChatMessage = sendChatMessage;
+        sendChatMessage = function() {
+            const input = document.getElementById('chat-input');
+            const message = input.value.trim();
+            const modelSelect = document.getElementById('chat-model-select');
+            const selectedModel = modelSelect.value;
+            
+            if (!message) return;
+            if (!selectedModel) {
+                showNotification('No Model Selected', 'Please select an AI model first.', 'error');
+                return;
+            }
+            
+            // Log the start of the query
+            addQueryLog('search', `Starting search for: "${message}"`);
+            
+            // Call the original function
+            originalSendChatMessage();
+        };
         </script>
         
 </body>
