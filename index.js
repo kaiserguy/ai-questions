@@ -8,6 +8,8 @@ const passport = require('passport');
 const GoogleStrategy = require('passport-google-oauth20').Strategy;
 // const { addOfflinePackageRoutes } = require('./offline-package-routes');
 const offlinePackageRoutesNew = require('./offline-package-routes-new');
+import { InferenceClient } from "@huggingface/inference";
+
 
 // Create Express app
 const app = express();
@@ -498,66 +500,38 @@ Answer:`;
     if (selectedModel.provider === 'huggingface') {
       // Hugging Face API call with improved error handling
       console.log(`Calling Hugging Face model: ${selectedModel.id}`);
-      
-      const response = await axios.post(
-        `https://api-inference.huggingface.co/models/${selectedModel.id}`,
-        {
-          inputs: prompt,
-          parameters: {
-            max_new_tokens: 500,
-            temperature: 0.7,
-            top_p: 0.95,
-            do_sample: true,
-            return_full_text: false // Only return the generated text, not the prompt
-          },
-          options: {
-            wait_for_model: true, // Wait for model to load if needed
-            use_cache: false // Get fresh responses
-          }
-        },
-        {
-          headers: {
-            'Authorization': `Bearer ${apiKey}`,
-            'Content-Type': 'application/json'
-          },
-          timeout: 30000 // 30 second timeout
-        }
-      );
+
+      const client = new InferenceClient(apiKey);
+
+      const chatCompletion = await client.chatCompletion({
+          provider: "novita",
+          model: selectedModel.id,
+          messages: [
+              {
+                  role: "user",
+                  content: prompt,
+              },
+          ],
+      });
       
       // Handle different response formats from Hugging Face
-      console.log('Hugging Face raw response:', JSON.stringify(response.data, null, 2));
+      console.log('Hugging Face raw response:', JSON.stringify(chatCompletion, null, 2));
       
-      if (Array.isArray(response.data) && response.data.length > 0) {
+      if (Array.isArray(chatCompletion.choices) && chatCompletion.choices.length > 0) {
         // For text generation models, the response includes the original prompt
-        const firstResult = response.data[0];
+        const firstResult = chatCompletion.choices[0].message.content;
         if (typeof firstResult === 'string') {
           answer = firstResult.trim();
-        } else if (firstResult.generated_text) {
-          const fullText = firstResult.generated_text;
-          // Remove the original prompt from the response to get just the answer
-          answer = fullText.replace(prompt, '').trim();
-          
-          // If the answer is still empty or very short, use the full text
-          if (!answer || answer.length < 10) {
-            answer = fullText.trim();
-          }
         } else {
           answer = JSON.stringify(firstResult);
         }
-      } else if (typeof response.data === 'string') {
-        answer = response.data.trim();
-      } else if (response.data.generated_text) {
-        const fullText = response.data.generated_text;
-        answer = fullText.replace(prompt, '').trim();
-        if (!answer || answer.length < 10) {
-          answer = fullText.trim();
-        }
-      } else if (response.data.error) {
-        throw new Error(`Hugging Face API Error: ${response.data.error}`);
+      // detect if the chatCompletion was an error response
+      } else if (chatCompletion.error && chatCompletion.error.message) {
+        throw new Error(`Hugging Face API Error: ${chatCompletion.error.message}`);
       } else {
         // Fallback for unexpected response format
-        console.warn('Unexpected Hugging Face response format:', response.data);
-        answer = JSON.stringify(response.data);
+        console.warn('Unexpected Hugging Face response format:', chatCompletion);
+        answer = chatCompletion.choices ? chatCompletion.choices[0].message.content : '';
       }
       
       // Ensure we have a meaningful answer
