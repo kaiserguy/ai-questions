@@ -21,7 +21,7 @@ APP_PORT="3000"
 # ===== WIKIPEDIA SETTINGS =====
 # Wikipedia database configuration
 WIKIPEDIA_ENABLED=true
-WIKIPEDIA_DB_PATH=./wikipedia_data/wikipedia.xml
+WIKIPEDIA_DB_PATH=./wikipedia.db
 WIKIPEDIA_AUTO_DOWNLOAD=true
 WIKIPEDIA_DATASET=simple
 
@@ -267,7 +267,7 @@ OLLAMA_FALLBACK_TO_CLOUD=true
 # ===== WIKIPEDIA SETTINGS =====
 # Wikipedia database configuration
 WIKIPEDIA_ENABLED=true
-WIKIPEDIA_DB_PATH=./wikipedia_data/wikipedia.xml
+WIKIPEDIA_DB_PATH=./wikipedia.db
 WIKIPEDIA_AUTO_DOWNLOAD=true
 WIKIPEDIA_DATASET=simple
 

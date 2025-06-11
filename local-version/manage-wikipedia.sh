@@ -81,33 +81,40 @@ download_wikipedia() {
 }
 
 download_simple_wikipedia() {
-    echo -e "${BLUE}📚 Downloading Simple English Wikipedia...${NC}"
-    echo -e "${YELLOW}⚠️  This will download ~500MB and require ~2GB storage${NC}"
-    
-    read -p "Continue? (y/N): " -n 1 -r
-    echo
-    if [[ ! $REPLY =~ ^[Yy]$ ]]; then
-        echo "Download cancelled"
-        return 1
-    fi
-    
-    # Run the Python downloader
-    if python3 "$SCRIPT_DIR/wikipedia_downloader.py" --action download --dataset simple; then
-        echo -e "${GREEN}✅ Simple English Wikipedia downloaded successfully${NC}"
-    else
-        echo -e "${RED}❌ Download failed${NC}"
-        return 1
-    fi
 
-    # Run the Python processor to extract the database file
-    if python3 "$SCRIPT_DIR/wikipedia_downloader.py" --action process --dataset simple; then
-        echo -e "${GREEN}✅ Database processed and saved to: $WIKIPEDIA_DB_PATH${NC}"
+    if show_database_status = 0; then
+        echo -e "${YELLOW}ℹ️  Simple English Wikipedia already downloaded${NC}"
+        echo -e "${YELLOW}💡 Run: $0 status to check database status${NC}"
+        return 0
     else
-        echo -e "${RED}❌ Failed to process database file${NC}"
-        return 1
+        echo -e "${BLUE}📚 Downloading Simple English Wikipedia...${NC}"
+        echo -e "${YELLOW}⚠️  This will download ~500MB and require ~2GB storage${NC}"
+        
+        read -p "Continue? (y/N): " -n 1 -r
+        echo
+        if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+            echo "Download cancelled"
+            return 1
+        fi
+        
+        # Run the Python downloader
+        if python3 "$SCRIPT_DIR/wikipedia_downloader.py" --action download --dataset simple; then
+            echo -e "${GREEN}✅ Simple English Wikipedia downloaded successfully${NC}"
+        else
+            echo -e "${RED}❌ Download failed${NC}"
+            return 1
+        fi
+
+        # Run the Python processor to extract the database file
+        if python3 "$SCRIPT_DIR/wikipedia_downloader.py" --action process --dataset simple; then
+            echo -e "${GREEN}✅ Database processed and saved to: $WIKIPEDIA_DB_PATH${NC}"
+        else
+            echo -e "${RED}❌ Failed to process database file${NC}"
+            return 1
+        fi
+        
+        show_database_status
     fi
-    
-    show_database_status
 }
 
 download_full_wikipedia() {

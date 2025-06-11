@@ -14,7 +14,7 @@ const LOCAL_CONFIG = require('./local-config');
 
 // Wikipedia integration
 class WikipediaIntegration {
-  constructor(wikipediaDbPath = './wikipedia_data/wikipedia.xml') {
+  constructor(wikipediaDbPath = './wikipedia.db') {
     this.wikipediaDbPath = wikipediaDbPath;
     this.searchEngine = null;
     this.contextExtractor = null;
@@ -27,6 +27,7 @@ class WikipediaIntegration {
       // Check if Wikipedia database exists
       if (!fs.existsSync(this.wikipediaDbPath)) {
         console.log('⚠️ Wikipedia database not found. Use setup script to download.');
+        console.log("⚠️ Expected path: " + this.wikipediaDbPath);
         return;
       }
       
@@ -285,7 +286,7 @@ class OllamaClient {
 const ollama = new OllamaClient(process.env.OLLAMA_URL || 'http://localhost:11434');
 
 // Initialize Wikipedia integration
-const wikipedia = new WikipediaIntegration(process.env.WIKIPEDIA_DB_PATH || './wikipedia_data/wikipedia.xml');
+const wikipedia = new WikipediaIntegration(process.env.WIKIPEDIA_DB_PATH || './wikipedia.db');
 
 // Create Express app
 const app = express();
@@ -1701,9 +1702,13 @@ app.post('/api/chat', async (req, res) => {
     
     // Add Wikipedia context if enabled and available
     let wikipediaLinks = [];
+    // log if Wikipedia is available
+    console.log('Wikipedia available:', wikipedia.available);
+    console.log('includeWikipedia:', includeWikipedia);
     if (includeWikipedia && wikipedia.available) {
       try {
-        const searchResults = await wikipedia.searchRelevantArticles(message, 3);
+        const searchResults = await wikipedia.searchWikipedia(message, 3);
+        console.log('Wikipedia search results:', searchResults);
         if (searchResults && searchResults.length > 0) {
           prompt += 'Relevant Wikipedia information:\n';
           searchResults.forEach(result => {
@@ -1777,7 +1782,7 @@ app.post('/api/chat', async (req, res) => {
 
 app.post('/api/chat/stream', async (req, res) => {
   try {
-    const { message, model, context = ['Society has collapsed and only you have access to the last copy of Wikipedia on this solar-powered laptop'], includeWikipedia = true } = req.body;
+    const { message, model, context = ['You are a helpful assistant. '], includeWikipedia = true } = req.body;
     
     if (!message || !model) {
       return res.status(400).json({ 
@@ -1824,8 +1829,10 @@ app.post('/api/chat/stream', async (req, res) => {
     let wikipediaLinks = [];
     if (includeWikipedia && wikipedia.available) {
       try {
-        const searchResults = await wikipedia.searchRelevantArticles(message, 3);
+        const searchResults = await wikipedia.searchWikipedia(message, 3);
         if (searchResults && searchResults.length > 0) {
+          // logging relevant Wikipedia information
+          console.log('Relevant Wikipedia information found:', searchResults);
           prompt += 'Relevant Wikipedia information:\n';
           searchResults.forEach(result => {
             prompt += `- ${result.title}: ${result.content.substring(0, 200)}...\n`;
