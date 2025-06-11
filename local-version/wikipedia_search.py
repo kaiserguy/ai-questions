@@ -225,6 +225,36 @@ class WikipediaSearchEngine:
             logger.error(f"Failed to get article {article_id}: {e}")
             return None
     
+    def get_article_by_title(self, title: str) -> Optional[SearchResult]:
+        """Get full article by title"""
+        try:
+            cursor = self.conn.execute("""
+                SELECT id, article_id, title, summary, content, categories
+                FROM wikipedia_articles
+                WHERE title = ?
+            """, (title,))
+            
+            row = cursor.fetchone()
+            if not row:
+                return None
+            
+            categories = json.loads(row['categories']) if row['categories'] else []
+            
+            return SearchResult(
+                id=row['id'],
+                article_id=row['article_id'],
+                title=row['title'],
+                summary=row['summary'] or '',
+                content=row['content'],
+                categories=categories,
+                relevance_score=1.0,
+                snippet=row['summary'] or row['content'][:200] + '...'
+            )
+            
+        except Exception as e:
+            logger.error(f"Failed to get article '{title}': {e}")
+            return None
+    
     def get_random_articles(self, count: int = 5) -> List[SearchResult]:
         """Get random articles for exploration"""
         try:

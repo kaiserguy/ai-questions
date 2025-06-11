@@ -116,6 +116,21 @@ class WikipediaIntegration {
       }, 30000);
     });
   }
+  
+  async getArticle(title) {
+    if (!this.available) {
+      return null;
+    }
+    
+    try {
+      const result = await this.runPythonScript('get_article', { title });
+      const parsed = JSON.parse(result);
+      return parsed.article || null;
+    } catch (error) {
+      console.error('Wikipedia article retrieval failed:', error);
+      return null;
+    }
+  }
 }
 
 // Ollama client for local AI models

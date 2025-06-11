@@ -114,6 +114,34 @@ class WikipediaAPI:
             return {"context": "", "sources": [], "confidence": 0, "error": str(e)}
     
     def get_article(self, params):
+        """Get full Wikipedia article by title"""
+        try:
+            title = params.get('title', '')
+            
+            if not title:
+                return {"article": None, "error": "Missing title"}
+            
+            article = self.search_engine.get_article_by_title(title)
+            
+            if not article:
+                return {"article": None, "error": "Article not found"}
+            
+            article_dict = {
+                "id": article.id,
+                "article_id": article.article_id,
+                "title": article.title,
+                "summary": article.summary,
+                "content": article.content,
+                "categories": article.categories,
+                "relevance_score": article.relevance_score
+            }
+            
+            return {"article": article_dict}
+            
+        except Exception as e:
+            return {"article": None, "error": str(e)}
+    
+    def get_article_by_id(self, params):
         """Get full Wikipedia article by ID"""
         try:
             article_id = params.get('article_id', '')
@@ -261,7 +289,9 @@ def main():
         elif action == 'context':
             result = wiki_api.get_context(params)
         elif action == 'article':
-            result = wiki_api.get_article(params)
+            result = wiki_api.get_article_by_id(params)  # Keep existing behavior for 'article'
+        elif action == 'get_article':
+            result = wiki_api.get_article(params)  # New action for get by title
         elif action == 'random':
             result = wiki_api.get_random_articles(params)
         elif action == 'category':
