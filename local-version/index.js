@@ -1758,7 +1758,10 @@ app.post('/api/chat', async (req, res) => {
           if (searchResults.results && searchResults.results.length > 0) {
             prompt += 'Relevant Wikipedia information:\n';
             searchResults.results.forEach(result => {
-              prompt += `- ${result.title}: ${result.content.substring(0, 300)}...\n`;
+              // Safe content extraction with fallback
+              const content = result.content || result.summary || result.snippet || '';
+              const preview = content.length > 300 ? content.substring(0, 300) + '...' : content;
+              prompt += `- ${result.title}: ${preview}\n`;
               wikipediaLinks.push({ 
                 title: result.title, 
                 url: `/wikipedia/article/${encodeURIComponent(result.title)}`,

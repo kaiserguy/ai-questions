@@ -121,6 +121,10 @@ class EnhancedWikipediaAPI:
             for i, query in enumerate(search_queries):
                 status_log.append(f"Searching Wikipedia with query: '{query}'")
                 
+                # Log the actual SQL query being executed
+                sql_query = f"SELECT * FROM wikipedia_fts WHERE wikipedia_fts MATCH '{query}' ORDER BY rank LIMIT {limit}"
+                status_log.append(f"SQL: {sql_query}")
+                
                 # Use lower threshold for initial search
                 results = self.search_engine.search(query, limit=limit, min_score=0.001)  # Even lower threshold
                 
@@ -139,10 +143,10 @@ class EnhancedWikipediaAPI:
             if hasattr(self.search_engine, 'conn'):
                 try:
                     # Look for exact title matches
-                    cursor = self.search_engine.conn.execute(
-                        "SELECT * FROM wikipedia_articles WHERE title = ? LIMIT 1",
-                        (question.strip(),)
-                    )
+                    exact_sql = "SELECT * FROM wikipedia_articles WHERE title = ? LIMIT 1"
+                    status_log.append(f"SQL: {exact_sql.replace('?', repr(question.strip()))}")
+                    
+                    cursor = self.search_engine.conn.execute(exact_sql, (question.strip(),))
                     exact_match = cursor.fetchone()
                     
                     if exact_match:
@@ -170,10 +174,10 @@ class EnhancedWikipediaAPI:
             key_terms = self.extract_key_terms(question)
             for term in key_terms:
                 try:
-                    cursor = self.search_engine.conn.execute(
-                        "SELECT * FROM wikipedia_articles WHERE title = ? LIMIT 1",
-                        (term,)
-                    )
+                    term_sql = "SELECT * FROM wikipedia_articles WHERE title = ? LIMIT 1"
+                    status_log.append(f"SQL: {term_sql.replace('?', repr(term))}")
+                    
+                    cursor = self.search_engine.conn.execute(term_sql, (term,))
                     term_match = cursor.fetchone()
                     
                     if term_match and term_match['article_id'] not in all_results:
