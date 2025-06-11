@@ -13,10 +13,6 @@ NC='\033[0m' # No Color
 # Configuration
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 WIKIPEDIA_DB_PATH="$SCRIPT_DIR/wikipedia.db"
-DOWNLOAD_DIR="$SCRIPT_DIR/wikipedia_downloads"
-
-# Ensure download directory exists
-mkdir -p "$DOWNLOAD_DIR"
 
 show_help() {
     echo -e "${BLUE}AI Questions - Wikipedia Management${NC}"
@@ -96,13 +92,22 @@ download_simple_wikipedia() {
     fi
     
     # Run the Python downloader
-    if python3 "$SCRIPT_DIR/wikipedia_downloader.py" simple "$WIKIPEDIA_DB_PATH"; then
+    if python3 "$SCRIPT_DIR/wikipedia_downloader.py" --action download --dataset simple; then
         echo -e "${GREEN}✅ Simple English Wikipedia downloaded successfully${NC}"
-        show_database_status
     else
         echo -e "${RED}❌ Download failed${NC}"
         return 1
     fi
+
+    # Run the Python processor to extract the database file
+    if python3 "$SCRIPT_DIR/wikipedia_downloader.py" --action process --dataset simple; then
+        echo -e "${GREEN}✅ Database processed and saved to: $WIKIPEDIA_DB_PATH${NC}"
+    else
+        echo -e "${RED}❌ Failed to process database file${NC}"
+        return 1
+    fi
+    
+    show_database_status
 }
 
 download_full_wikipedia() {
@@ -118,13 +123,22 @@ download_full_wikipedia() {
     fi
     
     # Run the Python downloader
-    if python3 "$SCRIPT_DIR/wikipedia_downloader.py" full "$WIKIPEDIA_DB_PATH"; then
-        echo -e "${GREEN}✅ Full English Wikipedia downloaded successfully${NC}"
-        show_database_status
+    if python3 "$SCRIPT_DIR/wikipedia_downloader.py" --action download --dataset full; then
+        echo -e "${GREEN}✅ Simple English Wikipedia downloaded successfully${NC}"
     else
         echo -e "${RED}❌ Download failed${NC}"
         return 1
     fi
+    
+    # Run the Python processor to extract the database file
+    if python3 "$SCRIPT_DIR/wikipedia_downloader.py" --action process --dataset full; then
+        echo -e "${GREEN}✅ Database processed and saved to: $WIKIPEDIA_DB_PATH${NC}"
+    else
+        echo -e "${RED}❌ Failed to process database file${NC}"
+        return 1
+    fi
+    
+    show_database_status
 }
 
 download_custom_wikipedia() {

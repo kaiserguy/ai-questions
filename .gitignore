@@ -1,2 +1,8 @@
 node_modules/
 local-version/.env.local
+local-version/backup-local.sh
+local-version/wikipedia.db
+local-version/wikipedia.db-shm
+local-version/wikipedia.db-wal
+local-version/__pycache__/*
+local-version/wikipedia_data/*

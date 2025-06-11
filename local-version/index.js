@@ -14,7 +14,7 @@ const LOCAL_CONFIG = require('./local-config');
 
 // Wikipedia integration
 class WikipediaIntegration {
-  constructor(wikipediaDbPath = './wikipedia.db') {
+  constructor(wikipediaDbPath = './wikipedia_data/wikipedia.xml') {
     this.wikipediaDbPath = wikipediaDbPath;
     this.searchEngine = null;
     this.contextExtractor = null;
@@ -285,7 +285,7 @@ class OllamaClient {
 const ollama = new OllamaClient(process.env.OLLAMA_URL || 'http://localhost:11434');
 
 // Initialize Wikipedia integration
-const wikipedia = new WikipediaIntegration(process.env.WIKIPEDIA_DB_PATH || './wikipedia.db');
+const wikipedia = new WikipediaIntegration(process.env.WIKIPEDIA_DB_PATH || './wikipedia_data/wikipedia.xml');
 
 // Create Express app
 const app = express();
@@ -1777,7 +1777,7 @@ app.post('/api/chat', async (req, res) => {
 
 app.post('/api/chat/stream', async (req, res) => {
   try {
-    const { message, model, context = [], includeWikipedia = true } = req.body;
+    const { message, model, context = ['Society has collapsed and only you have access to the last copy of Wikipedia on this solar-powered laptop'], includeWikipedia = true } = req.body;
     
     if (!message || !model) {
       return res.status(400).json({ 

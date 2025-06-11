@@ -18,6 +18,13 @@ DB_USER="aiuser"
 DB_PASSWORD="aipassword"
 APP_PORT="3000"
 
+# ===== WIKIPEDIA SETTINGS =====
+# Wikipedia database configuration
+WIKIPEDIA_ENABLED=true
+WIKIPEDIA_DB_PATH=./wikipedia_data/wikipedia.xml
+WIKIPEDIA_AUTO_DOWNLOAD=true
+WIKIPEDIA_DATASET=simple
+
 echo -e "${BLUE}🚀 AI Questions Local Setup${NC}"
 echo "This script will install and configure AI Questions for local use on Ubuntu."
 echo ""
@@ -195,6 +202,32 @@ fi
 
 echo -e "${GREEN}✅ AI model setup complete${NC}"
 
+# Download Wikipedia if enabled
+if [ $WIKIPEDIA_AUTO_DOWNLOAD = "true" ]; then
+    echo -e "${BLUE}📚 Downloading basic English Wikipedia database...${NC}"
+    echo "This will download a lightweight Wikipedia dataset (~50MB) for enhanced AI responses..."
+    echo "You can upgrade to the full dataset later through the web interface."
+    
+    # Use the manage-wikipedia.sh script to download
+    if [ -f "./manage-wikipedia.sh" ]; then
+        chmod +x ./manage-wikipedia.sh
+        echo "Starting Wikipedia download..."
+        ./manage-wikipedia.sh download simple
+        
+        if [ $? -eq 0 ]; then
+            echo -e "${GREEN}✅ Wikipedia database downloaded successfully${NC}"
+        else
+            echo -e "${YELLOW}⚠️  Wikipedia download failed, but you can try again later through the web interface${NC}"
+        fi
+    else
+        echo -e "${YELLOW}⚠️  Wikipedia download script not found, skipping...${NC}"
+        echo "You can download Wikipedia later through the web interface."
+    fi
+else
+    echo -e "${BLUE}📚 Wikipedia auto-download disabled${NC}"
+    echo "You can download Wikipedia later through the web interface."
+fi
+
 # Generate session secret
 echo -e "${BLUE}🔐 Generating security keys...${NC}"
 SESSION_SECRET=$(openssl rand -hex 32)
@@ -234,7 +267,7 @@ OLLAMA_FALLBACK_TO_CLOUD=true
 # ===== WIKIPEDIA SETTINGS =====
 # Wikipedia database configuration
 WIKIPEDIA_ENABLED=true
-WIKIPEDIA_DB_PATH=./wikipedia.db
+WIKIPEDIA_DB_PATH=./wikipedia_data/wikipedia.xml
 WIKIPEDIA_AUTO_DOWNLOAD=true
 WIKIPEDIA_DATASET=simple
 
@@ -415,32 +448,6 @@ chmod +x backup-local.sh
 
 # Create logs directory
 mkdir -p logs
-
-# Download Wikipedia if enabled
-if [ "$WIKIPEDIA_AUTO_DOWNLOAD" = "true" ]; then
-    echo -e "${BLUE}📚 Downloading basic English Wikipedia database...${NC}"
-    echo "This will download a lightweight Wikipedia dataset (~50MB) for enhanced AI responses..."
-    echo "You can upgrade to the full dataset later through the web interface."
-    
-    # Use the manage-wikipedia.sh script to download
-    if [ -f "./manage-wikipedia.sh" ]; then
-        chmod +x ./manage-wikipedia.sh
-        echo "Starting Wikipedia download..."
-        ./manage-wikipedia.sh download simple
-        
-        if [ $? -eq 0 ]; then
-            echo -e "${GREEN}✅ Wikipedia database downloaded successfully${NC}"
-        else
-            echo -e "${YELLOW}⚠️  Wikipedia download failed, but you can try again later through the web interface${NC}"
-        fi
-    else
-        echo -e "${YELLOW}⚠️  Wikipedia download script not found, skipping...${NC}"
-        echo "You can download Wikipedia later through the web interface."
-    fi
-else
-    echo -e "${BLUE}📚 Wikipedia auto-download disabled${NC}"
-    echo "You can download Wikipedia later through the web interface."
-fi
 
 echo ""
 echo -e "${GREEN}🎉 Installation completed successfully!${NC}"

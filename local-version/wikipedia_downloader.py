@@ -156,10 +156,10 @@ class WikipediaXMLProcessor:
         current_element = None
         
         for event, elem in context:
-            if event == 'start':
-                current_element = elem.tag
-            elif event == 'end':
-                if elem.tag == 'page':
+            current_element = elem.tag.split('}')[-1]  # Get tag name without namespace
+            if event == 'end':
+                #logger.info(current_element)
+                if current_element == 'page':
                     # Process complete page
                     if self.is_valid_article(current_page):
                         self.process_article(current_page)
@@ -171,9 +171,9 @@ class WikipediaXMLProcessor:
                     current_page = {}
                     root.clear()  # Free memory
                     
-                elif elem.tag in ['title', 'text', 'id']:
-                    current_page[elem.tag] = elem.text or ''
-                
+                elif current_element in ['title', 'text', 'id']:
+                    current_page[current_element] = elem.text or ''
+
                 current_element = None
     
     def is_valid_article(self, page):
@@ -397,9 +397,10 @@ def main():
             db = WikipediaDatabase(db_path)
             db.initialize()
             stats = db.get_stats()
-            print(f"Total articles: {stats[0]:,}")
-            print(f"Total words: {stats[1]:,}")
-            print(f"Average words per article: {stats[2]:.1f}")
+            print(f"Stats: {stats}")
+            # print(f"Total articles: {stats[0]:,}")
+            # print(f"Total words: {stats[1]:,}")
+            # print(f"Average words per article: {stats[2]:.1f}")
             db.close()
             
         except Exception as e:
