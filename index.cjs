@@ -8,9 +8,7 @@ const passport = require('passport');
 const GoogleStrategy = require('passport-google-oauth20').Strategy;
 // const { addOfflinePackageRoutes } = require('./offline-package-routes');
 const offlinePackageRoutesNew = require('./offline-package-routes-new');
-import { InferenceClient } from "@huggingface/inference";
-
-
+const { InferenceClient } = require("@huggingface/inference");
 // Create Express app
 const app = express();
 const PORT = process.env.PORT || 3000;
