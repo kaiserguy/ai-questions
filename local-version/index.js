@@ -2275,11 +2275,11 @@ app.get('/wikipedia/article/:title', async (req, res) => {
   }
 });
 
-// Start server
-app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
+// Server will be started by startServer() function below
+// app.listen(PORT, () => {
+//   console.log(`Server running on port ${PORT}`);
   console.log(`Visit http://localhost:${PORT} to view the application`) ;
-});
+// });
 
 // ===== ANALYTICS API ENDPOINTS =====
 
