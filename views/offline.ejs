@@ -542,8 +542,8 @@
                             });
                         }
                         
-                        // Update status indicators
-                        updateStatusIndicators();
+                        // Check if resources were downloaded
+                        checkDownloadStatus();
                     } else {
                         console.error('❌ OfflineAppEnhanced class not found');
                     }
@@ -553,34 +553,41 @@
             }, 100);
         });
         
-        // Update status indicators based on offline status
-        function updateStatusIndicators() {
-            if (!window.offlineApp) return;
+        // Check if resources were downloaded and force UI update
+        function checkDownloadStatus() {
+            // Check localStorage for download completion
+            const downloadCompleted = localStorage.getItem('offline_download_completed');
             
-            const statusDot = document.getElementById('statusDot');
-            const statusText = document.getElementById('statusText');
-            const statusDescription = document.getElementById('statusDescription');
-            const downloadSection = document.getElementById('downloadSection');
-            const chatSection = document.getElementById('chatSection');
-            
-            if (window.offlineApp.isOffline) {
-                // Offline ready
-                statusDot.classList.add('offline');
-                statusText.textContent = '🟢 Offline Ready';
-                statusDescription.textContent = 'All required resources are available. You can use AI Questions completely offline.';
+            if (downloadCompleted === 'true') {
+                console.log('Download was completed previously, forcing chat display');
                 
-                // Show chat section, hide download section
-                downloadSection.style.display = 'none';
-                chatSection.style.display = 'block';
-            } else {
-                // Not offline ready
-                statusDot.classList.remove('offline');
-                statusText.textContent = '🔴 Online Only';
-                statusDescription.textContent = 'Download required resources to use AI Questions offline.';
+                // Force chat section to display
+                const chatSection = document.getElementById('chatSection');
+                const downloadSection = document.getElementById('downloadSection');
                 
-                // Show download section, hide chat section
-                downloadSection.style.display = 'block';
-                chatSection.style.display = 'none';
+                if (chatSection) chatSection.style.display = 'block';
+                if (downloadSection) downloadSection.style.display = 'none';
+                
+                // Update status indicators
+                const statusDot = document.getElementById('statusDot');
+                const statusText = document.getElementById('statusText');
+                const statusDescription = document.getElementById('statusDescription');
+                
+                if (statusDot) statusDot.classList.add('offline');
+                if (statusText) statusText.textContent = '🟢 Offline Ready';
+                if (statusDescription) {
+                    statusDescription.textContent = 'All required resources are available. You can use AI Questions completely offline.';
+                }
+                
+                // Force offlineApp to recognize offline status
+                if (window.offlineApp) {
+                    window.offlineApp.isOffline = true;
+                    
+                    // Initialize local AI if not already done
+                    if (!window.offlineApp.localAI && window.offlineApp.initializeLocalAI) {
+                        window.offlineApp.initializeLocalAI();
+                    }
+                }
             }
         }
         
