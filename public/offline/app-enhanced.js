@@ -30,7 +30,7 @@ class OfflineAppEnhanced {
         
         // Initialize UI
         this.setupEventListeners();
-        this.updateUI();
+        await this.updateUI();
         
         // Initialize query logger
         this.initializeQueryLogger();
@@ -298,7 +298,7 @@ class OfflineAppEnhanced {
         }
     }
 
-    updateUI() {
+    async updateUI() {
         // Update offline status indicator
         const statusIndicator = document.getElementById('offlineStatus');
         if (statusIndicator) {
@@ -332,10 +332,10 @@ class OfflineAppEnhanced {
         }
         
         // Update model selector if available
-        this.updateModelSelector();
+        await this.updateModelSelector();
     }
 
-    updateModelSelector() {
+    async updateModelSelector() {
         const modelSelect = document.getElementById('modelSelect');
         if (!modelSelect) return;
         
@@ -343,19 +343,40 @@ class OfflineAppEnhanced {
         modelSelect.innerHTML = '';
         
         if (this.localAI && this.isOffline) {
-            // Get available models from LocalAI
-            const models = this.localAI.getAvailableModels();
-            
-            // Add options for each model
-            models.forEach(model => {
+            try {
+                // Get available models from LocalAI - ensure we await the Promise
+                const models = await this.localAI.getAvailableModels();
+                
+                // Ensure models is an array before using forEach
+                if (Array.isArray(models) && models.length > 0) {
+                    // Add options for each model
+                    models.forEach(model => {
+                        const option = document.createElement('option');
+                        option.value = model.id;
+                        option.textContent = model.name;
+                        modelSelect.appendChild(option);
+                    });
+                    
+                    // Enable the selector
+                    modelSelect.disabled = false;
+                } else {
+                    // Handle case where models is not an array or is empty
+                    console.warn('No models available or invalid models data:', models);
+                    const option = document.createElement('option');
+                    option.value = '';
+                    option.textContent = 'No models available';
+                    modelSelect.appendChild(option);
+                    modelSelect.disabled = true;
+                }
+            } catch (error) {
+                console.error('Error getting available models:', error);
+                // Add fallback option in case of error
                 const option = document.createElement('option');
-                option.value = model.id;
-                option.textContent = model.name;
+                option.value = '';
+                option.textContent = 'Error loading models';
                 modelSelect.appendChild(option);
-            });
-            
-            // Enable the selector
-            modelSelect.disabled = false;
+                modelSelect.disabled = true;
+            }
         } else {
             // Add placeholder option
             const option = document.createElement('option');
@@ -394,224 +415,168 @@ class OfflineAppEnhanced {
                 return false;
             }
             
-            // Create LocalAI instance
-            this.localAI = new LocalAIModel();
+            // Check if localAI is already initialized
+            if (!this.localAI && window.localAI) {
+                this.localAI = window.localAI;
+            } else if (!this.localAI) {
+                // Create LocalAI instance if not available
+                this.localAI = new LocalAIModel();
+            }
             
             // Initialize the AI system
-            const backends = await this.localAI.initialize();
-            console.log('LocalAI initialized with backends:', backends);
-            
-            // Set up event listeners
-            this.localAI.on('error', (data) => {
-                console.error('LocalAI error:', data);
-                this.showError(`AI model error: ${data.message}`);
-            });
-            
-            this.localAI.on('loading', (data) => {
-                console.log(`Loading model ${data.model}: ${Math.round(data.progress * 100)}%`);
-                this.showMessage(`Loading AI model: ${Math.round(data.progress * 100)}%`, 'info');
-            });
-            
-            this.localAI.on('loaded', (data) => {
-                console.log(`Model ${data.model} loaded successfully`);
-                this.showMessage(`AI model ${data.model} loaded successfully`, 'success');
-                this.aiModel = {
-                    loaded: true,
-                    name: data.model,
-                    executionProvider: data.executionProvider
-                };
-            });
+            try {
+                await this.localAI.initialize();
+                console.log('LocalAI initialized successfully');
+            } catch (error) {
+                console.error('Failed to initialize LocalAI:', error);
+            }
             
             // Update UI to reflect available models
-            this.updateModelSelector();
+            await this.updateModelSelector();
             
             return true;
         } catch (error) {
             console.error('Failed to initialize LocalAI:', error);
-            this.showError(`Failed to initialize AI system: ${error.message}`);
             return false;
         }
     }
 
-    async handleChatSubmit(event) {
-        event.preventDefault();
-        
-        if (!this.isOffline) {
-            this.showMessage('Please download offline resources first', 'error');
-            return;
+    initializeQueryLogger() {
+        try {
+            if (typeof QueryLogger !== 'undefined') {
+                this.queryLogger = new QueryLogger();
+                console.log('✅ Query logger initialized');
+            } else {
+                console.warn('QueryLogger not available');
+            }
+        } catch (error) {
+            console.error('Failed to initialize query logger:', error);
         }
+    }
 
-        const chatInput = document.getElementById('chatInput');
-        const message = chatInput.value.trim();
+    async handleChatSubmit(event) {
+        if (event) event.preventDefault();
         
+        const chatInput = document.getElementById('chatInput');
+        const chatContainer = document.getElementById('chatContainer');
+        
+        if (!chatInput || !chatContainer) return;
+        
+        const message = chatInput.value.trim();
         if (!message) return;
-
+        
         // Clear input
         chatInput.value = '';
         
         // Add user message to chat
-        this.addMessageToChat('user', message);
+        this.addMessage(message, 'user');
         
-        // Show typing indicator
-        this.showTypingIndicator();
+        // Log the query
+        if (this.queryLogger) {
+            this.queryLogger.logQuery(message);
+        }
+        
+        // Process message
+        await this.processMessage(message);
+    }
+
+    addMessage(message, sender) {
+        const chatContainer = document.getElementById('chatContainer');
+        if (!chatContainer) return;
+        
+        const messageElement = document.createElement('div');
+        messageElement.className = `message ${sender}`;
+        
+        if (sender === 'user') {
+            messageElement.innerHTML = `<strong>You:</strong> ${message}`;
+        } else {
+            messageElement.innerHTML = `<strong>AI Assistant:</strong> ${message}`;
+        }
+        
+        chatContainer.appendChild(messageElement);
+        chatContainer.scrollTop = chatContainer.scrollHeight;
+        
+        // Add to conversation history
+        this.conversationHistory.push({
+            role: sender === 'user' ? 'user' : 'assistant',
+            content: message
+        });
+    }
+
+    async processMessage(message) {
+        if (!this.isOffline) {
+            this.addMessage('Offline mode is not available. Please download the required resources first.', 'ai');
+            return;
+        }
         
         try {
-            // Get context from Wikipedia if available
-            let context = '';
-            if (this.resourceStatus.wikipedia.available) {
+            // Show typing indicator
+            this.showTypingIndicator();
+            
+            // Get selected model
+            const modelSelect = document.getElementById('modelSelect');
+            const selectedModel = modelSelect ? modelSelect.value : 'tinyml-qa';
+            
+            // Search Wikipedia for context
+            let wikipediaContext = '';
+            if (this.wikipediaDB) {
                 try {
-                    const wikipediaResults = await this.searchWikipedia(message);
-                    if (wikipediaResults && wikipediaResults.length > 0) {
-                        context = wikipediaResults.map(result => 
-                            `From Wikipedia article "${result.title}": ${result.snippet || result.content?.substring(0, 200)}`
-                        ).join('\n\n');
+                    const searchResults = await this.wikipediaDB.search(message);
+                    if (searchResults && searchResults.length > 0) {
+                        wikipediaContext = searchResults[0].content;
+                        
+                        // Log the search results
+                        if (this.queryLogger) {
+                            this.queryLogger.logWikipediaResults(searchResults);
+                        }
                     }
                 } catch (error) {
-                    console.error('Wikipedia search failed:', error);
-                    // Continue without Wikipedia context
+                    console.error('Wikipedia search error:', error);
                 }
             }
             
-            // Get AI response
-            const response = await this.getAIResponse(message, context);
+            // Generate AI response
+            let response;
+            if (this.localAI) {
+                try {
+                    // Prepare prompt with context if available
+                    const prompt = wikipediaContext 
+                        ? `Context: ${wikipediaContext}\n\nQuestion: ${message}\n\nAnswer:`
+                        : message;
+                    
+                    response = await this.localAI.runInference(selectedModel, prompt);
+                } catch (error) {
+                    console.error('AI inference error:', error);
+                    response = `I'm sorry, I encountered an error while processing your request. ${error.message}`;
+                }
+            } else {
+                response = "I'm sorry, the AI model is not available in offline mode. Please try again later.";
+            }
             
-            // Remove typing indicator
+            // Hide typing indicator
             this.hideTypingIndicator();
             
             // Add AI response to chat
-            this.addMessageToChat('assistant', response);
+            this.addMessage(response, 'ai');
             
         } catch (error) {
-            console.error('Chat error:', error);
+            console.error('Error processing message:', error);
             this.hideTypingIndicator();
-            this.addMessageToChat('system', `Error: ${error.message}`);
+            this.addMessage(`I'm sorry, an error occurred: ${error.message}`, 'ai');
         }
-    }
-
-    async getAIResponse(message, context = '') {
-        // Check if we have a real AI model available
-        if (this.localAI && this.localAI.isLoaded) {
-            try {
-                // Use the real model for inference
-                const result = await this.localAI.generateResponse(message, context);
-                return result.response;
-            } catch (error) {
-                console.error('AI inference failed:', error);
-                throw new Error(`AI inference failed: ${error.message}`);
-            }
-        } else if (this.resourceStatus.models.available) {
-            // We have models but they're not loaded yet
-            try {
-                // Load the default model
-                if (!this.localAI) {
-                    await this.initializeLocalAI();
-                }
-                
-                // Load the first available model
-                const models = this.localAI.getAvailableModels();
-                if (models.length > 0) {
-                    await this.localAI.loadModel(models[0].id, (progress) => {
-                        console.log(`Loading model: ${Math.round(progress * 100)}%`);
-                    });
-                    
-                    // Now try to generate a response
-                    const result = await this.localAI.generateResponse(message, context);
-                    return result.response;
-                } else {
-                    throw new Error('No AI models available');
-                }
-            } catch (error) {
-                console.error('Failed to load and use AI model:', error);
-                throw new Error(`Failed to use AI model: ${error.message}`);
-            }
-        } else {
-            // No real models available, explain the situation
-            return `I'm sorry, but I can't provide a real AI response because the AI models aren't available offline yet. Please download the complete offline package including AI models to enable real AI chat functionality.`;
-        }
-    }
-
-    async loadAIModel(modelId) {
-        if (!this.localAI) {
-            await this.initializeLocalAI();
-        }
-        
-        if (!this.localAI) {
-            throw new Error('AI system not available');
-        }
-        
-        try {
-            this.showMessage('Loading AI model...', 'info');
-            
-            // Load the specified model
-            const result = await this.localAI.loadModel(modelId, (progress) => {
-                // Update UI with loading progress
-                const progressPercent = Math.round(progress * 100);
-                this.showMessage(`Loading model: ${progressPercent}%`, 'info');
-            });
-            
-            this.aiModel = { 
-                loaded: true, 
-                name: modelId,
-                executionProvider: result.executionProvider
-            };
-            
-            this.showMessage(`Model ${modelId} loaded successfully`, 'success');
-            return this.aiModel;
-            
-        } catch (error) {
-            console.error('Failed to load AI model:', error);
-            this.showError(`Failed to load model: ${error.message}`);
-            throw error;
-        }
-    }
-
-    addMessageToChat(role, content) {
-        const chatMessages = document.getElementById('chatMessages');
-        if (!chatMessages) return;
-
-        const messageDiv = document.createElement('div');
-        messageDiv.className = `message ${role}`;
-        
-        const timestamp = new Date().toLocaleTimeString();
-        
-        messageDiv.innerHTML = `
-            <div class="message-header">
-                <span class="role">${role === 'user' ? '👤 You' : role === 'assistant' ? '🤖 AI' : '⚠️ System'}</span>
-                <span class="timestamp">${timestamp}</span>
-            </div>
-            <div class="message-content">${content}</div>
-        `;
-        
-        chatMessages.appendChild(messageDiv);
-        chatMessages.scrollTop = chatMessages.scrollHeight;
-        
-        // Store in conversation history
-        this.conversationHistory.push({ role, content, timestamp });
     }
 
     showTypingIndicator() {
-        const chatMessages = document.getElementById('chatMessages');
-        if (!chatMessages) return;
-
-        const typingDiv = document.createElement('div');
-        typingDiv.id = 'typingIndicator';
-        typingDiv.className = 'message assistant typing';
-        typingDiv.innerHTML = `
-            <div class="message-header">
-                <span class="role">🤖 AI</span>
-                <span class="timestamp">typing...</span>
-            </div>
-            <div class="message-content">
-                <div class="typing-dots">
-                    <span></span>
-                    <span></span>
-                    <span></span>
-                </div>
-            </div>
-        `;
+        const chatContainer = document.getElementById('chatContainer');
+        if (!chatContainer) return;
         
-        chatMessages.appendChild(typingDiv);
-        chatMessages.scrollTop = chatMessages.scrollHeight;
+        const typingElement = document.createElement('div');
+        typingElement.className = 'message ai typing';
+        typingElement.id = 'typingIndicator';
+        typingElement.innerHTML = '<strong>AI Assistant:</strong> <span class="typing-animation">Thinking</span>';
+        
+        chatContainer.appendChild(typingElement);
+        chatContainer.scrollTop = chatContainer.scrollHeight;
     }
 
     hideTypingIndicator() {
@@ -621,135 +586,78 @@ class OfflineAppEnhanced {
         }
     }
 
-    clearChat() {
-        const chatMessages = document.getElementById('chatMessages');
-        if (chatMessages) {
-            chatMessages.innerHTML = '';
-        }
-        this.conversationHistory = [];
-        this.showMessage('Chat cleared', 'info');
-    }
-
     async switchModel(modelId) {
-        if (!modelId) return;
+        if (!this.localAI) return;
         
         try {
-            await this.loadAIModel(modelId);
+            this.showMessage(`Switching to model: ${modelId}`, 'info');
+            await this.localAI.loadModel(modelId);
+            this.showMessage(`Model ${modelId} loaded successfully`, 'success');
         } catch (error) {
-            console.error('Failed to switch model:', error);
-            this.showMessage(`Failed to switch to ${modelId}`, 'error');
+            console.error('Error switching model:', error);
+            this.showError(`Failed to switch model: ${error.message}`);
         }
+    }
+
+    clearChat() {
+        const chatContainer = document.getElementById('chatContainer');
+        if (!chatContainer) return;
+        
+        // Keep only the welcome message
+        chatContainer.innerHTML = `
+            <div class="message ai">
+                <strong>AI Assistant:</strong> Hello! I'm running completely offline in your browser. Ask me anything!
+            </div>
+        `;
+        
+        // Reset conversation history
+        this.conversationHistory = [
+            { role: 'assistant', content: 'Hello! I\'m running completely offline in your browser. Ask me anything!' }
+        ];
     }
 
     downloadResources() {
-        // Redirect to download page
-        window.location.href = '/offline';
+        // Show download section
+        const downloadSection = document.getElementById('downloadSection');
+        if (downloadSection) {
+            downloadSection.style.display = 'block';
+        }
+        
+        // Initialize download manager if available
+        if (typeof DownloadManagerEnhanced !== 'undefined') {
+            const downloadManager = new DownloadManagerEnhanced();
+            downloadManager.init();
+        } else {
+            this.showError('Download manager not available');
+        }
     }
 
     showResourceStatus() {
-        // Create a modal to display resource status
-        let modalContainer = document.getElementById('resourceStatusModal');
-        
-        if (!modalContainer) {
-            modalContainer = document.createElement('div');
-            modalContainer.id = 'resourceStatusModal';
-            modalContainer.className = 'resource-status-modal';
-            document.body.appendChild(modalContainer);
-        }
-        
-        // Generate status content
-        const scriptsStatus = this.resourceStatus.scripts.available ? 
-            '✅ Available' : '❌ Missing';
-        
-        const modelsStatus = this.resourceStatus.models.available ? 
-            '✅ Available' : '❌ Missing';
-        
-        const wikiStatus = this.resourceStatus.wikipedia.available ? 
-            '✅ Available' : '❌ Missing';
-        
-        const wikiDetails = this.resourceStatus.wikipedia.details;
-        const wikiArticles = wikiDetails.articleCount || 'Unknown';
-        
-        modalContainer.innerHTML = `
+        // Create modal for resource status
+        const modal = document.createElement('div');
+        modal.className = 'resource-status-modal';
+        modal.innerHTML = `
             <div class="resource-status-content">
-                <div class="resource-status-header">
-                    <h2>Offline Resources Status</h2>
-                    <button id="closeResourceStatus" class="close-button">×</button>
-                </div>
-                <div class="resource-status-body">
-                    <div class="resource-item">
-                        <div class="resource-name">Core Scripts</div>
-                        <div class="resource-status ${this.resourceStatus.scripts.available ? 'available' : 'missing'}">
-                            ${scriptsStatus}
-                        </div>
-                        <div class="resource-details">
-                            ${this.resourceStatus.scripts.details.available || 0}/${this.resourceStatus.scripts.details.total || 0} files available
-                        </div>
-                    </div>
+                <h2>📊 Resource Status</h2>
+                <div class="resource-status-close">&times;</div>
+                <div class="resource-status-details">
+                    <h3>Scripts</h3>
+                    <p>Status: ${this.resourceStatus.scripts.available ? '✅ Available' : '❌ Missing'}</p>
+                    <p>Available: ${this.resourceStatus.scripts.details.available || 0}/${this.resourceStatus.scripts.details.total || 0}</p>
                     
-                    <div class="resource-item">
-                        <div class="resource-name">AI Models</div>
-                        <div class="resource-status ${this.resourceStatus.models.available ? 'available' : 'missing'}">
-                            ${modelsStatus}
-                        </div>
-                        <div class="resource-details">
-                            ${this.resourceStatus.models.details.available || 0}/${this.resourceStatus.models.details.total || 0} files available
-                        </div>
-                    </div>
+                    <h3>AI Models</h3>
+                    <p>Status: ${this.resourceStatus.models.available ? '✅ Available' : '❌ Missing'}</p>
+                    <p>Available: ${this.resourceStatus.models.details.available || 0}/${this.resourceStatus.models.details.total || 0}</p>
                     
-                    <div class="resource-item">
-                        <div class="resource-name">Wikipedia Database</div>
-                        <div class="resource-status ${this.resourceStatus.wikipedia.available ? 'available' : 'missing'}">
-                            ${wikiStatus}
-                        </div>
-                        <div class="resource-details">
-                            ${wikiArticles} articles available
-                        </div>
-                    </div>
-                    
-                    <div class="resource-summary">
-                        <div class="summary-title">Overall Status</div>
-                        <div class="summary-status ${this.isOffline ? 'available' : 'missing'}">
-                            ${this.isOffline ? '✅ Fully Offline Ready' : '❌ Not Ready for Offline Use'}
-                        </div>
-                    </div>
-                </div>
-                <div class="resource-status-footer">
-                    <button id="refreshResourceStatus" class="refresh-button">🔄 Refresh Status</button>
-                    ${!this.isOffline ? '<button id="downloadMissingResources" class="download-button">📥 Download Missing Resources</button>' : ''}
+                    <h3>Wikipedia Database</h3>
+                    <p>Status: ${this.resourceStatus.wikipedia.available ? '✅ Available' : '❌ Missing'}</p>
+                    <p>Articles: ${this.resourceStatus.wikipedia.details.articleCount || 0}</p>
                 </div>
             </div>
         `;
         
         // Add styles
-        this.addResourceStatusStyles();
-        
-        // Show the modal
-        modalContainer.style.display = 'flex';
-        
-        // Add event listeners
-        document.getElementById('closeResourceStatus').addEventListener('click', () => {
-            modalContainer.style.display = 'none';
-        });
-        
-        document.getElementById('refreshResourceStatus').addEventListener('click', async () => {
-            await this.checkOfflineStatus();
-            this.showResourceStatus();
-        });
-        
-        const downloadBtn = document.getElementById('downloadMissingResources');
-        if (downloadBtn) {
-            downloadBtn.addEventListener('click', () => {
-                this.downloadResources();
-            });
-        }
-    }
-
-    addResourceStatusStyles() {
-        if (document.getElementById('resourceStatusStyles')) return;
-        
         const style = document.createElement('style');
-        style.id = 'resourceStatusStyles';
         style.textContent = `
             .resource-status-modal {
                 position: fixed;
@@ -757,271 +665,124 @@ class OfflineAppEnhanced {
                 left: 0;
                 width: 100%;
                 height: 100%;
-                background-color: rgba(0, 0, 0, 0.5);
-                display: none;
+                background: rgba(0, 0, 0, 0.5);
+                display: flex;
                 justify-content: center;
                 align-items: center;
                 z-index: 1000;
             }
             
             .resource-status-content {
-                background-color: white;
+                background: white;
+                padding: 20px;
                 border-radius: 8px;
-                width: 90%;
                 max-width: 500px;
-                max-height: 90%;
+                width: 90%;
+                max-height: 80vh;
                 overflow-y: auto;
-                box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+                position: relative;
             }
             
-            .resource-status-header {
-                display: flex;
-                justify-content: space-between;
-                align-items: center;
-                padding: 15px 20px;
-                border-bottom: 1px solid #eee;
-            }
-            
-            .resource-status-header h2 {
-                margin: 0;
-                font-size: 18px;
-                color: #333;
-            }
-            
-            .close-button {
-                background: none;
-                border: none;
+            .resource-status-close {
+                position: absolute;
+                top: 10px;
+                right: 15px;
                 font-size: 24px;
                 cursor: pointer;
-                color: #666;
             }
             
-            .resource-status-body {
-                padding: 20px;
-            }
-            
-            .resource-item {
-                margin-bottom: 15px;
-                padding-bottom: 15px;
-                border-bottom: 1px solid #eee;
-            }
-            
-            .resource-name {
-                font-weight: bold;
+            .resource-status-details h3 {
+                margin-top: 15px;
                 margin-bottom: 5px;
-            }
-            
-            .resource-status {
-                display: inline-block;
-                padding: 3px 8px;
-                border-radius: 4px;
-                font-size: 14px;
-                margin-bottom: 5px;
-            }
-            
-            .resource-status.available {
-                background-color: #d4edda;
-                color: #155724;
-            }
-            
-            .resource-status.missing {
-                background-color: #f8d7da;
-                color: #721c24;
-            }
-            
-            .resource-details {
-                font-size: 14px;
-                color: #666;
-            }
-            
-            .resource-summary {
-                margin-top: 20px;
-                padding: 15px;
-                background-color: #f8f9fa;
-                border-radius: 4px;
-            }
-            
-            .summary-title {
-                font-weight: bold;
-                margin-bottom: 5px;
-            }
-            
-            .summary-status {
-                font-size: 16px;
-                font-weight: bold;
-            }
-            
-            .resource-status-footer {
-                padding: 15px 20px;
-                border-top: 1px solid #eee;
-                display: flex;
-                justify-content: space-between;
-            }
-            
-            .refresh-button, .download-button {
-                padding: 8px 16px;
-                border: none;
-                border-radius: 4px;
-                cursor: pointer;
-                font-size: 14px;
-            }
-            
-            .refresh-button {
-                background-color: #e2e6ea;
-                color: #212529;
-            }
-            
-            .download-button {
-                background-color: #007bff;
-                color: white;
-            }
-            
-            @media (max-width: 576px) {
-                .resource-status-content {
-                    width: 95%;
-                }
-                
-                .resource-status-footer {
-                    flex-direction: column;
-                    gap: 10px;
-                }
-                
-                .refresh-button, .download-button {
-                    width: 100%;
-                }
             }
         `;
         
         document.head.appendChild(style);
+        document.body.appendChild(modal);
+        
+        // Add close event
+        const closeBtn = modal.querySelector('.resource-status-close');
+        if (closeBtn) {
+            closeBtn.addEventListener('click', () => {
+                modal.remove();
+            });
+        }
+        
+        // Close on outside click
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) {
+                modal.remove();
+            }
+        });
     }
 
     showMessage(message, type = 'info') {
-        let messageContainer = document.getElementById('appMessage');
-        if (!messageContainer) {
-            messageContainer = document.createElement('div');
-            messageContainer.id = 'appMessage';
-            messageContainer.className = 'app-message';
-            document.body.appendChild(messageContainer);
+        // Create toast notification
+        const toast = document.createElement('div');
+        toast.className = `toast ${type}`;
+        toast.textContent = message;
+        
+        // Add styles if not already added
+        if (!document.getElementById('toast-styles')) {
+            const style = document.createElement('style');
+            style.id = 'toast-styles';
+            style.textContent = `
+                .toast {
+                    position: fixed;
+                    bottom: 20px;
+                    right: 20px;
+                    padding: 10px 20px;
+                    border-radius: 4px;
+                    color: white;
+                    font-weight: bold;
+                    z-index: 1000;
+                    animation: fadeIn 0.3s, fadeOut 0.3s 2.7s;
+                    opacity: 0;
+                    animation-fill-mode: forwards;
+                }
+                
+                @keyframes fadeIn {
+                    from { opacity: 0; }
+                    to { opacity: 1; }
+                }
+                
+                @keyframes fadeOut {
+                    from { opacity: 1; }
+                    to { opacity: 0; }
+                }
+                
+                .toast.info {
+                    background: #3498db;
+                }
+                
+                .toast.success {
+                    background: #2ecc71;
+                }
+                
+                .toast.error {
+                    background: #e74c3c;
+                }
+            `;
+            document.head.appendChild(style);
         }
-
-        messageContainer.className = `app-message ${type}`;
-        messageContainer.textContent = message;
-        messageContainer.style.display = 'block';
-
-        // Auto-hide after 3 seconds for non-error messages
-        if (type !== 'error') {
-            setTimeout(() => {
-                messageContainer.style.display = 'none';
-            }, 3000);
-        }
+        
+        document.body.appendChild(toast);
+        
+        // Remove after animation
+        setTimeout(() => {
+            toast.remove();
+        }, 3000);
     }
 
     showError(message) {
         this.showMessage(message, 'error');
     }
-
-    initializeQueryLogger() {
-        // Initialize the query logger
-        if (typeof OfflineQueryLogger !== 'undefined') {
-            this.queryLogger = new OfflineQueryLogger();
-            console.log('✅ Query logger initialized');
-        } else {
-            console.warn('⚠️ OfflineQueryLogger not available');
-        }
-    }
-
-    async searchWikipedia(query) {
-        if (!this.wikipediaDB) {
-            console.warn('Wikipedia database not available');
-            return [];
-        }
-
-        // Log search start
-        if (this.queryLogger) {
-            this.queryLogger.logSearchStart(query);
-        }
-
-        try {
-            // Initialize enhanced search if not already done
-            if (!this.enhancedWikipediaSearch && typeof EnhancedWikipediaSearch !== 'undefined') {
-                this.enhancedWikipediaSearch = new EnhancedWikipediaSearch(this.wikipediaDB);
-            }
-
-            let searchResults;
-            
-            if (this.enhancedWikipediaSearch) {
-                // Use enhanced search with logging
-                const result = await this.enhancedWikipediaSearch.enhancedSearch(query, 5);
-                
-                // Add logs to query logger
-                if (this.queryLogger && result.status_log) {
-                    this.queryLogger.addLogs(result.status_log);
-                }
-                
-                searchResults = result.results || [];
-            } else {
-                // Fallback to basic search
-                searchResults = await this.basicWikipediaSearch(query);
-            }
-
-            // Log search completion
-            if (this.queryLogger) {
-                this.queryLogger.logSearchComplete(searchResults.length);
-            }
-
-            return searchResults;
-
-        } catch (error) {
-            console.error('Wikipedia search failed:', error);
-            
-            // Log search error
-            if (this.queryLogger) {
-                this.queryLogger.logSearchError(error.message);
-            }
-            
-            return [];
-        }
-    }
-
-    async basicWikipediaSearch(query) {
-        // Basic search implementation for fallback
-        if (!this.wikipediaDB || !this.wikipediaDB.db) {
-            return [];
-        }
-
-        try {
-            const stmt = this.wikipediaDB.db.prepare(`
-                SELECT title, content, snippet(wikipedia_fts, 1, '<mark>', '</mark>', '...', 32) as snippet
-                FROM wikipedia_fts 
-                WHERE wikipedia_fts MATCH ?
-                ORDER BY rank 
-                LIMIT 5
-            `);
-            
-            const results = [];
-            stmt.bind([query.toLowerCase()]);
-            
-            while (stmt.step()) {
-                const row = stmt.getAsObject();
-                results.push({
-                    title: row.title,
-                    content: row.content,
-                    snippet: row.snippet || row.content?.substring(0, 200) + '...',
-                    url: `/offline/wikipedia/article/${encodeURIComponent(row.title)}`
-                });
-            }
-            
-            stmt.free();
-            return results;
-            
-        } catch (error) {
-            console.error('Basic Wikipedia search failed:', error);
-            return [];
-        }
-    }
 }
 
-// Initialize when DOM is ready
+// Initialize when the document is loaded
 document.addEventListener('DOMContentLoaded', () => {
     window.offlineApp = new OfflineAppEnhanced();
 });
+
+// Create a compatibility wrapper for backward compatibility
+window.OfflineApp = OfflineAppEnhanced;

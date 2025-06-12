@@ -17,6 +17,7 @@ class LocalAIModel {
         this.currentModel = null;
         this.isLoading = false;
         this.events = {};
+        this.initialized = false;
         
         // Available backends
         this.backends = {
@@ -28,6 +29,36 @@ class LocalAIModel {
         
         // Check available backends
         this.detectBackends();
+    }
+    
+    // Add initialize method to fix TypeError
+    async initialize() {
+        console.log('Initializing LocalAI model system');
+        
+        if (this.initialized) {
+            console.log('LocalAI already initialized');
+            return true;
+        }
+        
+        try {
+            // Ensure backends are detected
+            await this.detectBackends();
+            
+            // Pre-load default model
+            try {
+                await this.loadModel('tinyml-qa');
+            } catch (error) {
+                console.warn('Could not pre-load default model:', error);
+                // Continue initialization even if model loading fails
+            }
+            
+            this.initialized = true;
+            console.log('LocalAI initialization complete');
+            return true;
+        } catch (error) {
+            console.error('Failed to initialize LocalAI:', error);
+            return false;
+        }
     }
     
     async detectBackends() {
