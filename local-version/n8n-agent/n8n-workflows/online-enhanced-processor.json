@@ -156,7 +156,7 @@
     },
     {
       "parameters": {
-        "url": "http://ai-questions:3000/api/wikipedia/enhanced-search",
+        "url": "http://ai-questions:4000/api/wikipedia/enhanced-search",
         "sendBody": true,
         "bodyContentType": "json",
         "jsonBody": "={\"question\": \"{{$json.originalQuestion}}\", \"limit\": 2}",

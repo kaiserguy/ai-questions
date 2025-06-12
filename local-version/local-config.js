@@ -33,7 +33,7 @@ const LOCAL_CONFIG = {
   
   // Application settings
   app: {
-    port: process.env.PORT || 3000,
+    port: process.env.PORT || 4000,
     host: '0.0.0.0', // Allow external connections
     title: 'AI Questions - Local Instance',
     description: 'Private AI monitoring and analysis platform'
