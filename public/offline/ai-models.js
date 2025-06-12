@@ -368,7 +368,7 @@ class AIModelManager {
 }
 
 // Enhanced Offline App with Real AI Integration
-class EnhancedOfflineApp extends OfflineApp {
+class EnhancedOfflineApp extends OfflineAppEnhanced {
     constructor() {
         super();
         this.aiManager = new AIModelManager();
@@ -421,11 +421,16 @@ class EnhancedOfflineApp extends OfflineApp {
         });
         
         const chatInputContainer = document.querySelector('.chat-input-container');
-        chatInputContainer.appendChild(stopBtn);
+        if (chatInputContainer) {
+            chatInputContainer.appendChild(stopBtn);
+        }
     }
 
     updateModelSelection() {
-        const selectedPackage = document.querySelector('.download-option.selected').dataset.package;
+        const selectedOption = document.querySelector('.download-option.selected');
+        if (!selectedOption) return;
+        
+        const selectedPackage = selectedOption.dataset.package;
         const modelMap = {
             'minimal': 'distilbert-base-uncased',
             'standard': 'gpt2',
@@ -457,168 +462,128 @@ class EnhancedOfflineApp extends OfflineApp {
         }
     }
 
-    async getAIResponse(message) {
-        if (!this.aiManager.currentModel) {
-            return "I'm sorry, but no AI model is currently loaded. Please download an offline package first.";
+    async getAIResponse(message, context = '') {
+        // Use the AI Manager to generate a response
+        if (!this.aiManager || !this.aiManager.currentModel) {
+            return super.getAIResponse(message, context);
         }
-
+        
         this.isGenerating = true;
-        this.showStopButton();
-
+        this.showStopButton(true);
+        
         try {
-            // Search Wikipedia for context first
-            const wikipediaContext = await this.searchWikipedia(message);
-            
-            // Prepare the prompt with context
-            let prompt = message;
-            if (wikipediaContext) {
-                prompt = `Context: ${wikipediaContext}\n\nQuestion: ${message}\n\nAnswer:`;
+            // Get context from Wikipedia if available
+            if (!context && this.wikipediaManager) {
+                const results = await this.wikipediaManager.search(message, 3);
+                if (results && results.length > 0) {
+                    context = results.map(result => 
+                        `From Wikipedia: ${result.title}\n${result.snippet || result.content?.substring(0, 200)}`
+                    ).join('\n\n');
+                }
             }
-
-            // Generate response with the AI model
+            
+            // Prepare prompt with context
+            let prompt = message;
+            if (context) {
+                prompt = `Context information:\n${context}\n\nQuestion: ${message}\n\nAnswer:`;
+            }
+            
+            // Generate response
             const response = await this.aiManager.generateResponse(prompt, {
                 maxLength: 150,
                 temperature: 0.7
             });
-
-            return this.formatAIResponse(response, wikipediaContext);
+            
+            return this.formatAIResponse(response, message);
             
         } catch (error) {
-            console.error('AI response error:', error);
-            return `I encountered an error while processing your message: ${error.message}`;
+            console.error('AI response generation failed:', error);
+            return `I'm sorry, I encountered an error while generating a response: ${error.message}`;
         } finally {
             this.isGenerating = false;
-            this.hideStopButton();
+            this.showStopButton(false);
         }
     }
 
-    async streamAIResponse(message, messageId) {
-        if (!this.aiManager.currentModel) {
-            this.updateMessage(messageId, "I'm sorry, but no AI model is currently loaded. Please download an offline package first.");
-            return;
-        }
-
-        this.isGenerating = true;
-        this.showStopButton();
-
-        try {
-            // Search Wikipedia for context
-            const wikipediaContext = await this.searchWikipedia(message);
-            
-            let prompt = message;
-            if (wikipediaContext) {
-                prompt = `Context: ${wikipediaContext}\n\nQuestion: ${message}\n\nAnswer:`;
-            }
-
-            // Stream the response
-            await this.aiManager.streamResponse(prompt, (partialResponse) => {
-                if (this.isGenerating) {
-                    const formattedResponse = this.formatAIResponse(partialResponse, wikipediaContext);
-                    this.updateMessage(messageId, formattedResponse);
-                }
-            }, {
-                maxLength: 150,
-                temperature: 0.7
-            });
-            
-        } catch (error) {
-            console.error('Streaming error:', error);
-            this.updateMessage(messageId, `I encountered an error: ${error.message}`);
-        } finally {
-            this.isGenerating = false;
-            this.hideStopButton();
-        }
-    }
-
-    async searchWikipedia(query) {
-        if (!this.wikipediaManager || !this.wikipediaManager.isInitialized) {
-            return null;
-        }
-        
-        try {
-            // Use real Wikipedia search
-            const results = await this.wikipediaManager.search(query, 1);
-            if (results.length > 0) {
-                const article = results[0];
-                return `${article.summary} [Read more: ${article.title}]`;
-            }
-        } catch (error) {
-            console.error('Wikipedia search error:', error);
-        }
-        
-        return null;
-    }
-
-    formatAIResponse(response, wikipediaContext) {
-        let formattedResponse = response;
-        
+    formatAIResponse(response, originalQuestion) {
         // Clean up the response
-        if (formattedResponse.includes('Answer:')) {
-            formattedResponse = formattedResponse.split('Answer:')[1].trim();
+        let cleanResponse = response;
+        
+        // Remove the original question if it's repeated
+        if (cleanResponse.includes(originalQuestion)) {
+            cleanResponse = cleanResponse.substring(cleanResponse.indexOf(originalQuestion) + originalQuestion.length);
         }
         
-        // Add Wikipedia reference if available
-        if (wikipediaContext) {
-            formattedResponse += '\n\n📚 <em>Response enhanced with local Wikipedia knowledge</em>';
+        // Remove common prefixes
+        const prefixes = ['Answer:', 'Response:', 'AI:', 'Assistant:'];
+        for (const prefix of prefixes) {
+            if (cleanResponse.trim().startsWith(prefix)) {
+                cleanResponse = cleanResponse.trim().substring(prefix.length).trim();
+            }
         }
         
-        return formattedResponse;
+        return cleanResponse.trim();
     }
 
-    async sendMessage() {
-        const input = document.getElementById('chatInput');
-        const message = input.value.trim();
+    showStopButton(show) {
+        const stopBtn = document.getElementById('stopBtn');
+        const sendBtn = document.getElementById('sendBtn');
         
-        if (!message || this.isGenerating) return;
+        if (stopBtn) {
+            stopBtn.style.display = show ? 'block' : 'none';
+        }
         
-        // Add user message to chat
-        this.addMessageToChat('user', message);
-        input.value = '';
-        
-        // Show loading indicator
-        const loadingId = this.addMessageToChat('ai', '<div class="loading"></div>');
-        
-        // Use streaming response for better UX
-        await this.streamAIResponse(message, loadingId);
+        if (sendBtn) {
+            sendBtn.style.display = show ? 'none' : 'block';
+        }
     }
 
     stopGeneration() {
-        console.log('🛑 Stopping AI generation');
-        this.isGenerating = false;
-        this.hideStopButton();
-        
-        // Add a message indicating generation was stopped
-        this.addMessageToChat('ai', '<em>Response generation stopped by user.</em>');
+        if (this.isGenerating) {
+            console.log('Stopping AI generation');
+            // In a real implementation, this would cancel the generation
+            this.isGenerating = false;
+            this.showStopButton(false);
+        }
     }
 
-    showStopButton() {
-        const sendBtn = document.getElementById('sendBtn');
-        const stopBtn = document.getElementById('stopBtn');
+    updateProgress(percent, text, details) {
+        const progressFill = document.getElementById('progressFill');
+        const progressText = document.getElementById('progressText');
+        const progressDetails = document.getElementById('progressDetails');
         
-        sendBtn.style.display = 'none';
-        stopBtn.style.display = 'block';
-    }
-
-    hideStopButton() {
-        const sendBtn = document.getElementById('sendBtn');
-        const stopBtn = document.getElementById('stopBtn');
+        if (progressFill) {
+            progressFill.style.width = `${percent}%`;
+        }
         
-        sendBtn.style.display = 'block';
-        stopBtn.style.display = 'none';
-    }
-
-    async initializeOfflineComponents() {
-        await super.initializeOfflineComponents();
+        if (progressText) {
+            progressText.textContent = text;
+        }
         
-        // Ensure AI model is ready
-        if (this.selectedAIModel && !this.aiManager.currentModel) {
-            this.aiManager.currentModel = this.selectedAIModel;
+        if (progressDetails) {
+            progressDetails.textContent = details;
         }
     }
 }
 
-// Replace the original OfflineApp with the enhanced version
+// Initialize when DOM is ready
 document.addEventListener('DOMContentLoaded', () => {
-    window.offlineApp = new EnhancedOfflineApp();
+    // Create a compatibility wrapper for backward compatibility
+    window.OfflineApp = OfflineAppEnhanced;
+    
+    // Initialize the enhanced app
+    try {
+        window.offlineApp = new EnhancedOfflineApp();
+        console.log('✅ EnhancedOfflineApp initialized successfully');
+    } catch (error) {
+        console.error('❌ Failed to initialize EnhancedOfflineApp:', error);
+        
+        // Fallback to basic app
+        try {
+            window.offlineApp = new OfflineAppEnhanced();
+            console.log('✅ Fallback to OfflineAppEnhanced successful');
+        } catch (fallbackError) {
+            console.error('❌ Fallback initialization failed:', fallbackError);
+        }
+    }
 });
-

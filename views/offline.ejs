@@ -303,6 +303,48 @@
         .back-link:hover {
             background: rgba(255, 255, 255, 0.3);
         }
+        
+        /* Resource status button */
+        .resource-status-btn {
+            background: rgba(255, 255, 255, 0.2);
+            color: white;
+            padding: 10px 20px;
+            border-radius: 6px;
+            border: none;
+            cursor: pointer;
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            backdrop-filter: blur(10px);
+            transition: all 0.3s ease;
+            font-size: 1rem;
+        }
+        
+        .resource-status-btn:hover {
+            background: rgba(255, 255, 255, 0.3);
+        }
+        
+        /* Model selector */
+        .model-selector {
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .model-selector select {
+            padding: 8px 12px;
+            border-radius: 6px;
+            border: 1px solid #d1d5db;
+            background: white;
+            font-size: 0.9rem;
+            flex: 1;
+        }
+        
+        .model-selector label {
+            font-weight: 600;
+            font-size: 0.9rem;
+        }
 
         @media (max-width: 768px) {
             .header h1 {
@@ -334,6 +376,11 @@
                 padding: 20px;
                 margin-bottom: 20px;
             }
+            
+            .resource-status-btn {
+                top: 70px;
+                right: 10px;
+            }
         }
     </style>
     
@@ -342,9 +389,14 @@
     <script src="/offline/wikipedia-content-parser.js"></script>
     <script src="/offline/query-logger.js"></script>
     <script src="/offline/wikipedia-router.js"></script>
+    
+    <!-- Local AI Model Integration -->
+    <script src="/offline/libs/onnxruntime-web.min.js"></script>
+    <script src="/offline/local-ai-model.js"></script>
 </head>
 <body>
     <a href="/" class="back-link">← Back to AI Questions</a>
+    <button class="resource-status-btn" id="resourceStatusBtn">📊 Resource Status</button>
     
     <div class="container">
         <div class="header">
@@ -371,7 +423,7 @@
                     <div class="option-title">Minimal Package</div>
                     <div class="option-size">~200MB download</div>
                     <ul class="option-features">
-                        <li>Basic AI chat (TinyBERT)</li>
+                        <li>Basic AI chat (TinyML-QA)</li>
                         <li>Wikipedia subset (20MB)</li>
                         <li>Essential features only</li>
                         <li>Fast download</li>
@@ -382,7 +434,7 @@
                     <div class="option-title">Standard Package</div>
                     <div class="option-size">~800MB download</div>
                     <ul class="option-features">
-                        <li>Advanced AI chat (Phi-3 Mini)</li>
+                        <li>Advanced AI chat (MiniLLM)</li>
                         <li>Simple Wikipedia (50MB)</li>
                         <li>Full feature set</li>
                         <li>Recommended for most users</li>
@@ -417,9 +469,19 @@
         <!-- Chat Section -->
         <div class="chat-section" id="chatSection">
             <h2>🤖 Offline AI Chat</h2>
+            
+            <!-- Model Selector -->
+            <div class="model-selector">
+                <label for="modelSelect">AI Model:</label>
+                <select id="modelSelect">
+                    <option value="tinyml-qa">TinyML QA Model</option>
+                    <option value="minillm-chat">MiniLLM Chat</option>
+                </select>
+            </div>
+            
             <div class="chat-container" id="chatContainer">
                 <div class="message ai">
-                    <strong>AI Assistant:</strong> Hello! I'm running completely offline in your browser. Ask me anything, and I can also search the local Wikipedia database for additional context.
+                    <strong>AI Assistant:</strong> Hello! I'm running completely offline in your browser using real AI models. Ask me anything, and I can also search the local Wikipedia database for additional context.
                 </div>
             </div>
             <div class="chat-input-container">
@@ -457,10 +519,7 @@
     <script src="/offline/wikipedia.js"></script>
     <script src="/offline/ai-models.js"></script>
     <script src="/offline/app-enhanced.js"></script>
-</body>
-</html>
-
-
+    
     <script>
         // Initialize the offline app when DOM is loaded
         document.addEventListener('DOMContentLoaded', function() {
@@ -469,17 +528,61 @@
             // Add a small delay to ensure all scripts are loaded
             setTimeout(() => {
                 try {
-                    if (typeof OfflineApp !== 'undefined') {
-                        window.offlineApp = new OfflineApp();
-                        console.log('✅ OfflineApp initialized successfully');
+                    if (typeof OfflineAppEnhanced !== 'undefined') {
+                        window.offlineApp = new OfflineAppEnhanced();
+                        console.log('✅ OfflineAppEnhanced initialized successfully');
+                        
+                        // Add event listener for resource status button
+                        const resourceStatusBtn = document.getElementById('resourceStatusBtn');
+                        if (resourceStatusBtn) {
+                            resourceStatusBtn.addEventListener('click', () => {
+                                if (window.offlineApp && window.offlineApp.showResourceStatus) {
+                                    window.offlineApp.showResourceStatus();
+                                }
+                            });
+                        }
+                        
+                        // Update status indicators
+                        updateStatusIndicators();
                     } else {
-                        console.error('❌ OfflineApp class not found');
+                        console.error('❌ OfflineAppEnhanced class not found');
                     }
                 } catch (error) {
-                    console.error('❌ Failed to initialize OfflineApp:', error);
+                    console.error('❌ Failed to initialize OfflineAppEnhanced:', error);
                 }
             }, 100);
         });
+        
+        // Update status indicators based on offline status
+        function updateStatusIndicators() {
+            if (!window.offlineApp) return;
+            
+            const statusDot = document.getElementById('statusDot');
+            const statusText = document.getElementById('statusText');
+            const statusDescription = document.getElementById('statusDescription');
+            const downloadSection = document.getElementById('downloadSection');
+            const chatSection = document.getElementById('chatSection');
+            
+            if (window.offlineApp.isOffline) {
+                // Offline ready
+                statusDot.classList.add('offline');
+                statusText.textContent = '🟢 Offline Ready';
+                statusDescription.textContent = 'All required resources are available. You can use AI Questions completely offline.';
+                
+                // Show chat section, hide download section
+                downloadSection.style.display = 'none';
+                chatSection.style.display = 'block';
+            } else {
+                // Not offline ready
+                statusDot.classList.remove('offline');
+                statusText.textContent = '🔴 Online Only';
+                statusDescription.textContent = 'Download required resources to use AI Questions offline.';
+                
+                // Show download section, hide chat section
+                downloadSection.style.display = 'block';
+                chatSection.style.display = 'none';
+            }
+        }
         
         // Add touch event debugging for mobile
         document.addEventListener('touchstart', function(e) {
@@ -490,4 +593,5 @@
             console.log('Touch end detected on:', e.target.tagName, e.target.className);
         });
     </script>
-
+</body>
+</html>
