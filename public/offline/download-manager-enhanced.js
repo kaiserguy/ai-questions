@@ -19,6 +19,214 @@ class DownloadManagerEnhanced {
         
         // Set up event listeners
         this.setupEventListeners();
+        
+        // Check if download was just completed (after page reload)
+        this.checkDownloadCompletion();
+    }
+
+    checkDownloadCompletion() {
+        // Check if we have a stored download completion flag
+        const downloadCompleted = localStorage.getItem('offline_download_completed');
+        if (downloadCompleted) {
+            // Get the package type that was downloaded
+            const packageType = localStorage.getItem('offline_package_type') || 'standard';
+            
+            console.log(`Detected completed download of ${packageType} package`);
+            
+            // Clear the flag to prevent showing the message again on future reloads
+            localStorage.removeItem('offline_download_completed');
+            
+            // Show success message
+            this.showDownloadSuccess(packageType);
+            
+            // Notify the app that offline resources are available
+            if (window.offlineApp) {
+                // Trigger offline status check
+                window.offlineApp.checkOfflineStatus().then(() => {
+                    // Update UI based on offline status
+                    window.offlineApp.updateUI();
+                });
+            } else {
+                console.warn('OfflineApp not available to notify about download completion');
+                
+                // Fallback: try to update UI elements directly
+                this.updateUIAfterDownload();
+            }
+        }
+    }
+    
+    showDownloadSuccess(packageType) {
+        // Create a success notification
+        const notification = document.createElement('div');
+        notification.className = 'download-success-notification';
+        notification.innerHTML = `
+            <div class="success-icon">✓</div>
+            <div class="success-message">
+                <h3>${packageType.charAt(0).toUpperCase() + packageType.slice(1)} Package Downloaded Successfully!</h3>
+                <p>All resources are now available offline. You can use AI Questions without an internet connection.</p>
+            </div>
+            <button class="close-btn">×</button>
+        `;
+        
+        // Add styles
+        const style = document.createElement('style');
+        style.textContent = `
+            .download-success-notification {
+                position: fixed;
+                bottom: 20px;
+                right: 20px;
+                background: #10b981;
+                color: white;
+                padding: 15px 20px;
+                border-radius: 8px;
+                display: flex;
+                align-items: center;
+                gap: 15px;
+                box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+                z-index: 1000;
+                max-width: 400px;
+                animation: slideIn 0.5s ease-out;
+            }
+            
+            @keyframes slideIn {
+                from {
+                    transform: translateX(100%);
+                    opacity: 0;
+                }
+                to {
+                    transform: translateX(0);
+                    opacity: 1;
+                }
+            }
+            
+            .success-icon {
+                font-size: 24px;
+                background: rgba(255, 255, 255, 0.2);
+                width: 40px;
+                height: 40px;
+                border-radius: 50%;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+            }
+            
+            .success-message {
+                flex: 1;
+            }
+            
+            .success-message h3 {
+                margin: 0 0 5px 0;
+                font-size: 16px;
+            }
+            
+            .success-message p {
+                margin: 0;
+                font-size: 14px;
+                opacity: 0.9;
+            }
+            
+            .close-btn {
+                background: none;
+                border: none;
+                color: white;
+                font-size: 20px;
+                cursor: pointer;
+                padding: 0;
+                width: 24px;
+                height: 24px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                opacity: 0.7;
+            }
+            
+            .close-btn:hover {
+                opacity: 1;
+            }
+            
+            @media (max-width: 576px) {
+                .download-success-notification {
+                    bottom: 10px;
+                    right: 10px;
+                    left: 10px;
+                    max-width: none;
+                }
+            }
+        `;
+        
+        document.head.appendChild(style);
+        document.body.appendChild(notification);
+        
+        // Add event listener to close button
+        notification.querySelector('.close-btn').addEventListener('click', () => {
+            notification.remove();
+        });
+        
+        // Auto-hide after 10 seconds
+        setTimeout(() => {
+            if (document.body.contains(notification)) {
+                notification.style.animation = 'slideOut 0.5s ease-in forwards';
+                
+                // Add slideOut animation
+                const slideOutStyle = document.createElement('style');
+                slideOutStyle.textContent = `
+                    @keyframes slideOut {
+                        from {
+                            transform: translateX(0);
+                            opacity: 1;
+                        }
+                        to {
+                            transform: translateX(100%);
+                            opacity: 0;
+                        }
+                    }
+                `;
+                document.head.appendChild(slideOutStyle);
+                
+                setTimeout(() => {
+                    if (document.body.contains(notification)) {
+                        notification.remove();
+                    }
+                }, 500);
+            }
+        }, 10000);
+    }
+    
+    updateUIAfterDownload() {
+        // Hide download section
+        const downloadSection = document.getElementById('downloadSection');
+        if (downloadSection) {
+            downloadSection.style.display = 'none';
+        }
+        
+        // Hide progress section
+        const progressSection = document.getElementById('progressSection');
+        if (progressSection) {
+            progressSection.style.display = 'none';
+        }
+        
+        // Show chat section
+        const chatSection = document.getElementById('chatSection');
+        if (chatSection) {
+            chatSection.style.display = 'block';
+        }
+        
+        // Update status indicator
+        const statusDot = document.getElementById('statusDot');
+        const statusText = document.getElementById('statusText');
+        const statusDescription = document.getElementById('statusDescription');
+        
+        if (statusDot) {
+            statusDot.classList.add('offline');
+        }
+        
+        if (statusText) {
+            statusText.textContent = '🟢 Offline Ready';
+        }
+        
+        if (statusDescription) {
+            statusDescription.textContent = 'All required resources are available. You can use AI Questions completely offline.';
+        }
     }
 
     async checkPackageAvailability() {
@@ -166,10 +374,37 @@ class DownloadManagerEnhanced {
             // Show success message
             this.updateProgress(100, 'Download complete!', 'All resources downloaded successfully');
             
-            // Reload page after a short delay to initialize offline mode
+            // Store download completion in localStorage
+            localStorage.setItem('offline_download_completed', 'true');
+            localStorage.setItem('offline_package_type', this.currentPackage);
+            
+            // Update UI without reloading
             setTimeout(() => {
-                window.location.reload();
-            }, 2000);
+                // Hide progress section
+                if (progressSection) progressSection.style.display = 'none';
+                
+                // Notify the app that offline resources are available
+                if (window.offlineApp) {
+                    // Trigger offline status check
+                    window.offlineApp.checkOfflineStatus().then(() => {
+                        // Update UI based on offline status
+                        window.offlineApp.updateUI();
+                        
+                        // Show success notification
+                        this.showDownloadSuccess(this.currentPackage);
+                    });
+                } else {
+                    console.warn('OfflineApp not available to notify about download completion');
+                    
+                    // Fallback: try to update UI elements directly
+                    this.updateUIAfterDownload();
+                    
+                    // Show success notification
+                    this.showDownloadSuccess(this.currentPackage);
+                }
+                
+                this.isDownloading = false;
+            }, 1000);
             
         } catch (error) {
             console.error('Download failed:', error);
@@ -241,7 +476,36 @@ class DownloadManagerEnhanced {
         // Create dummy files for testing
         await this.createDummyFiles(cache);
         
+        // Store download metadata
+        await this.storeDownloadMetadata(packageType);
+        
         return true;
+    }
+    
+    async storeDownloadMetadata(packageType) {
+        try {
+            // Store metadata in IndexedDB
+            const db = await this.openIndexedDB();
+            const transaction = db.transaction(['metadata'], 'readwrite');
+            const store = transaction.objectStore('metadata');
+            
+            // Store package info
+            await new Promise((resolve, reject) => {
+                const request = store.put({
+                    key: 'download_info',
+                    packageType,
+                    timestamp: new Date().toISOString(),
+                    components: this.packageInfo?.packages?.[packageType]?.components || []
+                });
+                
+                request.onsuccess = () => resolve();
+                request.onerror = () => reject(request.error);
+            });
+            
+            console.log(`Stored download metadata for ${packageType} package`);
+        } catch (error) {
+            console.error('Failed to store download metadata:', error);
+        }
     }
 
     async downloadComponent(componentId, componentInfo, cache) {
@@ -343,6 +607,25 @@ class DownloadManagerEnhanced {
         try {
             const db = await this.openIndexedDB();
             console.log('Wikipedia database initialized');
+            
+            // Add a sample article to verify database works
+            const transaction = db.transaction(['articles'], 'readwrite');
+            const store = transaction.objectStore('articles');
+            
+            // Add a sample article
+            await new Promise((resolve, reject) => {
+                const request = store.put({
+                    id: 'sample_article',
+                    title: 'Sample Article',
+                    content: 'This is a sample article to verify the Wikipedia database is working.',
+                    timestamp: new Date().toISOString()
+                });
+                
+                request.onsuccess = () => resolve();
+                request.onerror = () => reject(request.error);
+            });
+            
+            console.log('Added sample article to Wikipedia database');
         } catch (error) {
             console.error('Failed to initialize Wikipedia database:', error);
         }
