@@ -517,8 +517,9 @@
 
     <script src="/offline/download-manager-enhanced.js"></script>
     <script src="/offline/wikipedia.js"></script>
-    <script src="/offline/ai-models.js"></script>
+    <!-- Fix script loading order: app-enhanced.js must be loaded before ai-models.js -->
     <script src="/offline/app-enhanced.js"></script>
+    <script src="/offline/ai-models.js"></script>
     
     <script>
         // Initialize the offline app when DOM is loaded
