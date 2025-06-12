@@ -1,0 +1,267 @@
+{
+  "name": "AI Agent - Offline Question Processor",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "process-question",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook-trigger",
+      "name": "Question Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [240, 300],
+      "webhookId": "ai-agent-question-processor"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{$json.question}}",
+              "operation": "isNotEmpty"
+            }
+          ]
+        }
+      },
+      "id": "validate-input",
+      "name": "Validate Question",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "functionCode": "// Offline AI Agent - Question Analysis\n// Analyzes the question and determines processing strategy\n\nconst question = $input.first().json.question;\nconst context = $input.first().json.context || '';\nconst userPreferences = $input.first().json.preferences || {};\n\n// Question classification\nfunction classifyQuestion(q) {\n  const lowerQ = q.toLowerCase();\n  \n  // Check for different question types\n  const patterns = {\n    factual: /^(what|who|when|where|which|how many)/,\n    analytical: /^(why|how|explain|analyze|compare)/,\n    creative: /^(imagine|create|write|compose|design)/,\n    wikipedia: /(poland|country|history|person|place|event)/,\n    philosophical: /(meaning|purpose|ethics|morality|should)/,\n    technical: /(code|program|algorithm|technical|computer)/\n  };\n  \n  const types = [];\n  for (const [type, pattern] of Object.entries(patterns)) {\n    if (pattern.test(lowerQ)) {\n      types.push(type);\n    }\n  }\n  \n  return types.length > 0 ? types : ['general'];\n}\n\n// Determine processing strategy\nfunction determineStrategy(types, question) {\n  const strategy = {\n    useWikipedia: types.includes('factual') || types.includes('wikipedia'),\n    useLocalAI: true,\n    complexity: 'medium',\n    expectedResponseLength: 'medium',\n    requiresMultiStep: types.includes('analytical') || types.includes('creative')\n  };\n  \n  // Adjust complexity based on question length and content\n  if (question.length > 200 || types.includes('analytical')) {\n    strategy.complexity = 'high';\n    strategy.expectedResponseLength = 'long';\n  } else if (question.length < 50 && types.includes('factual')) {\n    strategy.complexity = 'low';\n    strategy.expectedResponseLength = 'short';\n  }\n  \n  return strategy;\n}\n\n// Extract key entities for Wikipedia search\nfunction extractEntities(question) {\n  const entities = [];\n  \n  // Simple entity extraction (can be enhanced with NLP)\n  const words = question.split(/\\s+/);\n  const capitalizedWords = words.filter(word => \n    /^[A-Z][a-z]+/.test(word) && word.length > 2\n  );\n  \n  entities.push(...capitalizedWords);\n  \n  // Add question keywords\n  const keywords = question.toLowerCase()\n    .replace(/[^\\w\\s]/g, '')\n    .split(/\\s+/)\n    .filter(word => word.length > 3)\n    .filter(word => !['what', 'when', 'where', 'who', 'why', 'how', 'the', 'and', 'but', 'for'].includes(word));\n  \n  entities.push(...keywords);\n  \n  return [...new Set(entities)]; // Remove duplicates\n}\n\nconst questionTypes = classifyQuestion(question);\nconst strategy = determineStrategy(questionTypes, question);\nconst entities = extractEntities(question);\n\nreturn {\n  json: {\n    originalQuestion: question,\n    context: context,\n    userPreferences: userPreferences,\n    analysis: {\n      types: questionTypes,\n      strategy: strategy,\n      entities: entities,\n      timestamp: new Date().toISOString(),\n      processingId: `proc_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`\n    }\n  }\n};"
+      },
+      "id": "analyze-question",
+      "name": "Analyze Question",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [680, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{$json.analysis.strategy.useWikipedia}}",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "id": "check-wikipedia-needed",
+      "name": "Wikipedia Needed?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [900, 300]
+    },
+    {
+      "parameters": {
+        "url": "http://ai-questions:3000/api/wikipedia/enhanced-search",
+        "sendBody": true,
+        "bodyContentType": "json",
+        "jsonBody": "={\"question\": \"{{$json.originalQuestion}}\", \"entities\": {{JSON.stringify($json.analysis.entities)}}, \"limit\": 3}",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "id": "search-wikipedia",
+      "name": "Search Local Wikipedia",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [1120, 200]
+    },
+    {
+      "parameters": {
+        "url": "http://ollama:11434/api/generate",
+        "sendBody": true,
+        "bodyContentType": "json",
+        "jsonBody": "={\"model\": \"{{$json.userPreferences.model || 'mistral:7b'}}\", \"prompt\": \"{{$json.originalQuestion}}{{$json.wikipediaContext ? '\\n\\nRelevant information from Wikipedia:\\n' + $json.wikipediaContext : ''}}\", \"stream\": false, \"options\": {\"temperature\": 0.7, \"top_p\": 0.9}}",
+        "options": {
+          "timeout": 120000
+        }
+      },
+      "id": "query-local-ai",
+      "name": "Query Local AI",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [1340, 300]
+    },
+    {
+      "parameters": {
+        "functionCode": "// Process Wikipedia search results and prepare context\nconst wikipediaResults = $input.first().json;\nconst questionData = $('Analyze Question').first().json;\n\nlet wikipediaContext = '';\nlet sources = [];\n\nif (wikipediaResults && wikipediaResults.results && wikipediaResults.results.length > 0) {\n  // Process Wikipedia results\n  const relevantArticles = wikipediaResults.results.slice(0, 2); // Use top 2 results\n  \n  wikipediaContext = relevantArticles.map(article => {\n    sources.push({\n      title: article.title,\n      url: `/wikipedia/article/${encodeURIComponent(article.title)}`,\n      relevance: article.relevance_score || 0\n    });\n    \n    // Extract key information from article content\n    const content = article.content || article.summary || '';\n    const excerpt = content.length > 500 ? content.substring(0, 500) + '...' : content;\n    \n    return `**${article.title}**\\n${excerpt}`;\n  }).join('\\n\\n');\n}\n\nreturn {\n  json: {\n    ...questionData,\n    wikipediaContext: wikipediaContext,\n    sources: sources,\n    hasWikipediaData: sources.length > 0\n  }\n};"
+      },
+      "id": "process-wikipedia",
+      "name": "Process Wikipedia Results",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [1120, 400]
+    },
+    {
+      "parameters": {
+        "functionCode": "// Process AI response and format final output\nconst aiResponse = $input.first().json;\nconst questionData = $('Process Wikipedia Results').first().json;\n\n// Extract the AI response text\nlet responseText = '';\nif (aiResponse.response) {\n  responseText = aiResponse.response;\n} else if (aiResponse.choices && aiResponse.choices[0]) {\n  responseText = aiResponse.choices[0].text || aiResponse.choices[0].message?.content || '';\n} else {\n  responseText = 'I apologize, but I was unable to generate a response at this time.';\n}\n\n// Format the final response\nconst finalResponse = {\n  success: true,\n  response: responseText.trim(),\n  metadata: {\n    processingId: questionData.analysis.processingId,\n    questionTypes: questionData.analysis.types,\n    usedWikipedia: questionData.hasWikipediaData,\n    sources: questionData.sources || [],\n    model: questionData.userPreferences.model || 'mistral:7b',\n    processingTime: Date.now() - new Date(questionData.analysis.timestamp).getTime(),\n    timestamp: new Date().toISOString()\n  },\n  agent: {\n    name: 'AI Agent - Offline Processor',\n    version: '1.0.0',\n    capabilities: ['local-ai', 'wikipedia-search', 'question-analysis']\n  }\n};\n\n// Add Wikipedia sources if available\nif (questionData.sources && questionData.sources.length > 0) {\n  finalResponse.wikipediaLinks = questionData.sources;\n}\n\nreturn {\n  json: finalResponse\n};"
+      },
+      "id": "format-response",
+      "name": "Format Final Response",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [1560, 300]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{JSON.stringify($json, null, 2)}}",
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "name": "X-AI-Agent",
+                "value": "n8n-offline-processor"
+              }
+            ]
+          }
+        }
+      },
+      "id": "webhook-response",
+      "name": "Send Response",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [1780, 300]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{\"success\": false, \"error\": \"Invalid question format\", \"message\": \"Please provide a valid question in the request body\"}",
+        "responseCode": 400
+      },
+      "id": "error-response",
+      "name": "Error Response",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [460, 500]
+    }
+  ],
+  "connections": {
+    "Question Webhook": {
+      "main": [
+        [
+          {
+            "node": "Validate Question",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Question": {
+      "main": [
+        [
+          {
+            "node": "Analyze Question",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Error Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Analyze Question": {
+      "main": [
+        [
+          {
+            "node": "Wikipedia Needed?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wikipedia Needed?": {
+      "main": [
+        [
+          {
+            "node": "Search Local Wikipedia",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Query Local AI",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Search Local Wikipedia": {
+      "main": [
+        [
+          {
+            "node": "Process Wikipedia Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Process Wikipedia Results": {
+      "main": [
+        [
+          {
+            "node": "Query Local AI",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Query Local AI": {
+      "main": [
+        [
+          {
+            "node": "Format Final Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Final Response": {
+      "main": [
+        [
+          {
+            "node": "Send Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "timezone": "UTC"
+  },
+  "versionId": "1",
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "id": "ai-agent-offline-processor",
+  "tags": ["ai-agent", "offline", "question-processing"]
+}
+

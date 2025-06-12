@@ -12,6 +12,9 @@ const fs = require('fs');
 // Load local configuration
 const LOCAL_CONFIG = require('./local-config');
 
+// n8n AI Agent Integration
+const N8nAgentIntegration = require('./n8n-agent-integration');
+
 // Wikipedia integration
 class WikipediaIntegration {
   constructor(wikipediaDbPath = './wikipedia.db') {
@@ -306,6 +309,9 @@ const wikipedia = new WikipediaIntegration(process.env.WIKIPEDIA_DB_PATH || './w
 // Create Express app
 const app = express();
 const PORT = LOCAL_CONFIG.app.port;
+
+// Initialize n8n AI Agent
+const aiAgent = new N8nAgentIntegration();
 
 // Set up EJS as the view engine
 app.set('view engine', 'ejs');
@@ -1690,7 +1696,7 @@ async function executeScheduledQuestions() {
 
 app.post('/api/chat', async (req, res) => {
   try {
-    const { message, model, context = [], includeWikipedia = true } = req.body;
+    const { message, model, context = [], includeWikipedia = true, useAgent = true } = req.body;
     
     if (!message || !model) {
       return res.status(400).json({ 
@@ -1698,7 +1704,31 @@ app.post('/api/chat', async (req, res) => {
         error: 'Message and model are required' 
       });
     }
+
+    // Try AI Agent first if enabled
+    if (useAgent) {
+      try {
+        const agentResult = await aiAgent.processQuestion(message, '', {
+          model: model,
+          includeWikipedia: includeWikipedia
+        });
+        
+        if (agentResult.success) {
+          return res.json({
+            success: true,
+            response: agentResult.response,
+            model: model,
+            wikipediaLinks: agentResult.sources || [],
+            wikipediaSearchLog: agentResult.metadata?.searchLog || [],
+            agent: agentResult.agent || { name: 'n8n AI Agent', mode: agentResult.integration?.mode || 'unknown' }
+          });
+        }
+      } catch (agentError) {
+        console.log('AI Agent failed, falling back to direct processing:', agentError.message);
+      }
+    }
     
+    // Fallback to direct processing
     // Check if Ollama is available
     try {
       const ollamaResponse = await fetch(`${LOCAL_CONFIG.ollama.url}/api/tags`);
@@ -2849,4 +2879,106 @@ app.post('/api/wikipedia/download', async (req, res) => {
     res.status(500).json({ error: 'Failed to start Wikipedia download' });
   }
 });
+
+// ===== AI AGENT API ENDPOINTS =====
+
+// Agent status endpoint
+app.get('/api/agent/status', async (req, res) => {
+  try {
+    const status = await aiAgent.getAgentStatus();
+    res.json(status);
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: 'Failed to get agent status',
+      details: error.message
+    });
+  }
+});
+
+// Task automation endpoint
+app.post('/api/agent/task', async (req, res) => {
+  try {
+    const { type, data, priority = 'normal' } = req.body;
+    
+    if (!type || !data) {
+      return res.status(400).json({
+        success: false,
+        error: 'Task type and data are required'
+      });
+    }
+    
+    const result = await aiAgent.automateTask(type, data, priority);
+    res.json(result);
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: 'Task automation failed',
+      details: error.message
+    });
+  }
+});
+
+// Enhanced question processing endpoint
+app.post('/api/agent/question', async (req, res) => {
+  try {
+    const { question, context = '', preferences = {} } = req.body;
+    
+    if (!question) {
+      return res.status(400).json({
+        success: false,
+        error: 'Question is required'
+      });
+    }
+    
+    const result = await aiAgent.processQuestion(question, context, preferences);
+    res.json(result);
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: 'Question processing failed',
+      details: error.message
+    });
+  }
+});
+
+// Agent initialization endpoint
+app.post('/api/agent/initialize', async (req, res) => {
+  try {
+    const status = await aiAgent.initialize();
+    res.json({
+      success: true,
+      message: 'AI Agent initialized successfully',
+      status: status
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: 'Agent initialization failed',
+      details: error.message
+    });
+  }
+});
+
+// ===== START SERVER =====
+
+// Initialize AI Agent and start server
+async function startServer() {
+  try {
+    console.log('🤖 Initializing AI Agent...');
+    await aiAgent.initialize();
+    
+    app.listen(PORT, () => {
+      console.log(`🚀 Local AI Questions server running on http://localhost:${PORT}`);
+      console.log(`📊 AI Agent status available at http://localhost:${PORT}/api/agent/status`);
+      console.log(`🔧 Task automation available at http://localhost:${PORT}/api/agent/task`);
+      console.log(`❓ Enhanced questions at http://localhost:${PORT}/api/agent/question`);
+    });
+  } catch (error) {
+    console.error('❌ Failed to start server:', error);
+    process.exit(1);
+  }
+}
+
+startServer();
 

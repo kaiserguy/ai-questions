@@ -1,0 +1,208 @@
+{
+  "name": "AI Agent - Connectivity Monitor",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 5
+            }
+          ]
+        }
+      },
+      "id": "schedule-trigger",
+      "name": "Every 5 Minutes",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1,
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "functionCode": "// Connectivity Monitor - Check online/offline status\n// Tests multiple endpoints to determine internet connectivity\n\nconst testEndpoints = [\n  'https://www.google.com',\n  'https://httpbin.org/status/200',\n  'https://api.github.com',\n  'https://httpstat.us/200'\n];\n\nconst connectivityTests = testEndpoints.map(url => ({\n  url: url,\n  timeout: 5000,\n  method: 'GET'\n}));\n\nreturn {\n  json: {\n    tests: connectivityTests,\n    timestamp: new Date().toISOString(),\n    testId: `conn_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`\n  }\n};"
+      },
+      "id": "prepare-tests",
+      "name": "Prepare Connectivity Tests",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "url": "={{$json.url}}",
+        "options": {
+          "timeout": 5000,
+          "allowUnauthorizedCerts": true,
+          "followRedirect": false
+        }
+      },
+      "id": "test-connectivity",
+      "name": "Test Endpoint",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [680, 300]
+    },
+    {
+      "parameters": {
+        "functionCode": "// Analyze connectivity test results\nconst allResults = $input.all();\nconst testData = $('Prepare Connectivity Tests').first().json;\n\nlet successfulTests = 0;\nlet failedTests = 0;\nconst results = [];\n\nallResults.forEach((result, index) => {\n  const testUrl = testData.tests[index]?.url || 'unknown';\n  \n  if (result.json && (result.json.status >= 200 && result.json.status < 400)) {\n    successfulTests++;\n    results.push({\n      url: testUrl,\n      status: 'success',\n      responseTime: result.json.responseTime || 0\n    });\n  } else {\n    failedTests++;\n    results.push({\n      url: testUrl,\n      status: 'failed',\n      error: result.json?.error || 'Connection failed'\n    });\n  }\n});\n\n// Determine overall connectivity status\nconst totalTests = testData.tests.length;\nconst successRate = successfulTests / totalTests;\n\nlet connectivityStatus = 'offline';\nif (successRate >= 0.75) {\n  connectivityStatus = 'online';\n} else if (successRate >= 0.25) {\n  connectivityStatus = 'limited';\n}\n\n// Store connectivity status in Redis for other workflows\nconst connectivityData = {\n  status: connectivityStatus,\n  successRate: successRate,\n  successfulTests: successfulTests,\n  failedTests: failedTests,\n  results: results,\n  timestamp: new Date().toISOString(),\n  testId: testData.testId\n};\n\nreturn {\n  json: {\n    connectivity: connectivityData,\n    shouldUpdateCache: true\n  }\n};"
+      },
+      "id": "analyze-results",
+      "name": "Analyze Connectivity",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [900, 300]
+    },
+    {
+      "parameters": {
+        "url": "http://redis:6379",
+        "sendBody": true,
+        "bodyContentType": "raw",
+        "body": "SET connectivity_status \"{{JSON.stringify($json.connectivity)}}\" EX 300",
+        "options": {
+          "timeout": 3000
+        }
+      },
+      "id": "update-redis-cache",
+      "name": "Update Redis Cache",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [1120, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{$json.connectivity.status}}",
+              "operation": "notEqual",
+              "value2": "={{$('Get Previous Status').first().json.previousStatus || 'unknown'}}"
+            }
+          ]
+        }
+      },
+      "id": "check-status-change",
+      "name": "Status Changed?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [1340, 300]
+    },
+    {
+      "parameters": {
+        "url": "http://ai-questions:3000/api/agent/connectivity-update",
+        "sendBody": true,
+        "bodyContentType": "json",
+        "jsonBody": "={{JSON.stringify($json.connectivity)}}",
+        "options": {
+          "timeout": 10000
+        }
+      },
+      "id": "notify-app",
+      "name": "Notify AI Questions App",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [1560, 200]
+    },
+    {
+      "parameters": {
+        "url": "http://redis:6379",
+        "sendBody": true,
+        "bodyContentType": "raw",
+        "body": "GET connectivity_status",
+        "options": {
+          "timeout": 3000
+        }
+      },
+      "id": "get-previous-status",
+      "name": "Get Previous Status",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [240, 500]
+    }
+  ],
+  "connections": {
+    "Every 5 Minutes": {
+      "main": [
+        [
+          {
+            "node": "Prepare Connectivity Tests",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Get Previous Status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Connectivity Tests": {
+      "main": [
+        [
+          {
+            "node": "Test Endpoint",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Test Endpoint": {
+      "main": [
+        [
+          {
+            "node": "Analyze Connectivity",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Analyze Connectivity": {
+      "main": [
+        [
+          {
+            "node": "Update Redis Cache",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Redis Cache": {
+      "main": [
+        [
+          {
+            "node": "Status Changed?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Status Changed?": {
+      "main": [
+        [
+          {
+            "node": "Notify AI Questions App",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "timezone": "UTC"
+  },
+  "versionId": "1",
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "id": "ai-agent-connectivity-monitor",
+  "tags": ["ai-agent", "connectivity", "monitoring"]
+}
+

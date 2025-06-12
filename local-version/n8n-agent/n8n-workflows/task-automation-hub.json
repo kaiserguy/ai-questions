@@ -1,0 +1,312 @@
+{
+  "name": "AI Agent - Task Automation Hub",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "automate-task",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "task-webhook",
+      "name": "Task Automation Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [240, 300],
+      "webhookId": "ai-agent-task-automation"
+    },
+    {
+      "parameters": {
+        "functionCode": "// Task Classification and Routing\nconst taskRequest = $input.first().json;\nconst taskType = taskRequest.type || 'unknown';\nconst taskData = taskRequest.data || {};\nconst priority = taskRequest.priority || 'normal';\n\n// Define supported task types\nconst supportedTasks = {\n  'content_generation': {\n    description: 'Generate various types of content',\n    subtypes: ['article', 'summary', 'explanation', 'creative_writing'],\n    requiresOnline: false\n  },\n  'research_synthesis': {\n    description: 'Research and synthesize information from multiple sources',\n    subtypes: ['fact_check', 'comparison', 'analysis'],\n    requiresOnline: true\n  },\n  'data_processing': {\n    description: 'Process and analyze data',\n    subtypes: ['csv_analysis', 'text_analysis', 'pattern_recognition'],\n    requiresOnline: false\n  },\n  'workflow_automation': {\n    description: 'Automate repetitive tasks',\n    subtypes: ['email_processing', 'file_organization', 'data_transformation'],\n    requiresOnline: false\n  },\n  'knowledge_query': {\n    description: 'Answer questions using available knowledge sources',\n    subtypes: ['factual', 'analytical', 'creative'],\n    requiresOnline: false\n  }\n};\n\n// Validate and classify the task\nfunction classifyTask(type, data) {\n  if (!supportedTasks[type]) {\n    return {\n      valid: false,\n      error: `Unsupported task type: ${type}. Supported types: ${Object.keys(supportedTasks).join(', ')}`\n    };\n  }\n  \n  const taskConfig = supportedTasks[type];\n  const subtype = data.subtype || taskConfig.subtypes[0];\n  \n  if (!taskConfig.subtypes.includes(subtype)) {\n    return {\n      valid: false,\n      error: `Unsupported subtype '${subtype}' for task type '${type}'. Supported subtypes: ${taskConfig.subtypes.join(', ')}`\n    };\n  }\n  \n  return {\n    valid: true,\n    taskType: type,\n    subtype: subtype,\n    config: taskConfig,\n    requiresOnline: taskConfig.requiresOnline\n  };\n}\n\nconst classification = classifyTask(taskType, taskData);\n\nif (!classification.valid) {\n  return {\n    json: {\n      success: false,\n      error: classification.error,\n      supportedTasks: supportedTasks\n    }\n  };\n}\n\nreturn {\n  json: {\n    taskId: `task_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,\n    originalRequest: taskRequest,\n    classification: classification,\n    priority: priority,\n    timestamp: new Date().toISOString(),\n    status: 'classified'\n  }\n};"
+      },
+      "id": "classify-task",
+      "name": "Classify Task",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{$json.classification.valid}}",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "id": "is-valid-task",
+      "name": "Valid Task?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [680, 300]
+    },
+    {
+      "parameters": {
+        "values": {
+          "string": [
+            {
+              "name": "taskType",
+              "value": "={{$json.classification.taskType}}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "route-by-type",
+      "name": "Route by Task Type",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 1,
+      "position": [900, 200]
+    },
+    {
+      "parameters": {
+        "functionCode": "// Content Generation Handler\nconst taskData = $input.first().json;\nconst request = taskData.originalRequest;\nconst data = request.data;\n\n// Prepare content generation prompt\nlet prompt = '';\nconst subtype = taskData.classification.subtype;\n\nswitch (subtype) {\n  case 'article':\n    prompt = `Write a comprehensive article about: ${data.topic || data.subject}\\n\\n`;\n    if (data.length) prompt += `Target length: ${data.length} words\\n`;\n    if (data.style) prompt += `Writing style: ${data.style}\\n`;\n    if (data.audience) prompt += `Target audience: ${data.audience}\\n`;\n    prompt += `\\nPlease provide a well-structured, informative article with clear headings and engaging content.`;\n    break;\n    \n  case 'summary':\n    prompt = `Create a concise summary of the following content:\\n\\n${data.content || data.text}\\n\\n`;\n    if (data.length) prompt += `Summary length: ${data.length}\\n`;\n    prompt += `Focus on the key points and main ideas.`;\n    break;\n    \n  case 'explanation':\n    prompt = `Provide a clear, detailed explanation of: ${data.topic || data.concept}\\n\\n`;\n    if (data.level) prompt += `Explanation level: ${data.level} (beginner/intermediate/advanced)\\n`;\n    if (data.examples) prompt += `Include practical examples: ${data.examples}\\n`;\n    prompt += `Make the explanation accessible and easy to understand.`;\n    break;\n    \n  case 'creative_writing':\n    prompt = `Create a creative piece of writing:\\n\\n`;\n    if (data.genre) prompt += `Genre: ${data.genre}\\n`;\n    if (data.theme) prompt += `Theme: ${data.theme}\\n`;\n    if (data.characters) prompt += `Characters: ${data.characters}\\n`;\n    if (data.setting) prompt += `Setting: ${data.setting}\\n`;\n    prompt += `\\nBe creative and engaging while maintaining good narrative structure.`;\n    break;\n    \n  default:\n    prompt = `Generate content about: ${data.topic || data.subject || 'the requested topic'}`;\n}\n\nreturn {\n  json: {\n    ...taskData,\n    aiPrompt: prompt,\n    processingType: 'content_generation',\n    status: 'ready_for_ai'\n  }\n};"
+      },
+      "id": "handle-content-generation",
+      "name": "Handle Content Generation",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [1120, 100]
+    },
+    {
+      "parameters": {
+        "functionCode": "// Research Synthesis Handler\nconst taskData = $input.first().json;\nconst request = taskData.originalRequest;\nconst data = request.data;\n\n// Prepare research synthesis workflow\nlet researchPlan = {\n  queries: [],\n  sources: ['wikipedia', 'web_search'],\n  synthesisType: taskData.classification.subtype\n};\n\nconst subtype = taskData.classification.subtype;\nconst topic = data.topic || data.subject || data.query;\n\nswitch (subtype) {\n  case 'fact_check':\n    researchPlan.queries = [\n      `${topic} facts verification`,\n      `${topic} reliable sources`,\n      `${topic} recent information`\n    ];\n    researchPlan.focus = 'accuracy_verification';\n    break;\n    \n  case 'comparison':\n    const items = data.items || data.subjects || [];\n    researchPlan.queries = items.map(item => `${item} characteristics features`);\n    researchPlan.queries.push(`${items.join(' vs ')} comparison`);\n    researchPlan.focus = 'comparative_analysis';\n    break;\n    \n  case 'analysis':\n    researchPlan.queries = [\n      `${topic} analysis`,\n      `${topic} implications effects`,\n      `${topic} expert opinions`\n    ];\n    researchPlan.focus = 'deep_analysis';\n    break;\n}\n\nreturn {\n  json: {\n    ...taskData,\n    researchPlan: researchPlan,\n    processingType: 'research_synthesis',\n    status: 'ready_for_research'\n  }\n};"
+      },
+      "id": "handle-research",
+      "name": "Handle Research Synthesis",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [1120, 200]
+    },
+    {
+      "parameters": {
+        "functionCode": "// Knowledge Query Handler\nconst taskData = $input.first().json;\nconst request = taskData.originalRequest;\nconst data = request.data;\n\n// Prepare knowledge query\nconst question = data.question || data.query || data.topic;\nconst context = data.context || '';\nconst preferences = data.preferences || {};\n\n// Route to appropriate question processor\nconst queryData = {\n  question: question,\n  context: context,\n  preferences: preferences\n};\n\nreturn {\n  json: {\n    ...taskData,\n    queryData: queryData,\n    processingType: 'knowledge_query',\n    status: 'ready_for_query'\n  }\n};"
+      },
+      "id": "handle-knowledge-query",
+      "name": "Handle Knowledge Query",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [1120, 300]
+    },
+    {
+      "parameters": {
+        "url": "http://ollama:11434/api/generate",
+        "sendBody": true,
+        "bodyContentType": "json",
+        "jsonBody": "={\"model\": \"{{$json.originalRequest.data.model || 'mistral:7b'}}\", \"prompt\": \"{{$json.aiPrompt}}\", \"stream\": false, \"options\": {\"temperature\": 0.7, \"top_p\": 0.9, \"max_tokens\": 1000}}",
+        "options": {
+          "timeout": 120000
+        }
+      },
+      "id": "generate-content",
+      "name": "Generate Content with AI",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [1340, 100]
+    },
+    {
+      "parameters": {
+        "url": "http://localhost:5678/webhook/process-question-online",
+        "sendBody": true,
+        "bodyContentType": "json",
+        "jsonBody": "={{JSON.stringify($json.queryData)}}",
+        "options": {
+          "timeout": 120000
+        }
+      },
+      "id": "process-knowledge-query",
+      "name": "Process Knowledge Query",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [1340, 300]
+    },
+    {
+      "parameters": {
+        "functionCode": "// Format final task response\nconst result = $input.first().json;\nconst taskData = $('Handle Content Generation').first().json || \n                 $('Handle Knowledge Query').first().json || \n                 $('Handle Research Synthesis').first().json;\n\nlet finalResponse = {\n  success: true,\n  taskId: taskData.taskId,\n  taskType: taskData.classification.taskType,\n  subtype: taskData.classification.subtype,\n  result: null,\n  metadata: {\n    processingTime: Date.now() - new Date(taskData.timestamp).getTime(),\n    timestamp: new Date().toISOString(),\n    priority: taskData.priority\n  },\n  agent: {\n    name: 'AI Agent - Task Automation Hub',\n    version: '1.0.0',\n    capabilities: ['content-generation', 'research-synthesis', 'knowledge-query', 'workflow-automation']\n  }\n};\n\n// Process different result types\nif (taskData.processingType === 'content_generation') {\n  finalResponse.result = {\n    type: 'generated_content',\n    content: result.response || result.generated_text || 'Content generation failed',\n    prompt: taskData.aiPrompt\n  };\n} else if (taskData.processingType === 'knowledge_query') {\n  finalResponse.result = {\n    type: 'knowledge_response',\n    response: result.response || 'Query processing failed',\n    sources: result.sources || [],\n    metadata: result.metadata || {}\n  };\n} else if (taskData.processingType === 'research_synthesis') {\n  finalResponse.result = {\n    type: 'research_synthesis',\n    synthesis: result.synthesis || 'Research synthesis failed',\n    sources: result.sources || [],\n    plan: taskData.researchPlan\n  };\n}\n\nreturn {\n  json: finalResponse\n};"
+      },
+      "id": "format-task-response",
+      "name": "Format Task Response",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [1560, 200]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{JSON.stringify($json, null, 2)}}",
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "name": "X-AI-Agent",
+                "value": "n8n-task-automation-hub"
+              },
+              {
+                "name": "X-Task-Type",
+                "value": "={{$json.taskType}}"
+              }
+            ]
+          }
+        }
+      },
+      "id": "send-task-response",
+      "name": "Send Task Response",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [1780, 200]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{JSON.stringify($json, null, 2)}}",
+        "responseCode": 400
+      },
+      "id": "send-error-response",
+      "name": "Send Error Response",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [680, 500]
+    }
+  ],
+  "connections": {
+    "Task Automation Webhook": {
+      "main": [
+        [
+          {
+            "node": "Classify Task",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Classify Task": {
+      "main": [
+        [
+          {
+            "node": "Valid Task?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Valid Task?": {
+      "main": [
+        [
+          {
+            "node": "Route by Task Type",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Send Error Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Route by Task Type": {
+      "main": [
+        [
+          {
+            "node": "Handle Content Generation",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Handle Research Synthesis",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [],
+        [],
+        [
+          {
+            "node": "Handle Knowledge Query",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Handle Content Generation": {
+      "main": [
+        [
+          {
+            "node": "Generate Content with AI",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Handle Knowledge Query": {
+      "main": [
+        [
+          {
+            "node": "Process Knowledge Query",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate Content with AI": {
+      "main": [
+        [
+          {
+            "node": "Format Task Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Process Knowledge Query": {
+      "main": [
+        [
+          {
+            "node": "Format Task Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Task Response": {
+      "main": [
+        [
+          {
+            "node": "Send Task Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "timezone": "UTC"
+  },
+  "versionId": "1",
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "id": "ai-agent-task-automation-hub",
+  "tags": ["ai-agent", "automation", "tasks", "content-generation"]
+}
+

@@ -1,0 +1,467 @@
+{
+  "name": "AI Agent - Online Enhancement Processor",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "process-question-online",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook-trigger",
+      "name": "Online Question Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [240, 300],
+      "webhookId": "ai-agent-online-processor"
+    },
+    {
+      "parameters": {
+        "url": "http://redis:6379",
+        "sendBody": true,
+        "bodyContentType": "raw",
+        "body": "GET connectivity_status",
+        "options": {
+          "timeout": 3000
+        }
+      },
+      "id": "check-connectivity",
+      "name": "Check Connectivity",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{JSON.parse($json.body || '{}').status}}",
+              "operation": "equal",
+              "value2": "online"
+            }
+          ]
+        }
+      },
+      "id": "is-online",
+      "name": "Is Online?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [680, 300]
+    },
+    {
+      "parameters": {
+        "functionCode": "// Enhanced Question Analysis with Online Capabilities\nconst question = $input.first().json.question;\nconst context = $input.first().json.context || '';\nconst userPreferences = $input.first().json.preferences || {};\n\n// Enhanced question classification for online mode\nfunction classifyQuestionOnline(q) {\n  const lowerQ = q.toLowerCase();\n  \n  const patterns = {\n    current_events: /(news|recent|latest|current|today|yesterday|this week|happening)/,\n    research: /(research|study|academic|paper|journal|scientific)/,\n    real_time: /(weather|stock|price|rate|live|now|current)/,\n    web_search: /(find|search|look up|google|website|online)/,\n    social_media: /(twitter|facebook|instagram|social|trending)/,\n    technical_docs: /(documentation|api|github|stackoverflow|tutorial)/,\n    comparison: /(compare|versus|vs|better|best|review)/,\n    factual: /^(what|who|when|where|which|how many)/,\n    analytical: /^(why|how|explain|analyze)/\n  };\n  \n  const types = [];\n  for (const [type, pattern] of Object.entries(patterns)) {\n    if (pattern.test(lowerQ)) {\n      types.push(type);\n    }\n  }\n  \n  return types.length > 0 ? types : ['general'];\n}\n\n// Determine online processing strategy\nfunction determineOnlineStrategy(types, question) {\n  const strategy = {\n    useWebSearch: types.some(t => ['current_events', 'research', 'web_search', 'real_time'].includes(t)),\n    useCloudAI: types.includes('analytical') || question.length > 300,\n    useLocalWikipedia: types.includes('factual'),\n    useMultipleSources: types.includes('comparison') || types.includes('research'),\n    priority: 'balanced' // balanced, speed, accuracy\n  };\n  \n  // Adjust priority based on question type\n  if (types.includes('real_time')) {\n    strategy.priority = 'speed';\n  } else if (types.includes('research') || types.includes('analytical')) {\n    strategy.priority = 'accuracy';\n  }\n  \n  return strategy;\n}\n\nconst questionTypes = classifyQuestionOnline(question);\nconst strategy = determineOnlineStrategy(questionTypes, question);\n\nreturn {\n  json: {\n    originalQuestion: question,\n    context: context,\n    userPreferences: userPreferences,\n    analysis: {\n      types: questionTypes,\n      strategy: strategy,\n      timestamp: new Date().toISOString(),\n      processingId: `online_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,\n      mode: 'online_enhanced'\n    }\n  }\n};"
+      },
+      "id": "analyze-question-online",
+      "name": "Analyze Question (Online)",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [900, 200]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{$json.analysis.strategy.useWebSearch}}",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "id": "needs-web-search",
+      "name": "Needs Web Search?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [1120, 200]
+    },
+    {
+      "parameters": {
+        "url": "https://api.duckduckgo.com/",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "q",
+              "value": "={{$json.originalQuestion}}"
+            },
+            {
+              "name": "format",
+              "value": "json"
+            },
+            {
+              "name": "no_html",
+              "value": "1"
+            },
+            {
+              "name": "skip_disambig",
+              "value": "1"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 15000
+        }
+      },
+      "id": "web-search",
+      "name": "DuckDuckGo Search",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [1340, 100]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{$json.analysis.strategy.useCloudAI}}",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "id": "use-cloud-ai",
+      "name": "Use Cloud AI?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [1120, 400]
+    },
+    {
+      "parameters": {
+        "url": "https://api.huggingface.co/models/microsoft/DialoGPT-large/conversations",
+        "authentication": "headerAuth",
+        "sendBody": true,
+        "bodyContentType": "json",
+        "jsonBody": "={\"inputs\": {\"text\": \"{{$json.originalQuestion}}{{$json.webContext ? '\\n\\nWeb search results:\\n' + $json.webContext : ''}}\", \"parameters\": {\"max_length\": 500, \"temperature\": 0.7}}}",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "id": "cloud-ai-query",
+      "name": "HuggingFace AI",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [1340, 300]
+    },
+    {
+      "parameters": {
+        "functionCode": "// Process web search results\nconst searchResults = $input.first().json;\nconst questionData = $('Analyze Question (Online)').first().json;\n\nlet webContext = '';\nlet sources = [];\n\nif (searchResults) {\n  // Process DuckDuckGo results\n  if (searchResults.AbstractText) {\n    webContext += `**Summary:** ${searchResults.AbstractText}\\n\\n`;\n    if (searchResults.AbstractURL) {\n      sources.push({\n        title: searchResults.AbstractSource || 'Web Source',\n        url: searchResults.AbstractURL,\n        type: 'summary'\n      });\n    }\n  }\n  \n  // Process related topics\n  if (searchResults.RelatedTopics && searchResults.RelatedTopics.length > 0) {\n    const relatedInfo = searchResults.RelatedTopics.slice(0, 3).map(topic => {\n      if (topic.Text) {\n        if (topic.FirstURL) {\n          sources.push({\n            title: topic.Text.split(' - ')[0] || 'Related Topic',\n            url: topic.FirstURL,\n            type: 'related'\n          });\n        }\n        return topic.Text;\n      }\n      return null;\n    }).filter(Boolean);\n    \n    if (relatedInfo.length > 0) {\n      webContext += `**Related Information:**\\n${relatedInfo.join('\\n')}\\n\\n`;\n    }\n  }\n  \n  // Process answer if available\n  if (searchResults.Answer) {\n    webContext += `**Direct Answer:** ${searchResults.Answer}\\n\\n`;\n  }\n}\n\nreturn {\n  json: {\n    ...questionData,\n    webContext: webContext.trim(),\n    webSources: sources,\n    hasWebData: webContext.length > 0\n  }\n};"
+      },
+      "id": "process-web-results",
+      "name": "Process Web Results",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [1340, 500]
+    },
+    {
+      "parameters": {
+        "url": "http://ai-questions:3000/api/wikipedia/enhanced-search",
+        "sendBody": true,
+        "bodyContentType": "json",
+        "jsonBody": "={\"question\": \"{{$json.originalQuestion}}\", \"limit\": 2}",
+        "options": {
+          "timeout": 20000
+        }
+      },
+      "id": "search-local-wikipedia",
+      "name": "Search Local Wikipedia",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [1560, 400]
+    },
+    {
+      "parameters": {
+        "functionCode": "// Combine all sources and prepare final AI query\nconst webData = $('Process Web Results').first().json;\nconst wikipediaResults = $input.first().json;\nconst cloudAIResults = $('HuggingFace AI').first().json;\n\n// Combine Wikipedia context\nlet wikipediaContext = '';\nlet allSources = [...(webData.webSources || [])];\n\nif (wikipediaResults && wikipediaResults.results && wikipediaResults.results.length > 0) {\n  const relevantArticles = wikipediaResults.results.slice(0, 2);\n  \n  wikipediaContext = relevantArticles.map(article => {\n    allSources.push({\n      title: article.title,\n      url: `/wikipedia/article/${encodeURIComponent(article.title)}`,\n      relevance: article.relevance_score || 0,\n      type: 'wikipedia'\n    });\n    \n    const content = article.content || article.summary || '';\n    const excerpt = content.length > 300 ? content.substring(0, 300) + '...' : content;\n    return `**${article.title}** (Wikipedia)\\n${excerpt}`;\n  }).join('\\n\\n');\n}\n\n// Prepare comprehensive context for local AI\nlet fullContext = '';\nif (webData.webContext) {\n  fullContext += `**Web Search Results:**\\n${webData.webContext}\\n\\n`;\n}\nif (wikipediaContext) {\n  fullContext += `**Wikipedia Information:**\\n${wikipediaContext}\\n\\n`;\n}\n\n// Check if we have cloud AI results to incorporate\nlet cloudAIResponse = '';\nif (cloudAIResults && cloudAIResults.generated_text) {\n  cloudAIResponse = cloudAIResults.generated_text;\n} else if (cloudAIResults && cloudAIResults.choices && cloudAIResults.choices[0]) {\n  cloudAIResponse = cloudAIResults.choices[0].text || cloudAIResults.choices[0].message?.content || '';\n}\n\nreturn {\n  json: {\n    ...webData,\n    wikipediaContext: wikipediaContext,\n    fullContext: fullContext.trim(),\n    allSources: allSources,\n    cloudAIResponse: cloudAIResponse,\n    hasComprehensiveData: fullContext.length > 0 || cloudAIResponse.length > 0\n  }\n};"
+      },
+      "id": "combine-sources",
+      "name": "Combine All Sources",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [1780, 300]
+    },
+    {
+      "parameters": {
+        "url": "http://ollama:11434/api/generate",
+        "sendBody": true,
+        "bodyContentType": "json",
+        "jsonBody": "={\"model\": \"{{$json.userPreferences.model || 'mistral:7b'}}\", \"prompt\": \"Question: {{$json.originalQuestion}}\\n\\n{{$json.fullContext ? 'Context from multiple sources:\\n' + $json.fullContext + '\\n\\n' : ''}}{{$json.cloudAIResponse ? 'Additional AI perspective:\\n' + $json.cloudAIResponse + '\\n\\n' : ''}}Please provide a comprehensive, well-sourced answer that synthesizes the available information:\", \"stream\": false, \"options\": {\"temperature\": 0.6, \"top_p\": 0.9, \"max_tokens\": 800}}",
+        "options": {
+          "timeout": 120000
+        }
+      },
+      "id": "final-ai-synthesis",
+      "name": "Final AI Synthesis",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [2000, 300]
+    },
+    {
+      "parameters": {
+        "functionCode": "// Format comprehensive online response\nconst aiResponse = $input.first().json;\nconst combinedData = $('Combine All Sources').first().json;\n\n// Extract the AI response text\nlet responseText = '';\nif (aiResponse.response) {\n  responseText = aiResponse.response;\n} else if (aiResponse.choices && aiResponse.choices[0]) {\n  responseText = aiResponse.choices[0].text || aiResponse.choices[0].message?.content || '';\n} else {\n  responseText = 'I apologize, but I was unable to generate a comprehensive response at this time.';\n}\n\n// Format the enhanced online response\nconst finalResponse = {\n  success: true,\n  response: responseText.trim(),\n  metadata: {\n    processingId: combinedData.analysis.processingId,\n    questionTypes: combinedData.analysis.types,\n    mode: 'online_enhanced',\n    sourcesUsed: {\n      webSearch: combinedData.hasWebData,\n      wikipedia: combinedData.wikipediaContext.length > 0,\n      cloudAI: combinedData.cloudAIResponse.length > 0,\n      localAI: true\n    },\n    model: combinedData.userPreferences.model || 'mistral:7b',\n    processingTime: Date.now() - new Date(combinedData.analysis.timestamp).getTime(),\n    timestamp: new Date().toISOString()\n  },\n  sources: combinedData.allSources || [],\n  agent: {\n    name: 'AI Agent - Online Enhanced Processor',\n    version: '1.0.0',\n    capabilities: ['web-search', 'cloud-ai', 'local-ai', 'wikipedia-search', 'multi-source-synthesis']\n  }\n};\n\n// Add enhanced metadata for online mode\nif (combinedData.allSources && combinedData.allSources.length > 0) {\n  finalResponse.sourcesSummary = {\n    total: combinedData.allSources.length,\n    byType: combinedData.allSources.reduce((acc, source) => {\n      acc[source.type] = (acc[source.type] || 0) + 1;\n      return acc;\n    }, {})\n  };\n}\n\nreturn {\n  json: finalResponse\n};"
+      },
+      "id": "format-online-response",
+      "name": "Format Online Response",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [2220, 300]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{JSON.stringify($json, null, 2)}}",
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "name": "X-AI-Agent",
+                "value": "n8n-online-enhanced-processor"
+              },
+              {
+                "name": "X-Processing-Mode",
+                "value": "online"
+              }
+            ]
+          }
+        }
+      },
+      "id": "send-online-response",
+      "name": "Send Online Response",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [2440, 300]
+    },
+    {
+      "parameters": {
+        "url": "http://localhost:5678/webhook/process-question",
+        "sendBody": true,
+        "bodyContentType": "json",
+        "jsonBody": "={{JSON.stringify($input.first().json)}}",
+        "options": {
+          "timeout": 60000
+        }
+      },
+      "id": "fallback-offline",
+      "name": "Fallback to Offline",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [680, 500]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{$json}}",
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "name": "X-AI-Agent",
+                "value": "n8n-offline-fallback"
+              }
+            ]
+          }
+        }
+      },
+      "id": "send-fallback-response",
+      "name": "Send Fallback Response",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [900, 500]
+    }
+  ],
+  "connections": {
+    "Online Question Webhook": {
+      "main": [
+        [
+          {
+            "node": "Check Connectivity",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Connectivity": {
+      "main": [
+        [
+          {
+            "node": "Is Online?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is Online?": {
+      "main": [
+        [
+          {
+            "node": "Analyze Question (Online)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Fallback to Offline",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Analyze Question (Online)": {
+      "main": [
+        [
+          {
+            "node": "Needs Web Search?",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Use Cloud AI?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Needs Web Search?": {
+      "main": [
+        [
+          {
+            "node": "DuckDuckGo Search",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Process Web Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "DuckDuckGo Search": {
+      "main": [
+        [
+          {
+            "node": "Process Web Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Use Cloud AI?": {
+      "main": [
+        [
+          {
+            "node": "HuggingFace AI",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "Process Web Results": {
+      "main": [
+        [
+          {
+            "node": "Search Local Wikipedia",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Search Local Wikipedia": {
+      "main": [
+        [
+          {
+            "node": "Combine All Sources",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HuggingFace AI": {
+      "main": [
+        [
+          {
+            "node": "Combine All Sources",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Combine All Sources": {
+      "main": [
+        [
+          {
+            "node": "Final AI Synthesis",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Final AI Synthesis": {
+      "main": [
+        [
+          {
+            "node": "Format Online Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Online Response": {
+      "main": [
+        [
+          {
+            "node": "Send Online Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fallback to Offline": {
+      "main": [
+        [
+          {
+            "node": "Send Fallback Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "timezone": "UTC"
+  },
+  "versionId": "1",
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "id": "ai-agent-online-enhanced-processor",
+  "tags": ["ai-agent", "online", "enhanced", "multi-source"]
+}
+
