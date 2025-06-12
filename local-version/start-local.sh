@@ -1,75 +1,160 @@
 #!/bin/bash
 
-# AI Questions Local Start Script
-# Starts the AI Questions application in local mode
+# start-local.sh
+# Seamlessly starts n8n, AI Questions, and validates the integration
 
 # Colors for output
 GREEN='\033[0;32m'
-BLUE='\033[0;34m'
+YELLOW='\033[1;33m'
 RED='\033[0;31m'
 NC='\033[0m' # No Color
 
-echo -e "${BLUE}🚀 Starting AI Questions Local Instance...${NC}"
+echo -e "${GREEN}Starting AI Questions with n8n integration...${NC}"
 
-# Check if .env.local exists
-if [ ! -f .env.local ]; then
-    echo -e "${RED}❌ Error: .env.local file not found${NC}"
-    echo "Please run ./setup-local.sh first or copy .env.example to .env.local"
+# Check if Docker is installed
+if ! command -v docker &> /dev/null; then
+    echo -e "${RED}Docker is not installed. Please install Docker to run n8n.${NC}"
     exit 1
 fi
 
-# Load environment variables
-export $(cat .env.local | grep -v '^#' | grep -v '^$' | xargs)
-
-# Check if required services are available
-echo -e "${BLUE}🔍 Checking local services...${NC}"
-
-# Check if Ollama is available
-if ! command -v ollama &> /dev/null; then
-    echo -e "${RED}❌ Error: Ollama not found${NC}"
-    echo "Please run ./setup-local.sh first to install Ollama"
+# Check if Docker Compose is installed
+if ! command -v docker-compose &> /dev/null; then
+    echo -e "${RED}Docker Compose is not installed. Please install Docker Compose to run n8n.${NC}"
     exit 1
 fi
 
-# Start Ollama if not running
-if ! pgrep -x "ollama" > /dev/null; then
-    echo -e "${BLUE}🤖 Starting Ollama service...${NC}"
-    ollama serve &
-    sleep 3
-fi
+# Define directories
+SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
+N8N_DIR="$SCRIPT_DIR/n8n-agent"
 
-# Check if PostgreSQL is running
-if ! systemctl is-active --quiet postgresql; then
-    echo -e "${BLUE}🗄️  Starting PostgreSQL...${NC}"
-    sudo systemctl start postgresql
-fi
-
-# Check database connection
-if ! psql "postgresql://$DB_USER:$DB_PASSWORD@localhost:5432/$DB_NAME" -c '\q' 2>/dev/null; then
-    echo -e "${RED}❌ Error: Cannot connect to database${NC}"
-    echo "Please check your PostgreSQL installation and database configuration"
+# Check if n8n-agent directory exists
+if [ ! -d "$N8N_DIR" ]; then
+    echo -e "${RED}n8n-agent directory not found. Please ensure it exists at $N8N_DIR${NC}"
     exit 1
 fi
 
-# Check if port is available
-if netstat -tuln | grep -q ":$PORT "; then
-    echo -e "${RED}❌ Error: Port $PORT is already in use${NC}"
-    echo "Please stop the existing service or change the PORT in .env.local"
+# Function to check if a port is in use
+check_port() {
+    local port=$1
+    if lsof -Pi :$port -sTCP:LISTEN -t >/dev/null ; then
+        return 0
+    else
+        return 1
+    fi
+}
+
+# Check if ports are already in use
+if check_port 4000; then
+    echo -e "${YELLOW}Port 4000 is already in use. AI Questions may already be running.${NC}"
+fi
+
+if check_port 5678; then
+    echo -e "${YELLOW}Port 5678 is already in use. n8n may already be running.${NC}"
+fi
+
+# Start n8n using Docker Compose
+echo -e "${GREEN}Starting n8n...${NC}"
+cd "$N8N_DIR"
+docker-compose up -d
+
+# Wait for n8n to be ready
+echo -e "${GREEN}Waiting for n8n to be ready...${NC}"
+max_attempts=30
+attempt=0
+while [ $attempt -lt $max_attempts ]; do
+    if curl -s http://localhost:5678 > /dev/null; then
+        echo -e "${GREEN}n8n is ready!${NC}"
+        break
+    fi
+    attempt=$((attempt+1))
+    echo -e "${YELLOW}Waiting for n8n to start (attempt $attempt/$max_attempts)...${NC}"
+    sleep 2
+done
+
+if [ $attempt -eq $max_attempts ]; then
+    echo -e "${RED}n8n failed to start within the expected time.${NC}"
+    echo -e "${YELLOW}Continuing anyway, but n8n integration may not work properly.${NC}"
+fi
+
+# Return to the script directory
+cd "$SCRIPT_DIR"
+
+# Start AI Questions
+echo -e "${GREEN}Starting AI Questions...${NC}"
+LOCAL_MODE=true PORT=4000 node index.js &
+AI_QUESTIONS_PID=$!
+
+# Wait for AI Questions to be ready
+echo -e "${GREEN}Waiting for AI Questions to be ready...${NC}"
+max_attempts=15
+attempt=0
+while [ $attempt -lt $max_attempts ]; do
+    if curl -s http://localhost:4000 > /dev/null; then
+        echo -e "${GREEN}AI Questions is ready!${NC}"
+        break
+    fi
+    attempt=$((attempt+1))
+    echo -e "${YELLOW}Waiting for AI Questions to start (attempt $attempt/$max_attempts)...${NC}"
+    sleep 2
+done
+
+if [ $attempt -eq $max_attempts ]; then
+    echo -e "${RED}AI Questions failed to start within the expected time.${NC}"
+    echo -e "${RED}Stopping n8n and exiting.${NC}"
+    cd "$N8N_DIR"
+    docker-compose down
+    kill $AI_QUESTIONS_PID 2>/dev/null
     exit 1
 fi
 
-# Create logs directory if it doesn't exist
-mkdir -p logs
+# Validate the integration
+echo -e "${GREEN}Validating n8n integration...${NC}"
 
-echo -e "${GREEN}✅ Environment checks passed${NC}"
-echo -e "${BLUE}🌐 Starting server on http://localhost:$PORT${NC}"
-echo -e "${BLUE}📝 Logs will be written to logs/app.log${NC}"
-echo -e "${BLUE}🤖 Using local AI models via Ollama${NC}"
-echo -e "${BLUE}📚 Wikipedia database: $WIKIPEDIA_DB_PATH${NC}"
-echo ""
-echo "Press Ctrl+C to stop the server"
-echo ""
+# Test n8n availability
+echo "Checking n8n availability..."
+n8n_status=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:5678 || echo "failed")
 
-# Start the application with logging
-node index.js 2>&1 | tee logs/app.log
+if [ "$n8n_status" = "failed" ] || [ "$n8n_status" != "200" ]; then
+    echo -e "${RED}⚠️ n8n is not running properly.${NC}"
+    echo -e "${YELLOW}Integration will fall back to direct API calls.${NC}"
+else
+    echo -e "${GREEN}✅ n8n is running${NC}"
+fi
 
+# Test AI Questions server
+echo "Checking AI Questions server availability..."
+server_status=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:4000 || echo "failed")
+
+if [ "$server_status" = "failed" ] || [ "$server_status" != "200" ]; then
+    echo -e "${RED}⚠️ AI Questions server is not running properly.${NC}"
+    echo -e "${RED}Stopping n8n and exiting.${NC}"
+    cd "$N8N_DIR"
+    docker-compose down
+    kill $AI_QUESTIONS_PID 2>/dev/null
+    exit 1
+else
+    echo -e "${GREEN}✅ AI Questions server is running${NC}"
+fi
+
+# Display success message
+echo -e "${GREEN}==================================================${NC}"
+echo -e "${GREEN}AI Questions with n8n integration is now running!${NC}"
+echo -e "${GREEN}==================================================${NC}"
+echo -e "${GREEN}AI Questions: http://localhost:4000${NC}"
+echo -e "${GREEN}n8n Management Portal: http://localhost:5678${NC}"
+echo -e "${GREEN}==================================================${NC}"
+echo -e "${YELLOW}Press Ctrl+C to stop both services${NC}"
+
+# Handle graceful shutdown
+trap cleanup INT TERM
+cleanup() {
+    echo -e "${YELLOW}Stopping AI Questions and n8n...${NC}"
+    kill $AI_QUESTIONS_PID 2>/dev/null
+    cd "$N8N_DIR"
+    docker-compose down
+    echo -e "${GREEN}Services stopped.${NC}"
+    exit 0
+}
+
+# Keep the script running
+wait $AI_QUESTIONS_PID

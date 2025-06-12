@@ -1,0 +1,338 @@
+{
+  "name": "AI Chat Processor",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "chat",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "chat-webhook",
+      "name": "Chat Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [240, 300],
+      "webhookId": "ai-chat-processor"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{$json.message}}",
+              "operation": "isNotEmpty"
+            }
+          ]
+        }
+      },
+      "id": "validate-input",
+      "name": "Validate Message",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "functionCode": "// Extract and validate chat parameters\nconst message = $input.first().json.message;\nconst model = $input.first().json.model || 'mistral:7b';\nconst context = $input.first().json.context || [];\nconst includeWikipedia = $input.first().json.includeWikipedia !== false;\nconst enableQueryLogging = $input.first().json.enableQueryLogging || false;\n\n// Generate a unique ID for this chat session\nconst chatId = `chat_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;\n\n// Format context for prompt construction\nlet formattedContext = '';\nif (context && context.length > 0) {\n  formattedContext = 'Previous conversation:\\n';\n  context.forEach(msg => {\n    formattedContext += `${msg.role === 'user' ? 'Human' : 'Assistant'}: ${msg.content}\\n`;\n  });\n  formattedContext += '\\n';\n}\n\nreturn {\n  json: {\n    message,\n    model,\n    formattedContext,\n    includeWikipedia,\n    enableQueryLogging,\n    chatId,\n    timestamp: new Date().toISOString(),\n    queryLogs: enableQueryLogging ? [{type: 'info', message: `Starting chat processing for: \"${message}\"`}] : []\n  }\n};"
+      },
+      "id": "prepare-chat",
+      "name": "Prepare Chat Parameters",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [680, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{$json.includeWikipedia}}",
+              "operation": "equal",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "id": "check-wikipedia",
+      "name": "Include Wikipedia?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [900, 300]
+    },
+    {
+      "parameters": {
+        "url": "http://ai-questions:4000/api/wikipedia/enhanced-search",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "q",
+              "value": "={{$json.message}}"
+            },
+            {
+              "name": "limit",
+              "value": "3"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "wikipedia-search",
+      "name": "Search Wikipedia",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [1120, 200]
+    },
+    {
+      "parameters": {
+        "functionCode": "// Process Wikipedia search results\nconst results = $input.first().json.results || [];\nconst message = $input.first().json.message;\nconst queryLogs = $input.first().json.queryLogs || [];\n\n// Format Wikipedia content for the prompt\nlet wikipediaContext = '';\nlet wikipediaLinks = [];\n\nif (results && results.length > 0) {\n  // Add search log\n  queryLogs.push({type: 'search', message: `Found ${results.length} relevant Wikipedia articles`});\n  \n  // Format each result\n  wikipediaContext = results.map(result => {\n    // Add to query logs\n    queryLogs.push({type: 'info', message: `Processing article: ${result.title}`});\n    \n    // Add to Wikipedia links\n    wikipediaLinks.push({\n      title: result.title,\n      url: `/wikipedia/article/${result.id}`,\n      relevance: result.relevance || 1.0\n    });\n    \n    // Format content for prompt\n    return `**${result.title}**: ${result.summary || result.content?.substring(0, 300) || ''}`;\n  }).join('\\n\\n');\n}\n\nreturn {\n  json: {\n    ...($input.first().json),\n    wikipediaContext,\n    wikipediaLinks,\n    queryLogs,\n    hasWikipediaResults: results.length > 0\n  }\n};"
+      },
+      "id": "process-wikipedia",
+      "name": "Process Wikipedia Results",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [1340, 200]
+    },
+    {
+      "parameters": {
+        "functionCode": "// Construct the prompt for the AI model\nconst input = $input.first().json;\nconst message = input.message;\nconst formattedContext = input.formattedContext || '';\nconst wikipediaContext = input.wikipediaContext || '';\nconst model = input.model;\nconst queryLogs = input.queryLogs || [];\n\n// Add n8n capabilities context\nlet prompt = `\nYou have access to n8n workflow automation capabilities. You can create, initiate, and schedule workflows when appropriate for tasks like:\n- Data processing and transformation\n- Web monitoring and alerts\n- Multi-source research\n- API integrations\n- Scheduled reporting\n- Task automation\n\nThe n8n management portal is available at http://localhost:5678 for reviewing and editing workflows.\n\nWhen a task would benefit from n8n automation:\n1. Explain how n8n could help with the task\n2. Suggest creating a workflow\n3. Provide instructions for accessing the n8n portal\n4. Describe the basic workflow steps needed\n`;\n\n// Add conversation context if provided\nprompt += formattedContext;\n\n// Add Wikipedia context if available\nif (wikipediaContext) {\n  prompt += 'Relevant Wikipedia information:\\n';\n  prompt += wikipediaContext;\n  prompt += '\\n\\n';\n  \n  // Add to query logs\n  queryLogs.push({type: 'info', message: 'Added Wikipedia context to prompt'});\n}\n\n// Add the current message\nprompt += `Human: ${message}\\nAssistant:`;\n\n// Log the prompt construction\nqueryLogs.push({type: 'info', message: 'Prompt constructed, sending to AI model'});\n\nreturn {\n  json: {\n    ...input,\n    prompt,\n    queryLogs\n  }\n};"
+      },
+      "id": "construct-prompt",
+      "name": "Construct AI Prompt",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [1560, 300]
+    },
+    {
+      "parameters": {
+        "url": "http://localhost:11434/api/generate",
+        "sendBody": true,
+        "bodyContentType": "json",
+        "jsonParameters": true,
+        "options": {}
+      },
+      "id": "call-ollama",
+      "name": "Call Ollama API",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [1780, 300],
+      "parameters": {
+        "method": "POST",
+        "url": "http://localhost:11434/api/generate",
+        "sendBody": true,
+        "bodyContentType": "json",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "model",
+              "value": "={{$json.model}}"
+            },
+            {
+              "name": "prompt",
+              "value": "={{$json.prompt}}"
+            },
+            {
+              "name": "stream",
+              "value": false
+            },
+            {
+              "name": "options",
+              "value": {
+                "temperature": 0.7,
+                "top_p": 0.9,
+                "max_tokens": 1000
+              }
+            }
+          ]
+        },
+        "options": {
+          "timeout": 60000
+        }
+      }
+    },
+    {
+      "parameters": {
+        "functionCode": "// Process the AI response\nconst input = $input.first().json;\nconst ollamaResponse = $input.first().json.response || '';\nconst wikipediaLinks = input.wikipediaLinks || [];\nconst queryLogs = input.queryLogs || [];\nconst model = input.model;\n\n// Add to query logs\nqueryLogs.push({type: 'result', message: `Response generated using model: ${model}`});\n\n// Ensure Wikipedia links have proper formatting\nconst formattedLinks = wikipediaLinks.map(link => {\n  return {\n    title: link.title,\n    url: link.url,\n    relevance: link.relevance || 1.0\n  };\n});\n\nreturn {\n  json: {\n    success: true,\n    response: ollamaResponse,\n    wikipediaLinks: formattedLinks,\n    wikipediaSearchLog: queryLogs.filter(log => log.type === 'search' || log.type === 'info').map(log => log.message),\n    metadata: {\n      model: model,\n      hasWikipediaContext: input.hasWikipediaResults || false,\n      timestamp: new Date().toISOString(),\n      chatId: input.chatId\n    }\n  }\n};"
+      },
+      "id": "process-response",
+      "name": "Process AI Response",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [2000, 300]
+    },
+    {
+      "parameters": {},
+      "id": "respond-success",
+      "name": "Respond with Success",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [2220, 300]
+    },
+    {
+      "parameters": {
+        "functionCode": "// No Wikipedia context\nreturn {\n  json: {\n    ...$input.first().json,\n    wikipediaContext: '',\n    wikipediaLinks: [],\n    hasWikipediaResults: false,\n    queryLogs: [...($input.first().json.queryLogs || []), {type: 'info', message: 'Wikipedia search skipped'}]\n  }\n};"
+      },
+      "id": "skip-wikipedia",
+      "name": "Skip Wikipedia",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [1120, 400]
+    },
+    {
+      "parameters": {
+        "functionCode": "// Error handling for input validation\nreturn {\n  json: {\n    success: false,\n    error: 'Message and model are required',\n    timestamp: new Date().toISOString()\n  }\n};"
+      },
+      "id": "handle-invalid-input",
+      "name": "Handle Invalid Input",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [680, 500]
+    },
+    {
+      "parameters": {},
+      "id": "respond-error",
+      "name": "Respond with Error",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [900, 500]
+    }
+  ],
+  "connections": {
+    "chat-webhook": {
+      "main": [
+        [
+          {
+            "node": "validate-input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "validate-input": {
+      "main": [
+        [
+          {
+            "node": "prepare-chat",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "handle-invalid-input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "prepare-chat": {
+      "main": [
+        [
+          {
+            "node": "check-wikipedia",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "check-wikipedia": {
+      "main": [
+        [
+          {
+            "node": "wikipedia-search",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "skip-wikipedia",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "wikipedia-search": {
+      "main": [
+        [
+          {
+            "node": "process-wikipedia",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "process-wikipedia": {
+      "main": [
+        [
+          {
+            "node": "construct-prompt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "skip-wikipedia": {
+      "main": [
+        [
+          {
+            "node": "construct-prompt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "construct-prompt": {
+      "main": [
+        [
+          {
+            "node": "call-ollama",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "call-ollama": {
+      "main": [
+        [
+          {
+            "node": "process-response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "process-response": {
+      "main": [
+        [
+          {
+            "node": "respond-success",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "handle-invalid-input": {
+      "main": [
+        [
+          {
+            "node": "respond-error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  }
+}

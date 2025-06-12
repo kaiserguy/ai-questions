@@ -1,0 +1,147 @@
+{
+  "name": "Wikipedia Article Processor",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "GET",
+        "path": "wikipedia/article/:id",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "article-webhook",
+      "name": "Wikipedia Article Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [240, 300],
+      "webhookId": "wikipedia-article-processor"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{$parameter.id}}",
+              "operation": "isNotEmpty"
+            }
+          ]
+        }
+      },
+      "id": "validate-id",
+      "name": "Validate Article ID",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "url": "http://ai-questions:4000/api/wikipedia/article/{{$parameter.id}}",
+        "options": {}
+      },
+      "id": "fetch-article",
+      "name": "Fetch Wikipedia Article",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [680, 300]
+    },
+    {
+      "parameters": {
+        "functionCode": "// Process and format Wikipedia article content\nconst article = $input.first().json;\n\n// Check if article exists\nif (!article || article.error) {\n  return {\n    json: {\n      success: false,\n      error: article.error || 'Article not found',\n      timestamp: new Date().toISOString()\n    }\n  };\n}\n\n// Parse and format the article content for readability\nlet formattedContent = article.content;\n\n// Extract and format infobox data if available\nlet infobox = null;\nif (article.infobox) {\n  try {\n    // Format infobox data into a structured object\n    infobox = {};\n    \n    // Process each infobox field\n    for (const [key, value] of Object.entries(article.infobox)) {\n      // Clean up field names\n      const cleanKey = key.replace(/[\\|\\[\\]{}]/g, '').trim();\n      \n      // Clean up values\n      let cleanValue = value;\n      if (typeof value === 'string') {\n        cleanValue = value.replace(/[\\[\\]{}]/g, '').trim();\n      }\n      \n      infobox[cleanKey] = cleanValue;\n    }\n  } catch (error) {\n    console.error('Error parsing infobox:', error);\n  }\n}\n\n// Format sections with proper headings\nlet formattedSections = [];\nif (article.sections) {\n  formattedSections = article.sections.map(section => {\n    return {\n      title: section.title,\n      level: section.level,\n      content: section.content\n    };\n  });\n}\n\n// Format links to ensure they work with the local Wikipedia\nlet formattedLinks = [];\nif (article.links) {\n  formattedLinks = article.links.map(link => {\n    return {\n      title: link.title,\n      id: link.id,\n      url: `/wikipedia/article/${link.id}`\n    };\n  });\n}\n\nreturn {\n  json: {\n    success: true,\n    article: {\n      id: article.id,\n      title: article.title,\n      content: formattedContent,\n      summary: article.summary || '',\n      infobox: infobox,\n      sections: formattedSections,\n      links: formattedLinks,\n      categories: article.categories || [],\n      images: article.images || [],\n      metadata: {\n        lastUpdated: article.last_updated || new Date().toISOString(),\n        processingTime: new Date().toISOString()\n      }\n    }\n  }\n};"
+      },
+      "id": "format-article",
+      "name": "Format Article Content",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [900, 300]
+    },
+    {
+      "parameters": {},
+      "id": "respond-success",
+      "name": "Respond with Article",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [1120, 300]
+    },
+    {
+      "parameters": {
+        "functionCode": "// Handle invalid article ID\nreturn {\n  json: {\n    success: false,\n    error: 'Article ID is required',\n    timestamp: new Date().toISOString()\n  }\n};"
+      },
+      "id": "handle-invalid-id",
+      "name": "Handle Invalid ID",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [680, 500]
+    },
+    {
+      "parameters": {},
+      "id": "respond-error",
+      "name": "Respond with Error",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [900, 500]
+    }
+  ],
+  "connections": {
+    "article-webhook": {
+      "main": [
+        [
+          {
+            "node": "validate-id",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "validate-id": {
+      "main": [
+        [
+          {
+            "node": "fetch-article",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "handle-invalid-id",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "fetch-article": {
+      "main": [
+        [
+          {
+            "node": "format-article",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "format-article": {
+      "main": [
+        [
+          {
+            "node": "respond-success",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "handle-invalid-id": {
+      "main": [
+        [
+          {
+            "node": "respond-error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  }
+}
