@@ -4,6 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Answer History - AI Question</title>
+    <link rel="stylesheet" href="/css/context-viewer.css">
+    <script src="/js/context-viewer.js" defer></script>
     <style>
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
@@ -205,6 +207,7 @@
                     </span>
                     <span>Confidence: <%= (item.confidence * 100).toFixed(2) %>%</span>
                     <span>Date: <%= new Date(item.date).toLocaleString() %></span>
+                    <a href="javascript:void(0)" class="context-link" onclick="showContextModal('<%= item.context ? item.context.replace(/'/g, "\\'").replace(/"/g, '\\"').replace(/\n/g, '\\n') : '' %>', '<%= item.prompt_version || '1.0' %>')">View Context</a>
                     <button class="trash-button" onclick="deleteAnswer(<%= item.id %>)">🗑️</button>
                 </div>
             </div>
@@ -275,6 +278,7 @@
                     <div class="comparison-item selected">
                         <div class="comparison-meta">
                             ${selectedAnswers[0].model} • ${new Date(selectedAnswers[0].date).toLocaleDateString()} • ${(selectedAnswers[0].confidence * 100).toFixed(1)}%
+                            <a href="javascript:void(0)" class="context-link" onclick="showContextModal('${selectedAnswers[0].context ? selectedAnswers[0].context.replace(/'/g, "\\'").replace(/"/g, '\\"').replace(/\n/g, '\\n') : ''}', '${selectedAnswers[0].prompt_version || '1.0'}')">View Context</a>
                         </div>
                         <div class="comparison-answer">${selectedAnswers[0].answer}</div>
                     </div>
@@ -287,12 +291,14 @@
                     <div class="comparison-item selected">
                         <div class="comparison-meta">
                             📅 ${new Date(selectedAnswers[0].date).toLocaleDateString()} • ${selectedAnswers[0].model} • ${(selectedAnswers[0].confidence * 100).toFixed(1)}%
+                            <a href="javascript:void(0)" class="context-link" onclick="showContextModal('${selectedAnswers[0].context ? selectedAnswers[0].context.replace(/'/g, "\\'").replace(/"/g, '\\"').replace(/\n/g, '\\n') : ''}', '${selectedAnswers[0].prompt_version || '1.0'}')">View Context</a>
                         </div>
                         <div class="comparison-answer">${selectedAnswers[0].answer}</div>
                     </div>
                     <div class="comparison-item selected">
                         <div class="comparison-meta">
                             📅 ${new Date(selectedAnswers[1].date).toLocaleDateString()} • ${selectedAnswers[1].model} • ${(selectedAnswers[1].confidence * 100).toFixed(1)}%
+                            <a href="javascript:void(0)" class="context-link" onclick="showContextModal('${selectedAnswers[1].context ? selectedAnswers[1].context.replace(/'/g, "\\'").replace(/"/g, '\\"').replace(/\n/g, '\\n') : ''}', '${selectedAnswers[1].prompt_version || '1.0'}')">View Context</a>
                         </div>
                         <div class="comparison-answer">${selectedAnswers[1].answer}</div>
                     </div>
