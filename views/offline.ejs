@@ -393,6 +393,8 @@
     <!-- Local AI Model Integration -->
     <script src="/offline/libs/onnxruntime-web.min.js"></script>
     <script src="/offline/local-ai-model.js"></script>
+    <script src="/offline/mock-wikipedia-db.js"></script>
+    <script src="/offline/resource-monitor.js"></script>
 </head>
 <body>
     <a href="/" class="back-link">← Back to AI Questions</a>
@@ -537,7 +539,9 @@
                         const resourceStatusBtn = document.getElementById('resourceStatusBtn');
                         if (resourceStatusBtn) {
                             resourceStatusBtn.addEventListener('click', () => {
-                                if (window.offlineApp && window.offlineApp.showResourceStatus) {
+                                if (window.resourceMonitor) {
+                                    window.resourceMonitor.displayStatus();
+                                } else if (window.offlineApp && window.offlineApp.showResourceStatus) {
                                     window.offlineApp.showResourceStatus();
                                 }
                             });
