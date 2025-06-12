@@ -1562,29 +1562,83 @@ cron.schedule('0 0 * * *', async () => {
   try {
     console.log('Running daily scheduled task at:', new Date().toISOString());
     
-    // Execute daily question
+    // Execute daily question with all available models
     const apiKeys = {
       HUGGING_FACE_API_KEY: process.env.HUGGING_FACE_API_KEY,
-      OPENAI_API_KEY: process.env.OPENAI_API_KEY
+      OPENAI_API_KEY: process.env.OPENAI_API_KEY,
+      ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY,
+      GOOGLE_AI_API_KEY: process.env.GOOGLE_AI_API_KEY
     };
     
-    const availableModel = AVAILABLE_MODELS.find(model => apiKeys[model.apiKeyEnv]);
+    // Get today's question
+    const { question, context } = getTodaysQuestion();
+    console.log(`Daily question: "${question}"`);
     
-    if (availableModel) {
-      const { question, context } = getTodaysQuestion();
-      const response = await askQuestion(question, context, availableModel.id, apiKeys);
-      
-      await saveAnswer(
-        question, 
-        context, 
-        response.answer, 
-        response.model,
-        response.score, 
-        new Date().toISOString(),
-        response.modelName
-      );
-      
-      console.log('Successfully saved daily AI answer');
+    // Check which models were already queried in the last 24 hours
+    const today = new Date();
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
+    
+    const recentAnswers = await pool.query(
+      'SELECT model FROM answers WHERE question = $1 AND date > $2',
+      [question, yesterday.toISOString()]
+    );
+    
+    const recentlyQueriedModels = new Set(recentAnswers.rows.map(row => row.model));
+    console.log(`Models already queried in last 24 hours: ${Array.from(recentlyQueriedModels).join(', ') || 'none'}`);
+    
+    // Track results
+    const results = {
+      success: 0,
+      failed: 0,
+      skipped: 0,
+      errors: []
+    };
+    
+    // Query all available models that haven't been queried in the last 24 hours
+    for (const model of AVAILABLE_MODELS) {
+      try {
+        // Skip if API key not available
+        if (!apiKeys[model.apiKeyEnv]) {
+          console.log(`Skipping model ${model.id}: API key not available`);
+          continue;
+        }
+        
+        // Skip if already queried in last 24 hours
+        if (recentlyQueriedModels.has(model.id)) {
+          console.log(`Skipping model ${model.id}: already queried in last 24 hours`);
+          results.skipped++;
+          continue;
+        }
+        
+        console.log(`Querying model ${model.id}...`);
+        const response = await askQuestion(question, context, model.id, apiKeys);
+        
+        await saveAnswer(
+          question, 
+          context, 
+          response.answer, 
+          response.model,
+          response.score, 
+          new Date().toISOString(),
+          response.modelName
+        );
+        
+        console.log(`Successfully saved answer from ${model.id}`);
+        results.success++;
+      } catch (error) {
+        console.error(`Error querying model ${model.id}:`, error);
+        results.failed++;
+        results.errors.push({
+          model: model.id,
+          error: error.message
+        });
+      }
+    }
+    
+    console.log(`Daily question results: ${results.success} successful, ${results.failed} failed, ${results.skipped} skipped`);
+    if (results.errors.length > 0) {
+      console.log('Errors:', JSON.stringify(results.errors, null, 2));
     }
     
     // Execute scheduled personal questions
