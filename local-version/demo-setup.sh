@@ -25,7 +25,7 @@ if [ -f .env.local ]; then
     export $(cat .env.local | grep -v '^#' | grep -v '^$' | xargs)
 fi
 
-PORT=${PORT:-3000}
+PORT=${PORT:-4000}
 
 echo -e "${BLUE}📝 Adding example questions...${NC}"
 

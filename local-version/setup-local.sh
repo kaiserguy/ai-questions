@@ -16,7 +16,7 @@ NC='\033[0m' # No Color
 DB_NAME="ai_questions_local"
 DB_USER="aiuser"
 DB_PASSWORD="aipassword"
-APP_PORT="3000"
+APP_PORT="4000"
 
 # ===== WIKIPEDIA SETTINGS =====
 # Wikipedia database configuration
