@@ -13,37 +13,46 @@ class OfflineAppEnhanced {
             wikipedia: { available: false, details: {} },
             scripts: { available: false, details: {} }
         };
-        this.init();
+        
+        // Don't call init directly in constructor to avoid async issues with inheritance
+        // Instead, schedule it to run after construction is complete
+        setTimeout(() => this.init(), 0);
     }
 
     async init() {
         console.log('Initializing Enhanced Offline App...');
         
-        // Check browser compatibility
-        if (!this.checkCompatibility()) {
-            this.showError('Your browser does not support the required features for offline mode.');
-            return;
-        }
+        try {
+            // Check browser compatibility
+            if (!this.checkCompatibility()) {
+                this.showError('Your browser does not support the required features for offline mode.');
+                return false;
+            }
 
-        // Check if offline resources are available
-        await this.checkOfflineStatus();
-        
-        // Initialize UI
-        this.setupEventListeners();
-        await this.updateUI();
-        
-        // Initialize query logger
-        this.initializeQueryLogger();
-        
-        // Register service worker
-        await this.registerServiceWorker();
-        
-        // Initialize local AI if available
-        if (this.isOffline) {
-            this.initializeLocalAI();
+            // Check if offline resources are available
+            await this.checkOfflineStatus();
+            
+            // Initialize UI
+            this.setupEventListeners();
+            await this.updateUI();
+            
+            // Initialize query logger
+            this.initializeQueryLogger();
+            
+            // Register service worker
+            await this.registerServiceWorker();
+            
+            // Initialize local AI if available
+            if (this.isOffline) {
+                await this.initializeLocalAI();
+            }
+            
+            console.log('Enhanced Offline App initialized');
+            return true;
+        } catch (error) {
+            console.error('Error during OfflineAppEnhanced initialization:', error);
+            return false;
         }
-        
-        console.log('Enhanced Offline App initialized');
     }
 
     checkCompatibility() {
@@ -256,83 +265,94 @@ class OfflineAppEnhanced {
     }
 
     setupEventListeners() {
-        // Chat form
-        const chatForm = document.getElementById('chatForm');
-        if (chatForm) {
-            chatForm.addEventListener('submit', (e) => this.handleChatSubmit(e));
-        }
+        try {
+            // Chat form
+            const chatForm = document.getElementById('chatForm');
+            if (chatForm) {
+                chatForm.addEventListener('submit', (e) => this.handleChatSubmit(e));
+            }
 
-        // Chat input
-        const chatInput = document.getElementById('chatInput');
-        if (chatInput) {
-            chatInput.addEventListener('keypress', (e) => {
-                if (e.key === 'Enter' && !e.shiftKey) {
-                    e.preventDefault();
-                    this.handleChatSubmit(e);
-                }
-            });
-        }
+            // Chat input
+            const chatInput = document.getElementById('chatInput');
+            if (chatInput) {
+                chatInput.addEventListener('keypress', (e) => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                        e.preventDefault();
+                        this.handleChatSubmit(e);
+                    }
+                });
+            }
 
-        // Model selector
-        const modelSelect = document.getElementById('modelSelect');
-        if (modelSelect) {
-            modelSelect.addEventListener('change', (e) => this.switchModel(e.target.value));
-        }
+            // Model selector
+            const modelSelect = document.getElementById('modelSelect');
+            if (modelSelect) {
+                modelSelect.addEventListener('change', (e) => this.switchModel(e.target.value));
+            }
 
-        // Clear chat button
-        const clearBtn = document.getElementById('clearChat');
-        if (clearBtn) {
-            clearBtn.addEventListener('click', () => this.clearChat());
-        }
+            // Clear chat button
+            const clearBtn = document.getElementById('clearChat');
+            if (clearBtn) {
+                clearBtn.addEventListener('click', () => this.clearChat());
+            }
 
-        // Download resources button
-        const downloadBtn = document.getElementById('downloadResources');
-        if (downloadBtn) {
-            downloadBtn.addEventListener('click', () => this.downloadResources());
-        }
-        
-        // Resource status button
-        const statusBtn = document.getElementById('resourceStatus');
-        if (statusBtn) {
-            statusBtn.addEventListener('click', () => this.showResourceStatus());
+            // Download resources button
+            const downloadBtn = document.getElementById('downloadResources');
+            if (downloadBtn) {
+                downloadBtn.addEventListener('click', () => this.downloadResources());
+            }
+            
+            // Resource status button
+            const statusBtn = document.getElementById('resourceStatus');
+            if (statusBtn) {
+                statusBtn.addEventListener('click', () => this.showResourceStatus());
+            }
+        } catch (error) {
+            console.error('Error setting up event listeners:', error);
         }
     }
 
     async updateUI() {
-        // Update offline status indicator
-        const statusIndicator = document.getElementById('offlineStatus');
-        if (statusIndicator) {
-            statusIndicator.textContent = this.isOffline ? '🟢 Offline Ready' : '🔴 Online Only';
-            statusIndicator.className = this.isOffline ? 'status-online' : 'status-offline';
-        }
-
-        // Show/hide download button
-        const downloadBtn = document.getElementById('downloadResources');
-        if (downloadBtn) {
-            downloadBtn.style.display = this.isOffline ? 'none' : 'block';
-        }
-
-        // Enable/disable chat based on offline status
-        const chatContainer = document.getElementById('chatContainer');
-        if (chatContainer) {
-            if (!this.isOffline) {
-                chatContainer.innerHTML = `
-                    <div class="offline-notice">
-                        <h3>📥 Download Required</h3>
-                        <p>To use the offline AI chat, you need to download the required resources first.</p>
-                        <button id="downloadResources" class="download-btn">
-                            📥 Download Offline Resources
-                        </button>
-                    </div>
-                `;
-                
-                // Re-attach event listener
-                document.getElementById('downloadResources').addEventListener('click', () => this.downloadResources());
+        try {
+            // Update offline status indicator
+            const statusIndicator = document.getElementById('offlineStatus');
+            if (statusIndicator) {
+                statusIndicator.textContent = this.isOffline ? '🟢 Offline Ready' : '🔴 Online Only';
+                statusIndicator.className = this.isOffline ? 'status-online' : 'status-offline';
             }
+
+            // Show/hide download button
+            const downloadBtn = document.getElementById('downloadResources');
+            if (downloadBtn) {
+                downloadBtn.style.display = this.isOffline ? 'none' : 'block';
+            }
+
+            // Enable/disable chat based on offline status
+            const chatContainer = document.getElementById('chatContainer');
+            if (chatContainer) {
+                if (!this.isOffline) {
+                    chatContainer.innerHTML = `
+                        <div class="offline-notice">
+                            <h3>📥 Download Required</h3>
+                            <p>To use the offline AI chat, you need to download the required resources first.</p>
+                            <button id="downloadResources" class="download-btn">
+                                📥 Download Offline Resources
+                            </button>
+                        </div>
+                    `;
+                    
+                    // Re-attach event listener
+                    const newDownloadBtn = document.getElementById('downloadResources');
+                    if (newDownloadBtn) {
+                        newDownloadBtn.addEventListener('click', () => this.downloadResources());
+                    }
+                }
+            }
+            
+            // Update model selector if available
+            await this.updateModelSelector();
+        } catch (error) {
+            console.error('Error updating UI:', error);
         }
-        
-        // Update model selector if available
-        await this.updateModelSelector();
     }
 
     async updateModelSelector() {
@@ -401,10 +421,13 @@ class OfflineAppEnhanced {
                     console.log('Service Worker update found');
                 });
                 
+                return registration;
             } catch (error) {
                 console.error('Service Worker registration failed:', error);
+                return null;
             }
         }
+        return null;
     }
 
     async initializeLocalAI() {
@@ -423,12 +446,17 @@ class OfflineAppEnhanced {
                 this.localAI = new LocalAIModel();
             }
             
-            // Initialize the AI system
-            try {
-                await this.localAI.initialize();
-                console.log('LocalAI initialized successfully');
-            } catch (error) {
-                console.error('Failed to initialize LocalAI:', error);
+            // Initialize the AI system - with defensive check
+            if (this.localAI && typeof this.localAI.initialize === 'function') {
+                try {
+                    await this.localAI.initialize();
+                    console.log('LocalAI initialized successfully');
+                } catch (error) {
+                    console.error('Failed to initialize LocalAI:', error);
+                }
+            } else {
+                console.error('LocalAI or initialize method not available');
+                return false;
             }
             
             // Update UI to reflect available models
@@ -446,11 +474,14 @@ class OfflineAppEnhanced {
             if (typeof QueryLogger !== 'undefined') {
                 this.queryLogger = new QueryLogger();
                 console.log('✅ Query logger initialized');
+                return true;
             } else {
                 console.warn('QueryLogger not available');
+                return false;
             }
         } catch (error) {
             console.error('Failed to initialize query logger:', error);
+            return false;
         }
     }
 
@@ -544,7 +575,12 @@ class OfflineAppEnhanced {
                         ? `Context: ${wikipediaContext}\n\nQuestion: ${message}\n\nAnswer:`
                         : message;
                     
-                    response = await this.localAI.runInference(selectedModel, prompt);
+                    // Check if runInference method exists
+                    if (typeof this.localAI.runInference === 'function') {
+                        response = await this.localAI.runInference(selectedModel, prompt);
+                    } else {
+                        response = `I'm sorry, the AI model interface is not properly initialized. Please try refreshing the page.`;
+                    }
                 } catch (error) {
                     console.error('AI inference error:', error);
                     response = `I'm sorry, I encountered an error while processing your request. ${error.message}`;
@@ -591,11 +627,20 @@ class OfflineAppEnhanced {
         
         try {
             this.showMessage(`Switching to model: ${modelId}`, 'info');
-            await this.localAI.loadModel(modelId);
-            this.showMessage(`Model ${modelId} loaded successfully`, 'success');
+            
+            // Check if loadModel method exists
+            if (typeof this.localAI.loadModel === 'function') {
+                await this.localAI.loadModel(modelId);
+                this.showMessage(`Model ${modelId} loaded successfully`, 'success');
+                return true;
+            } else {
+                this.showError('Model switching is not available');
+                return false;
+            }
         } catch (error) {
             console.error('Error switching model:', error);
             this.showError(`Failed to switch model: ${error.message}`);
+            return false;
         }
     }
 

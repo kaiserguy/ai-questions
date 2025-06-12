@@ -371,36 +371,59 @@ class AIModelManager {
 class EnhancedOfflineApp extends OfflineAppEnhanced {
     constructor() {
         super();
-        this.aiManager = new AIModelManager();
-        // Fix: Check if WikipediaManager exists before instantiating
+        
+        // Initialize properties with defensive checks
+        this.aiManager = typeof AIModelManager !== 'undefined' ? new AIModelManager() : null;
         this.wikipediaManager = typeof WikipediaManager !== 'undefined' ? new WikipediaManager() : null;
         this.isGenerating = false;
         this.currentGeneration = null;
+        
+        // Don't call init directly in constructor to avoid async issues
+        // Let the parent class handle initialization through its scheduled init
     }
 
     async init() {
         console.log('🚀 Initializing Enhanced AI Questions Offline Mode');
         
         try {
-            // Initialize AI Manager
-            const aiInitialized = await this.aiManager.initialize();
-            if (!aiInitialized) {
-                console.error('Failed to initialize AI Manager');
-            }
-            
-            // Fix: Check if wikipediaManager exists before calling initialize
-            if (this.wikipediaManager) {
-                // Initialize Wikipedia Manager
-                const wikiInitialized = await this.wikipediaManager.initialize();
-                if (!wikiInitialized) {
-                    console.error('Failed to initialize Wikipedia Manager');
+            // Initialize AI Manager with defensive checks
+            if (this.aiManager && typeof this.aiManager.initialize === 'function') {
+                try {
+                    const aiInitialized = await this.aiManager.initialize();
+                    if (!aiInitialized) {
+                        console.error('Failed to initialize AI Manager');
+                    }
+                } catch (aiError) {
+                    console.error('Error initializing AI Manager:', aiError);
                 }
             } else {
-                console.warn('WikipediaManager not available, skipping initialization');
+                console.warn('AI Manager not available or missing initialize method');
             }
             
-            // Call parent initialization
-            await super.init();
+            // Initialize Wikipedia Manager with defensive checks
+            if (this.wikipediaManager && typeof this.wikipediaManager.initialize === 'function') {
+                try {
+                    const wikiInitialized = await this.wikipediaManager.initialize();
+                    if (!wikiInitialized) {
+                        console.error('Failed to initialize Wikipedia Manager');
+                    }
+                } catch (wikiError) {
+                    console.error('Error initializing Wikipedia Manager:', wikiError);
+                }
+            } else {
+                console.warn('Wikipedia Manager not available or missing initialize method');
+            }
+            
+            // Call parent initialization with defensive check
+            if (typeof super.init === 'function') {
+                try {
+                    await super.init();
+                } catch (parentError) {
+                    console.error('Error in parent initialization:', parentError);
+                }
+            } else {
+                console.error('Parent init method not available');
+            }
             
             // Add enhanced event listeners
             this.setupEnhancedEventListeners();
@@ -416,12 +439,17 @@ class EnhancedOfflineApp extends OfflineAppEnhanced {
     setupEnhancedEventListeners() {
         try {
             // Model selection in download options
-            document.querySelectorAll('.download-option').forEach(option => {
-                const originalClickHandler = option.onclick;
-                option.addEventListener('click', () => {
-                    this.updateModelSelection();
+            const downloadOptions = document.querySelectorAll('.download-option');
+            if (downloadOptions && downloadOptions.length > 0) {
+                downloadOptions.forEach(option => {
+                    if (option) {
+                        const originalClickHandler = option.onclick;
+                        option.addEventListener('click', () => {
+                            this.updateModelSelection();
+                        });
+                    }
                 });
-            });
+            }
 
             // Stop generation button
             const stopBtn = document.createElement('button');
@@ -444,362 +472,136 @@ class EnhancedOfflineApp extends OfflineAppEnhanced {
         }
     }
 
-    updateModelSelection() {
+    async updateModelSelection() {
         try {
             const selectedOption = document.querySelector('.download-option.selected');
             if (!selectedOption) return;
             
             const selectedPackage = selectedOption.dataset.package;
             const modelMap = {
-                'minimal': 'distilbert-base-uncased',
-                'standard': 'gpt2',
-                'full': 't5-small'
+                'minimal': ['tinyml-qa'],
+                'standard': ['tinyml-qa', 'minillm-chat'],
+                'full': ['tinyml-qa', 'minillm-chat', 'gpt2-small']
             };
             
-            this.selectedAIModel = modelMap[selectedPackage];
-            console.log(`Selected AI model: ${this.selectedAIModel}`);
+            // Get models for selected package with defensive check
+            const models = modelMap[selectedPackage] || ['tinyml-qa'];
+            
+            // Update model selection UI
+            const modelSelection = document.getElementById('modelSelection');
+            if (!modelSelection) return;
+            
+            modelSelection.innerHTML = '';
+            
+            // Add model options
+            models.forEach(modelId => {
+                const modelOption = document.createElement('div');
+                modelOption.className = 'model-option';
+                modelOption.dataset.model = modelId;
+                
+                // Get model name based on ID
+                let modelName = modelId;
+                switch (modelId) {
+                    case 'tinyml-qa':
+                        modelName = 'TinyML QA (15MB)';
+                        break;
+                    case 'minillm-chat':
+                        modelName = 'MiniLLM Chat (40MB)';
+                        break;
+                    case 'gpt2-small':
+                        modelName = 'GPT-2 Small (120MB)';
+                        break;
+                }
+                
+                modelOption.innerHTML = `
+                    <input type="checkbox" id="${modelId}" name="models" value="${modelId}" checked>
+                    <label for="${modelId}">${modelName}</label>
+                `;
+                
+                modelSelection.appendChild(modelOption);
+            });
         } catch (error) {
             console.error('Error updating model selection:', error);
         }
     }
 
-    async downloadPackage() {
-        try {
-            // Call parent download method first
-            if (super.downloadPackage) {
-                await super.downloadPackage();
-            }
-            
-            // Download the actual AI model
-            if (this.selectedAIModel && this.aiManager) {
-                this.updateProgress(85, 'Loading AI model...', `Initializing ${this.selectedAIModel}`);
-                
-                try {
-                    await this.aiManager.downloadModel(this.selectedAIModel, (progress) => {
-                        this.updateProgress(85 + (progress * 10) / 100, 'Loading AI model...', `${progress}% loaded`);
-                    });
-                    
-                    console.log('✅ AI model loaded successfully');
-                } catch (error) {
-                    console.error('❌ Failed to load AI model:', error);
-                }
-            }
-        } catch (error) {
-            console.error('Error in downloadPackage:', error);
+    async getAIResponse(message) {
+        if (!this.localAI) {
+            // Load AI model if not already loaded
+            await this.initializeLocalAI();
         }
-    }
 
-    updateProgress(percent, status, details) {
         try {
-            // Update progress UI if available
-            const progressFill = document.getElementById('progressFill');
-            const progressText = document.getElementById('progressText');
-            const progressDetails = document.getElementById('progressDetails');
-            
-            if (progressFill) progressFill.style.width = `${percent}%`;
-            if (progressText) progressText.textContent = status;
-            if (progressDetails) progressDetails.textContent = details;
-        } catch (error) {
-            console.error('Error updating progress:', error);
-        }
-    }
-
-    async handleChatSubmit(event) {
-        if (event) event.preventDefault();
-        
-        try {
-            const chatInput = document.getElementById('chatInput');
-            const message = chatInput.value.trim();
-            
-            if (!message) return;
-            
-            // Clear input
-            chatInput.value = '';
-            
-            // Add user message to chat
-            this.addMessageToChat(message, 'user');
-            
-            // Show thinking indicator
-            this.addThinkingIndicator();
-            
-            // Show stop button
-            const stopBtn = document.getElementById('stopBtn');
-            if (stopBtn) stopBtn.style.display = 'block';
-            
-            this.isGenerating = true;
-            
-            // Get AI response
-            try {
-                let response;
+            // Check if we have a valid localAI instance with runInference method
+            if (this.localAI && typeof this.localAI.runInference === 'function') {
+                // Get selected model or use default
+                const modelSelect = document.getElementById('modelSelect');
+                const selectedModel = modelSelect && modelSelect.value ? modelSelect.value : 'tinyml-qa';
                 
-                if (this.aiManager && this.aiManager.currentModel) {
-                    // Use real AI model
-                    response = await this.getEnhancedAIResponse(message);
-                } else {
-                    // Fallback to basic response
-                    response = await this.getAIResponse(message);
-                }
-                
-                // Remove thinking indicator
-                this.removeThinkingIndicator();
-                
-                // Add AI response to chat
-                this.addMessageToChat(response, 'ai');
-            } catch (error) {
-                console.error('Error getting AI response:', error);
-                this.removeThinkingIndicator();
-                this.addMessageToChat(`Sorry, I encountered an error: ${error.message}`, 'ai');
-            }
-            
-            // Hide stop button
-            if (stopBtn) stopBtn.style.display = 'none';
-            
-            this.isGenerating = false;
-            this.currentGeneration = null;
-            
-            // Scroll to bottom
-            this.scrollChatToBottom();
-        } catch (error) {
-            console.error('Error handling chat submission:', error);
-        }
-    }
-
-    async getEnhancedAIResponse(message) {
-        try {
-            console.log('Getting enhanced AI response...');
-            
-            // Check if we should search Wikipedia
-            const shouldSearchWiki = this.shouldSearchWikipedia(message);
-            let wikiContext = '';
-            
-            if (shouldSearchWiki && this.wikipediaManager) {
-                // Add searching indicator
-                this.updateThinkingIndicator('Searching Wikipedia...');
-                
-                // Search Wikipedia
-                const searchResults = await this.wikipediaManager.search(message);
-                
-                if (searchResults.length > 0) {
-                    // Get most relevant article
-                    const article = await this.wikipediaManager.getArticle(searchResults[0].id);
-                    
-                    if (article) {
-                        wikiContext = `Wikipedia context: ${article.title}\n${article.content}\n\n`;
-                        console.log(`Found Wikipedia article: ${article.title}`);
+                // Search Wikipedia for context if available
+                let wikipediaContext = '';
+                if (this.wikipediaManager && typeof this.wikipediaManager.search === 'function') {
+                    try {
+                        const searchResults = await this.wikipediaManager.search(message);
+                        if (searchResults && searchResults.length > 0) {
+                            wikipediaContext = searchResults[0].content;
+                        }
+                    } catch (wikiError) {
+                        console.error('Wikipedia search error:', wikiError);
                     }
                 }
-            }
-            
-            // Update thinking indicator
-            this.updateThinkingIndicator('Generating response...');
-            
-            // Generate response with AI model
-            const fullPrompt = wikiContext + `User: ${message}\nAI Assistant:`;
-            
-            // Set up generation
-            this.currentGeneration = {
-                prompt: fullPrompt,
-                model: this.aiManager.currentModel
-            };
-            
-            // Stream response
-            let finalResponse = '';
-            await this.aiManager.streamResponse(fullPrompt, (partialResponse) => {
-                if (!this.isGenerating) return;
                 
-                finalResponse = partialResponse;
-                this.updateThinkingIndicator(partialResponse);
-            });
-            
-            return finalResponse;
-        } catch (error) {
-            console.error('Error in enhanced AI response:', error);
-            throw error;
-        }
-    }
-
-    shouldSearchWikipedia(message) {
-        // Simple heuristic to determine if we should search Wikipedia
-        const questionWords = ['what', 'who', 'where', 'when', 'why', 'how'];
-        const messageLower = message.toLowerCase();
-        
-        // Check if message starts with question word
-        for (const word of questionWords) {
-            if (messageLower.startsWith(word)) return true;
-        }
-        
-        // Check for factual keywords
-        const factualKeywords = ['explain', 'describe', 'definition', 'history', 'information', 'facts'];
-        for (const keyword of factualKeywords) {
-            if (messageLower.includes(keyword)) return true;
-        }
-        
-        return false;
-    }
-
-    addMessageToChat(message, sender) {
-        try {
-            const chatContainer = document.getElementById('chatContainer');
-            if (!chatContainer) return;
-            
-            const messageDiv = document.createElement('div');
-            messageDiv.className = `message ${sender}`;
-            
-            if (sender === 'ai') {
-                messageDiv.innerHTML = `<strong>AI Assistant:</strong> ${message}`;
+                // Prepare prompt with context if available
+                const prompt = wikipediaContext 
+                    ? `Context: ${wikipediaContext}\n\nQuestion: ${message}\n\nAnswer:`
+                    : message;
+                
+                // Run inference
+                return await this.localAI.runInference(selectedModel, prompt);
             } else {
-                messageDiv.innerHTML = `<strong>You:</strong> ${message}`;
-            }
-            
-            chatContainer.appendChild(messageDiv);
-            
-            // Add to conversation history
-            this.conversationHistory.push({
-                role: sender === 'ai' ? 'assistant' : 'user',
-                content: message
-            });
-            
-            // Scroll to bottom
-            this.scrollChatToBottom();
-        } catch (error) {
-            console.error('Error adding message to chat:', error);
-        }
-    }
-
-    addThinkingIndicator() {
-        try {
-            const chatContainer = document.getElementById('chatContainer');
-            if (!chatContainer) return;
-            
-            const thinkingDiv = document.createElement('div');
-            thinkingDiv.className = 'message ai thinking';
-            thinkingDiv.id = 'thinking-indicator';
-            thinkingDiv.innerHTML = `<strong>AI Assistant:</strong> <span class="thinking-text">Thinking...</span>`;
-            
-            chatContainer.appendChild(thinkingDiv);
-            this.scrollChatToBottom();
-        } catch (error) {
-            console.error('Error adding thinking indicator:', error);
-        }
-    }
-
-    updateThinkingIndicator(text) {
-        try {
-            const thinkingIndicator = document.getElementById('thinking-indicator');
-            if (!thinkingIndicator) return;
-            
-            const thinkingText = thinkingIndicator.querySelector('.thinking-text');
-            if (thinkingText) {
-                thinkingText.textContent = text;
-            }
-            
-            this.scrollChatToBottom();
-        } catch (error) {
-            console.error('Error updating thinking indicator:', error);
-        }
-    }
-
-    removeThinkingIndicator() {
-        try {
-            const thinkingIndicator = document.getElementById('thinking-indicator');
-            if (thinkingIndicator) {
-                thinkingIndicator.remove();
+                // Fallback response if localAI is not properly initialized
+                return `I'm sorry, the AI model is not properly initialized. Please try refreshing the page.`;
             }
         } catch (error) {
-            console.error('Error removing thinking indicator:', error);
-        }
-    }
-
-    scrollChatToBottom() {
-        try {
-            const chatContainer = document.getElementById('chatContainer');
-            if (chatContainer) {
-                chatContainer.scrollTop = chatContainer.scrollHeight;
-            }
-        } catch (error) {
-            console.error('Error scrolling chat to bottom:', error);
+            console.error('Error getting AI response:', error);
+            return `I'm sorry, I encountered an error while processing your request: ${error.message}`;
         }
     }
 
     stopGeneration() {
-        try {
-            console.log('Stopping generation...');
+        if (this.isGenerating && this.currentGeneration) {
+            // Cancel current generation if possible
+            if (this.localAI && typeof this.localAI.cancelInference === 'function') {
+                this.localAI.cancelInference();
+            }
+            
             this.isGenerating = false;
+            this.currentGeneration = null;
             
             // Hide stop button
             const stopBtn = document.getElementById('stopBtn');
-            if (stopBtn) stopBtn.style.display = 'none';
-            
-            // Update thinking indicator
-            this.updateThinkingIndicator('Generation stopped.');
-            
-            // Remove thinking indicator after a short delay
-            setTimeout(() => {
-                this.removeThinkingIndicator();
-            }, 1000);
-        } catch (error) {
-            console.error('Error stopping generation:', error);
-        }
-    }
-
-    clearChat() {
-        try {
-            const chatContainer = document.getElementById('chatContainer');
-            if (!chatContainer) return;
-            
-            // Keep only the welcome message
-            chatContainer.innerHTML = `
-                <div class="message ai">
-                    <strong>AI Assistant:</strong> Hello! I'm running completely offline in your browser using real AI models. Ask me anything, and I can also search the local Wikipedia database for additional context.
-                </div>
-            `;
-            
-            // Clear conversation history
-            this.conversationHistory = [];
-        } catch (error) {
-            console.error('Error clearing chat:', error);
-        }
-    }
-
-    switchModel(modelId) {
-        try {
-            if (!this.aiManager) return false;
-            
-            const success = this.aiManager.switchModel(modelId);
-            if (success) {
-                this.addMessageToChat(`Switched to model: ${modelId}`, 'ai');
-                return true;
+            if (stopBtn) {
+                stopBtn.style.display = 'none';
             }
             
-            // If model not loaded yet, try to download it
-            this.addThinkingIndicator();
-            this.updateThinkingIndicator(`Loading model ${modelId}...`);
-            
-            this.aiManager.downloadModel(modelId, (progress) => {
-                this.updateThinkingIndicator(`Loading model ${modelId}: ${progress}%`);
-            }).then(() => {
-                this.aiManager.switchModel(modelId);
-                this.removeThinkingIndicator();
-                this.addMessageToChat(`Switched to model: ${modelId}`, 'ai');
-            }).catch(error => {
-                this.removeThinkingIndicator();
-                this.addMessageToChat(`Failed to load model: ${error.message}`, 'ai');
-            });
-            
-            return true;
-        } catch (error) {
-            console.error('Error switching model:', error);
-            return false;
+            // Show send button
+            const sendBtn = document.querySelector('.send-btn:not(#stopBtn)');
+            if (sendBtn) {
+                sendBtn.style.display = 'block';
+            }
         }
     }
 }
 
-// Initialize EnhancedOfflineApp when DOM is loaded
-document.addEventListener('DOMContentLoaded', async () => {
+// Initialize when the document is loaded
+document.addEventListener('DOMContentLoaded', () => {
     try {
-        window.enhancedOfflineApp = new EnhancedOfflineApp();
         console.log('✅ EnhancedOfflineApp initialized successfully');
+        window.offlineApp = new EnhancedOfflineApp();
     } catch (error) {
         console.error('❌ Failed to initialize EnhancedOfflineApp:', error);
     }
 });
+
+// Create a compatibility wrapper for backward compatibility
+window.OfflineApp = OfflineAppEnhanced;
