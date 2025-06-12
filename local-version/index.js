@@ -1845,6 +1845,24 @@ app.post('/api/chat', async (req, res) => {
         }
       }
     }
+    // Add n8n capabilities context
+    prompt += `
+You have access to n8n workflow automation capabilities. You can create, initiate, and schedule workflows when appropriate for tasks like:
+- Data processing and transformation
+- Web monitoring and alerts
+- Multi-source research
+- API integrations
+- Scheduled reporting
+- Task automation
+
+The n8n management portal is available at http://localhost:5678 for reviewing and editing workflows.
+
+When a task would benefit from n8n automation:
+1. Explain how n8n could help with the task
+2. Suggest creating a workflow
+3. Provide instructions for accessing the n8n portal
+4. Describe the basic workflow steps needed
+`;
     
     // Add the current message
     prompt += `Human: ${message}\nAssistant:`;
@@ -1956,6 +1974,24 @@ app.post('/api/chat/stream', async (req, res) => {
       try {
         const searchResults = await wikipedia.searchWikipedia(message, 3);
         if (searchResults && searchResults.length > 0) {
+    // Add n8n capabilities context
+    prompt += `
+You have access to n8n workflow automation capabilities. You can create, initiate, and schedule workflows when appropriate for tasks like:
+- Data processing and transformation
+- Web monitoring and alerts
+- Multi-source research
+- API integrations
+- Scheduled reporting
+- Task automation
+
+The n8n management portal is available at http://localhost:5678 for reviewing and editing workflows.
+
+When a task would benefit from n8n automation:
+1. Explain how n8n could help with the task
+2. Suggest creating a workflow
+3. Provide instructions for accessing the n8n portal
+4. Describe the basic workflow steps needed
+`;
           // logging relevant Wikipedia information
           console.log('Relevant Wikipedia information found:', searchResults);
           prompt += 'Relevant Wikipedia information:\n';
