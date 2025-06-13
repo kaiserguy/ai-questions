@@ -4,9 +4,10 @@ const CACHE_NAME = 'ai-questions-cache-v1';
 const ASSETS_TO_CACHE = [
   '/',
   '/offline',
-  '/css/styles.css',
-  '/js/main.js',
-  '/img/logo.png',
+  // Remove references to non-existent files
+  // '/css/styles.css',
+  // '/js/main.js',
+  // '/img/logo.png',
   '/manifest.json'
 ];
 
@@ -17,6 +18,9 @@ self.addEventListener('install', event => {
       .then(cache => {
         console.log('Opened cache');
         return cache.addAll(ASSETS_TO_CACHE);
+      })
+      .catch(error => {
+        console.error('Cache installation failed:', error);
       })
   );
 });
@@ -165,4 +169,3 @@ function openDatabase() {
     };
   });
 }
-
