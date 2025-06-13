@@ -1,0 +1,14 @@
+// Update index.js to integrate with n8n workflows
+
+// Import the n8n integration module
+const n8nIntegration = require('./n8n-integration-module');
+
+// Add this code after Express app initialization
+// This will integrate the n8n workflows with the existing endpoints
+n8nIntegration.initializeN8nIntegration(app);
+
+// Update the views to use the n8n-query-logging.js instead of query-logging.js
+// In the EJS templates, replace:
+// <script src="/js/query-logging.js"></script>
+// with:
+// <script src="/js/n8n-query-logging.js"></script>

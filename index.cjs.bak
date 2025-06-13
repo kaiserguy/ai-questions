@@ -484,15 +484,13 @@ async function askQuestion(question, context, modelId, apiKeys) {
     }
     
     // Combine question and context into a prompt
-    // Prompt version 2.0 - Optimized for concise answers
-    const promptVersion = "2.0";
-    const prompt = `Based on the following context, please answer this question concisely and directly. Be thorough but efficient with your words:
+    const prompt = `Based on the following context, please answer this question thoroughly:
     
 Context: ${context}
 
 Question: ${question}
 
-Answer (be concise):`;
+Answer:`;
 
     let answer;
     
@@ -573,8 +571,7 @@ Answer (be concise):`;
       answer: answer,
       model: selectedModel.id,
       modelName: selectedModel.name,
-      score: 1.0,
-      promptVersion: promptVersion // Include the prompt version in the response
+      score: 1.0
     };
   } catch (error) {
     console.error('Error calling AI API:', error);
@@ -636,19 +633,19 @@ Answer (be concise):`;
 // PostgreSQL Database Functions
 
 // Save answer to database
-async function saveAnswer(question, context, answer, model, confidence, date, modelName = null, promptVersion = "1.0") {
+async function saveAnswer(question, context, answer, model, confidence, date, modelName = null) {
   const result = await pool.query(
-    'INSERT INTO answers (question, context, answer, model, model_name, confidence, date, is_personal, prompt_version) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING id',
-    [question, context, answer, model, modelName, confidence, date, false, promptVersion]
+    'INSERT INTO answers (question, context, answer, model, model_name, confidence, date, is_personal) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id',
+    [question, context, answer, model, modelName, confidence, date, false]
   );
   return result.rows[0].id;
 }
 
 // Save personal answer to database
-async function savePersonalAnswer(question, context, answer, model, confidence, date, modelName, userId, personalQuestionId, promptVersion = "1.0") {
+async function savePersonalAnswer(question, context, answer, model, confidence, date, modelName, userId, personalQuestionId) {
   const result = await pool.query(
-    'INSERT INTO answers (question, context, answer, model, model_name, confidence, date, user_id, personal_question_id, is_personal, prompt_version) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) RETURNING id',
-    [question, context, answer, model, modelName, confidence, date, userId, personalQuestionId, true, promptVersion]
+    'INSERT INTO answers (question, context, answer, model, model_name, confidence, date, user_id, personal_question_id, is_personal) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING id',
+    [question, context, answer, model, modelName, confidence, date, userId, personalQuestionId, true]
   );
   return result.rows[0].id;
 }
@@ -1565,85 +1562,29 @@ cron.schedule('0 0 * * *', async () => {
   try {
     console.log('Running daily scheduled task at:', new Date().toISOString());
     
-    // Execute daily question with all available models
+    // Execute daily question
     const apiKeys = {
       HUGGING_FACE_API_KEY: process.env.HUGGING_FACE_API_KEY,
-      OPENAI_API_KEY: process.env.OPENAI_API_KEY,
-      ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY,
-      GOOGLE_AI_API_KEY: process.env.GOOGLE_AI_API_KEY
+      OPENAI_API_KEY: process.env.OPENAI_API_KEY
     };
     
-    // Get today's question
-    const { question, context } = getTodaysQuestion();
-    console.log(`Daily question: "${question}"`);
+    const availableModel = AVAILABLE_MODELS.find(model => apiKeys[model.apiKeyEnv]);
     
-    // Check which models were already queried in the last 24 hours
-    const today = new Date();
-    const yesterday = new Date(today);
-    yesterday.setDate(yesterday.getDate() - 1);
-    
-    const recentAnswers = await pool.query(
-      'SELECT model FROM answers WHERE question = $1 AND date > $2',
-      [question, yesterday.toISOString()]
-    );
-    
-    const recentlyQueriedModels = new Set(recentAnswers.rows.map(row => row.model));
-    console.log(`Models already queried in last 24 hours: ${Array.from(recentlyQueriedModels).join(', ') || 'none'}`);
-    
-    // Track results
-    const results = {
-      success: 0,
-      failed: 0,
-      skipped: 0,
-      errors: []
-    };
-    
-    // Query all available models that haven't been queried in the last 24 hours
-    for (const model of AVAILABLE_MODELS) {
-      try {
-        // Skip if API key not available
-        if (!apiKeys[model.apiKeyEnv]) {
-          console.log(`Skipping model ${model.id}: API key not available`);
-          continue;
-        }
-        
-        // Skip if already queried in last 24 hours
-        if (recentlyQueriedModels.has(model.id)) {
-          console.log(`Skipping model ${model.id}: already queried in last 24 hours`);
-          results.skipped++;
-          continue;
-        }
-        
-        console.log(`Querying model ${model.id}...`);
-        const response = await askQuestion(question, context, model.id, apiKeys);
-        
-        // Include promptVersion in saved answer
-        await saveAnswer(
-          question, 
-          context, 
-          response.answer, 
-          response.model,
-          response.score, 
-          new Date().toISOString(),
-          response.modelName,
-          response.promptVersion || "2.0" // Use the version from response or default to 2.0
-        );
-        
-        console.log(`Successfully saved answer from ${model.id}`);
-        results.success++;
-      } catch (error) {
-        console.error(`Error querying model ${model.id}:`, error);
-        results.failed++;
-        results.errors.push({
-          model: model.id,
-          error: error.message
-        });
-      }
-    }
-    
-    console.log(`Daily question results: ${results.success} successful, ${results.failed} failed, ${results.skipped} skipped`);
-    if (results.errors.length > 0) {
-      console.log('Errors:', JSON.stringify(results.errors, null, 2));
+    if (availableModel) {
+      const { question, context } = getTodaysQuestion();
+      const response = await askQuestion(question, context, availableModel.id, apiKeys);
+      
+      await saveAnswer(
+        question, 
+        context, 
+        response.answer, 
+        response.model,
+        response.score, 
+        new Date().toISOString(),
+        response.modelName
+      );
+      
+      console.log('Successfully saved daily AI answer');
     }
     
     // Execute scheduled personal questions

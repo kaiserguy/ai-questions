@@ -88,13 +88,6 @@ services:
       - ai-agent-network
     environment:
       - OLLAMA_HOST=0.0.0.0
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: all
-              capabilities: [gpu]
 
 volumes:
   n8n_data:

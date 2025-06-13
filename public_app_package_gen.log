@@ -1,0 +1,8 @@
+nohup: ignoring input
+Using Dummy PostgreSQL DB for testing.
+Using Dummy AI Client for testing.
+⚠️ Wikipedia database not found. Use setup script to download.
+⚠️ Expected path: ./wikipedia.db
+AI Questions server running on port 3000
+Visit http://localhost:3000 to access the application
+Local package created: 404456602 total bytes
