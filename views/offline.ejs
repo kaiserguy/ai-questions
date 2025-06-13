@@ -465,10 +465,228 @@
         }
 
         // AI Chat functionality
-        let isGenerating = false;
-        let shouldStop = false;
+        class AIModelManager {
+            constructor() {
+                this.isInitialized = false;
+                this.isLoading = false;
+                this.model = null;
+            }
 
-        function sendChatMessage() {
+            async initialize() {
+                console.log('🤖 Initializing AI Model Manager');
+                
+                try {
+                    // Load ONNX Runtime Web
+                    await this.loadONNXRuntime();
+                    
+                    // Try to load a cached model
+                    await this.loadCachedModel();
+                    
+                    this.isInitialized = true;
+                    console.log('✅ AI Model Manager initialized');
+                    return true;
+                } catch (error) {
+                    console.error('❌ Failed to initialize AI Model Manager:', error);
+                    return false;
+                }
+            }
+
+            async loadONNXRuntime() {
+                return new Promise((resolve, reject) => {
+                    // Check if already loaded
+                    if (window.ort) {
+                        resolve();
+                        return;
+                    }
+
+                    const script = document.createElement('script');
+                    script.src = 'https://cdn.jsdelivr.net/npm/onnxruntime-web@1.14.0/dist/ort.min.js';
+                    
+                    script.onload = () => {
+                        console.log('📦 ONNX Runtime loaded');
+                        resolve();
+                    };
+                    
+                    script.onerror = (error) => {
+                        console.error('Failed to load ONNX Runtime:', error);
+                        reject(error);
+                    };
+                    
+                    document.head.appendChild(script);
+                });
+            }
+
+            async loadCachedModel() {
+                // This would normally load a model from IndexedDB
+                // For now, we'll simulate having a model loaded
+                this.model = {
+                    name: 'TinyBERT',
+                    type: 'text-generation',
+                    loaded: true
+                };
+                
+                return true;
+            }
+
+            async generateResponse(prompt) {
+                if (!this.isInitialized || !this.model) {
+                    throw new Error('AI Model not initialized');
+                }
+                
+                console.log(`🧠 Generating response for: "${prompt}"`);
+                
+                // In a real implementation, this would use the ONNX model for inference
+                // For now, we'll simulate a response
+                
+                // Simulate processing time
+                await new Promise(resolve => setTimeout(resolve, 500 + Math.random() * 1000));
+                
+                // Generate a contextual response based on the prompt
+                let response = '';
+                
+                if (prompt.toLowerCase().includes('wikipedia')) {
+                    response = `I can help you search the local Wikipedia database for information. Just use the Wikipedia search section below to find specific articles. What topic are you interested in learning about?`;
+                } else if (prompt.toLowerCase().includes('offline')) {
+                    response = `Yes, I'm running completely offline in your browser. All processing happens locally on your device, which ensures privacy and allows you to use this application even without an internet connection.`;
+                } else if (prompt.toLowerCase().includes('how do you work')) {
+                    response = `I'm a lightweight AI model running directly in your web browser using WebAssembly. I process your questions locally on your device without sending any data to external servers. I can also access a local Wikipedia database to provide you with factual information.`;
+                } else {
+                    response = `That's an interesting question about "${prompt}". In a fully implemented version, I would process this using local AI models and search the offline Wikipedia database for relevant context to provide a comprehensive answer.`;
+                }
+                
+                return response;
+            }
+
+            async streamResponse(prompt, onToken) {
+                const fullResponse = await this.generateResponse(prompt);
+                const words = fullResponse.split(' ');
+                
+                let currentText = '';
+                for (let i = 0; i < words.length; i++) {
+                    currentText += (i > 0 ? ' ' : '') + words[i];
+                    onToken(currentText);
+                    
+                    // Simulate typing delay
+                    await new Promise(resolve => setTimeout(resolve, 50 + Math.random() * 150));
+                    
+                    // Check if we should stop
+                    if (window.shouldStopGeneration) {
+                        window.shouldStopGeneration = false;
+                        break;
+                    }
+                }
+                
+                return currentText;
+            }
+        }
+
+        // Wikipedia Manager
+        class WikipediaManager {
+            constructor() {
+                this.isInitialized = false;
+                this.db = null;
+            }
+
+            async initialize() {
+                console.log('📚 Initializing Wikipedia Manager');
+                
+                try {
+                    // In a real implementation, this would load SQL.js and the Wikipedia database
+                    // For now, we'll simulate having a database
+                    
+                    this.isInitialized = true;
+                    console.log('✅ Wikipedia Manager initialized');
+                    return true;
+                } catch (error) {
+                    console.error('❌ Failed to initialize Wikipedia Manager:', error);
+                    return false;
+                }
+            }
+
+            async search(query, limit = 10) {
+                if (!this.isInitialized) {
+                    throw new Error('Wikipedia Manager not initialized');
+                }
+                
+                console.log(`🔍 Searching Wikipedia for: "${query}"`);
+                
+                // In a real implementation, this would query the SQLite database
+                // For now, we'll simulate search results
+                
+                // Simulate processing time
+                await new Promise(resolve => setTimeout(resolve, 300 + Math.random() * 700));
+                
+                // Generate mock results based on the query
+                const results = [];
+                
+                // Add a result that matches the query
+                results.push({
+                    id: 'article1',
+                    title: query.charAt(0).toUpperCase() + query.slice(1),
+                    summary: `This is a simulated Wikipedia article about "${query}". In a real implementation, this would be actual content from a locally stored Wikipedia database.`,
+                    relevance: 0.95
+                });
+                
+                // Add a disambiguation result
+                results.push({
+                    id: 'article2',
+                    title: query.charAt(0).toUpperCase() + query.slice(1) + ' (disambiguation)',
+                    summary: `"${query}" may refer to multiple topics. This simulated disambiguation page would list various meanings and related articles in a real implementation.`,
+                    relevance: 0.8
+                });
+                
+                // Add a history result
+                results.push({
+                    id: 'article3',
+                    title: 'History of ' + query.charAt(0).toUpperCase() + query.slice(1),
+                    summary: `A simulated article about the history and development of "${query}" throughout different time periods and contexts.`,
+                    relevance: 0.7
+                });
+                
+                return results;
+            }
+
+            async getArticle(id) {
+                if (!this.isInitialized) {
+                    throw new Error('Wikipedia Manager not initialized');
+                }
+                
+                console.log(`📖 Getting Wikipedia article: ${id}`);
+                
+                // In a real implementation, this would fetch the article from the SQLite database
+                // For now, we'll simulate an article
+                
+                // Simulate processing time
+                await new Promise(resolve => setTimeout(resolve, 200 + Math.random() * 500));
+                
+                // Return a mock article
+                return {
+                    id: id,
+                    title: 'Simulated Wikipedia Article',
+                    content: `
+                        <h2>Introduction</h2>
+                        <p>This is a simulated Wikipedia article that would be loaded from a local database in a real implementation. The article would contain comprehensive information about the topic, with proper formatting, references, and links to related articles.</p>
+                        
+                        <h2>Content</h2>
+                        <p>In a real implementation, this section would contain the actual content of the Wikipedia article, retrieved from a local database that was downloaded as part of the offline package.</p>
+                        
+                        <h2>References</h2>
+                        <p>This section would list references and citations for the information presented in the article.</p>
+                    `,
+                    lastUpdated: new Date().toISOString()
+                };
+            }
+        }
+
+        // Initialize managers
+        const aiManager = new AIModelManager();
+        const wikiManager = new WikipediaManager();
+        
+        // Chat functionality
+        let isGenerating = false;
+        window.shouldStopGeneration = false;
+
+        async function sendChatMessage() {
             const input = document.getElementById('chatInput');
             const message = input.value.trim();
             if (!message || isGenerating) return;
@@ -494,44 +712,39 @@
             
             // Set generating state
             isGenerating = true;
-            shouldStop = false;
+            window.shouldStopGeneration = false;
             sendBtn.disabled = true;
             stopBtn.style.display = 'block';
             
-            // Simulate AI response generation
-            let responseText = '';
-            const possibleResponses = [
-                `Based on my offline knowledge, "${message}" relates to concepts that would require careful analysis. In a fully implemented version, I would process this using local AI models and search the offline Wikipedia database for relevant context.`,
-                `That's an interesting question about "${message}". In the complete implementation, I would analyze this using locally stored language models and reference the offline Wikipedia database to provide a comprehensive answer.`,
-                `I understand you're asking about "${message}". In the full version, this would be processed by local AI models with access to an offline Wikipedia database for enhanced context and accuracy.`
-            ];
-            
-            const selectedResponse = possibleResponses[Math.floor(Math.random() * possibleResponses.length)];
-            const words = selectedResponse.split(' ');
-            
-            let wordIndex = 0;
-            const interval = setInterval(() => {
-                if (shouldStop || wordIndex >= words.length) {
-                    clearInterval(interval);
-                    isGenerating = false;
-                    sendBtn.disabled = false;
-                    stopBtn.style.display = 'none';
-                    return;
+            try {
+                // Initialize AI if needed
+                if (!aiManager.isInitialized) {
+                    await aiManager.initialize();
                 }
                 
-                responseText += (wordIndex > 0 ? ' ' : '') + words[wordIndex];
-                aiMsg.innerHTML = `<strong>AI Assistant:</strong> ${responseText}`;
+                // Generate response
+                await aiManager.streamResponse(message, (text) => {
+                    aiMsg.innerHTML = `<strong>AI Assistant:</strong> ${text}`;
+                    chatContainer.scrollTop = chatContainer.scrollHeight;
+                });
+            } catch (error) {
+                console.error('Error generating response:', error);
+                aiMsg.innerHTML = `<strong>AI Assistant:</strong> I'm sorry, I encountered an error while processing your request. Please try again.`;
+            } finally {
+                // Reset state
+                isGenerating = false;
+                sendBtn.disabled = false;
+                stopBtn.style.display = 'none';
                 chatContainer.scrollTop = chatContainer.scrollHeight;
-                wordIndex++;
-            }, 100);
+            }
         }
 
         function stopGeneration() {
-            shouldStop = true;
+            window.shouldStopGeneration = true;
         }
 
         // Wikipedia search functionality
-        function searchWikipedia() {
+        async function searchWikipedia() {
             const searchInput = document.getElementById('wikiSearchInput');
             const query = searchInput.value.trim();
             if (!query) return;
@@ -541,10 +754,14 @@
             // Show loading state
             resultsContainer.innerHTML = '<div><span class="loading"></span>Searching Wikipedia...</div>';
             
-            // Simulate search delay
-            setTimeout(() => {
-                // Generate mock results based on query
-                const results = generateMockWikiResults(query);
+            try {
+                // Initialize Wikipedia if needed
+                if (!wikiManager.isInitialized) {
+                    await wikiManager.initialize();
+                }
+                
+                // Search Wikipedia
+                const results = await wikiManager.search(query);
                 
                 if (results.length === 0) {
                     resultsContainer.innerHTML = '<p>No results found for "' + query + '". Try a different search term.</p>';
@@ -556,70 +773,43 @@
                     html += `
                         <div class="wiki-article">
                             <h3>${result.title}</h3>
-                            <p>${result.excerpt}</p>
+                            <p>${result.summary}</p>
                             <a href="#" onclick="showFullArticle('${result.id}'); return false;">Read more</a>
                         </div>
                     `;
                 });
                 
                 resultsContainer.innerHTML = html;
-            }, 800);
+            } catch (error) {
+                console.error('Error searching Wikipedia:', error);
+                resultsContainer.innerHTML = '<p>Error searching Wikipedia. Please try again.</p>';
+            }
         }
 
-        function generateMockWikiResults(query) {
-            // This is a mock function that generates fake Wikipedia results
-            // In a real implementation, this would query a local Wikipedia database
-            const mockResults = [
-                {
-                    id: 'article1',
-                    title: query.charAt(0).toUpperCase() + query.slice(1),
-                    excerpt: `This is a simulated Wikipedia article about "${query}". In a real implementation, this would be actual content from a locally stored Wikipedia database.`
-                },
-                {
-                    id: 'article2',
-                    title: query.charAt(0).toUpperCase() + query.slice(1) + ' (disambiguation)',
-                    excerpt: `"${query}" may refer to multiple topics. This simulated disambiguation page would list various meanings and related articles in a real implementation.`
-                },
-                {
-                    id: 'article3',
-                    title: 'History of ' + query.charAt(0).toUpperCase() + query.slice(1),
-                    excerpt: `A simulated article about the history and development of "${query}" throughout different time periods and contexts.`
-                }
-            ];
-            
-            return mockResults;
-        }
-
-        function showFullArticle(articleId) {
+        async function showFullArticle(articleId) {
             const resultsContainer = document.getElementById('wikiResults');
             
             // Show loading state
             resultsContainer.innerHTML = '<div><span class="loading"></span>Loading article...</div>';
             
-            // Simulate article loading delay
-            setTimeout(() => {
-                // Generate mock article content
-                const article = {
-                    title: 'Simulated Wikipedia Article',
-                    content: `
-                        <h2>Introduction</h2>
-                        <p>This is a simulated Wikipedia article that would be loaded from a local database in a real implementation. The article would contain comprehensive information about the topic, with proper formatting, references, and links to related articles.</p>
-                        
-                        <h2>Content</h2>
-                        <p>In a real implementation, this section would contain the actual content of the Wikipedia article, retrieved from a local database that was downloaded as part of the offline package.</p>
-                        
-                        <h2>References</h2>
-                        <p>This section would list references and citations for the information presented in the article.</p>
-                        
-                        <p><a href="#" onclick="searchWikipedia(); return false;">← Back to search results</a></p>
-                    `
-                };
+            try {
+                // Initialize Wikipedia if needed
+                if (!wikiManager.isInitialized) {
+                    await wikiManager.initialize();
+                }
+                
+                // Get article
+                const article = await wikiManager.getArticle(articleId);
                 
                 resultsContainer.innerHTML = `
                     <h3>${article.title}</h3>
                     ${article.content}
+                    <p><a href="#" onclick="searchWikipedia(); return false;">← Back to search results</a></p>
                 `;
-            }, 600);
+            } catch (error) {
+                console.error('Error loading article:', error);
+                resultsContainer.innerHTML = '<p>Error loading article. Please try again.</p>';
+            }
         }
         
         // Initialize everything when page loads
@@ -633,6 +823,16 @@
             
             // Load cached questions
             loadCachedQuestions();
+            
+            // Initialize AI and Wikipedia
+            Promise.all([
+                aiManager.initialize(),
+                wikiManager.initialize()
+            ]).then(() => {
+                console.log('✅ All managers initialized');
+            }).catch(error => {
+                console.error('❌ Error initializing managers:', error);
+            });
             
             // Set up chat functionality
             document.getElementById('sendBtn').addEventListener('click', sendChatMessage);

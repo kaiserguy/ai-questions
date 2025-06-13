@@ -1,5 +1,7 @@
-// AI Model Manager for Offline Mode
-// Uses Transformers.js for real WebAssembly-based AI models
+/**
+ * AI Model Manager for Offline Mode
+ * Uses Transformers.js for real WebAssembly-based AI models in the browser
+ */
 
 class AIModelManager {
     constructor() {
@@ -51,6 +53,9 @@ class AIModelManager {
                 await this.loadTransformersJS();
             }
             
+            // Try to load a cached model
+            await this.loadCachedModel();
+            
             console.log('✅ AI Model Manager initialized');
             return true;
         } catch (error) {
@@ -83,6 +88,40 @@ class AIModelManager {
             
             document.head.appendChild(script);
         });
+    }
+
+    async loadCachedModel() {
+        try {
+            // Check if we have any stored models
+            const storedModels = await this.getStoredModels();
+            
+            if (storedModels && storedModels.length > 0) {
+                // Use the most recently downloaded model
+                const latestModel = storedModels.sort((a, b) => 
+                    new Date(b.downloadedAt) - new Date(a.downloadedAt)
+                )[0];
+                
+                console.log(`Found cached model: ${latestModel.id}`);
+                
+                // Load the model
+                await this.downloadModel(latestModel.id);
+                return true;
+            }
+            
+            // If no stored models, load a default lightweight model
+            console.log('No cached models found, loading default model');
+            const defaultModel = 'sentence-transformers/all-MiniLM-L6-v2';
+            
+            if (this.availableModels[defaultModel]) {
+                await this.downloadModel(defaultModel);
+                return true;
+            }
+            
+            return false;
+        } catch (error) {
+            console.error('Error loading cached model:', error);
+            return false;
+        }
     }
 
     async downloadModel(modelId, progressCallback) {
@@ -223,20 +262,45 @@ class AIModelManager {
     }
 
     async streamResponse(prompt, onToken, options = {}) {
-        // For streaming responses (simulated for now)
-        const fullResponse = await this.generateResponse(prompt, options);
-        const words = fullResponse.split(' ');
-        
-        let currentText = '';
-        for (let i = 0; i < words.length; i++) {
-            currentText += (i > 0 ? ' ' : '') + words[i];
-            onToken(currentText);
-            
-            // Simulate typing delay
-            await new Promise(resolve => setTimeout(resolve, 100 + Math.random() * 200));
+        if (!this.currentModel || !this.models.has(this.currentModel)) {
+            throw new Error('No model loaded. Please download a model first.');
         }
-        
-        return fullResponse;
+
+        const modelData = this.models.get(this.currentModel);
+        const { config } = modelData;
+
+        // For models that support streaming
+        if (config.type === 'text-generation' && typeof window !== 'undefined' && window.shouldStopGeneration !== undefined) {
+            try {
+                const fullResponse = await this.generateResponse(prompt, options);
+                const words = fullResponse.split(' ');
+                
+                let currentText = '';
+                for (let i = 0; i < words.length; i++) {
+                    // Check if we should stop
+                    if (window.shouldStopGeneration) {
+                        window.shouldStopGeneration = false;
+                        break;
+                    }
+                    
+                    currentText += (i > 0 ? ' ' : '') + words[i];
+                    onToken(currentText);
+                    
+                    // Simulate typing delay
+                    await new Promise(resolve => setTimeout(resolve, 50 + Math.random() * 150));
+                }
+                
+                return currentText;
+            } catch (error) {
+                console.error('Error streaming response:', error);
+                throw error;
+            }
+        } else {
+            // For models that don't support streaming
+            const response = await this.generateResponse(prompt, options);
+            onToken(response);
+            return response;
+        }
     }
 
     async getEmbeddings(text) {
@@ -367,241 +431,9 @@ class AIModelManager {
     }
 }
 
-// Enhanced Offline App with Real AI Integration
-class EnhancedOfflineApp extends OfflineAppEnhanced {
-    constructor() {
-        super();
-        
-        // Initialize properties with defensive checks
-        this.aiManager = typeof AIModelManager !== 'undefined' ? new AIModelManager() : null;
-        this.wikipediaManager = typeof WikipediaManager !== 'undefined' ? new WikipediaManager() : null;
-        this.isGenerating = false;
-        this.currentGeneration = null;
-        
-        // Don't call init directly in constructor to avoid async issues
-        // Let the parent class handle initialization through its scheduled init
-    }
-
-    async init() {
-        console.log('🚀 Initializing Enhanced AI Questions Offline Mode');
-        
-        try {
-            // Initialize AI Manager with defensive checks
-            if (this.aiManager && typeof this.aiManager.initialize === 'function') {
-                try {
-                    const aiInitialized = await this.aiManager.initialize();
-                    if (!aiInitialized) {
-                        console.error('Failed to initialize AI Manager');
-                    }
-                } catch (aiError) {
-                    console.error('Error initializing AI Manager:', aiError);
-                }
-            } else {
-                console.warn('AI Manager not available or missing initialize method');
-            }
-            
-            // Initialize Wikipedia Manager with defensive checks
-            if (this.wikipediaManager && typeof this.wikipediaManager.initialize === 'function') {
-                try {
-                    const wikiInitialized = await this.wikipediaManager.initialize();
-                    if (!wikiInitialized) {
-                        console.error('Failed to initialize Wikipedia Manager');
-                    }
-                } catch (wikiError) {
-                    console.error('Error initializing Wikipedia Manager:', wikiError);
-                }
-            } else {
-                console.warn('Wikipedia Manager not available or missing initialize method');
-            }
-            
-            // Call parent initialization with defensive check
-            if (typeof super.init === 'function') {
-                try {
-                    await super.init();
-                } catch (parentError) {
-                    console.error('Error in parent initialization:', parentError);
-                }
-            } else {
-                console.error('Parent init method not available');
-            }
-            
-            // Add enhanced event listeners
-            this.setupEnhancedEventListeners();
-            
-            console.log('✅ EnhancedOfflineApp initialized successfully');
-            return true;
-        } catch (error) {
-            console.error('❌ Failed to initialize EnhancedOfflineApp:', error);
-            return false;
-        }
-    }
-
-    setupEnhancedEventListeners() {
-        try {
-            // Model selection in download options
-            const downloadOptions = document.querySelectorAll('.download-option');
-            if (downloadOptions && downloadOptions.length > 0) {
-                downloadOptions.forEach(option => {
-                    if (option) {
-                        const originalClickHandler = option.onclick;
-                        option.addEventListener('click', () => {
-                            this.updateModelSelection();
-                        });
-                    }
-                });
-            }
-
-            // Stop generation button
-            const stopBtn = document.createElement('button');
-            stopBtn.id = 'stopBtn';
-            stopBtn.className = 'send-btn';
-            stopBtn.textContent = 'Stop';
-            stopBtn.style.display = 'none';
-            stopBtn.style.background = '#ef4444';
-            
-            stopBtn.addEventListener('click', () => {
-                this.stopGeneration();
-            });
-            
-            const chatInputContainer = document.querySelector('.chat-input-container');
-            if (chatInputContainer) {
-                chatInputContainer.appendChild(stopBtn);
-            }
-        } catch (error) {
-            console.error('Error setting up enhanced event listeners:', error);
-        }
-    }
-
-    async updateModelSelection() {
-        try {
-            const selectedOption = document.querySelector('.download-option.selected');
-            if (!selectedOption) return;
-            
-            const selectedPackage = selectedOption.dataset.package;
-            const modelMap = {
-                'minimal': ['tinyml-qa'],
-                'standard': ['tinyml-qa', 'minillm-chat'],
-                'full': ['tinyml-qa', 'minillm-chat', 'gpt2-small']
-            };
-            
-            // Get models for selected package with defensive check
-            const models = modelMap[selectedPackage] || ['tinyml-qa'];
-            
-            // Update model selection UI
-            const modelSelection = document.getElementById('modelSelection');
-            if (!modelSelection) return;
-            
-            modelSelection.innerHTML = '';
-            
-            // Add model options
-            models.forEach(modelId => {
-                const modelOption = document.createElement('div');
-                modelOption.className = 'model-option';
-                modelOption.dataset.model = modelId;
-                
-                // Get model name based on ID
-                let modelName = modelId;
-                switch (modelId) {
-                    case 'tinyml-qa':
-                        modelName = 'TinyML QA (15MB)';
-                        break;
-                    case 'minillm-chat':
-                        modelName = 'MiniLLM Chat (40MB)';
-                        break;
-                    case 'gpt2-small':
-                        modelName = 'GPT-2 Small (120MB)';
-                        break;
-                }
-                
-                modelOption.innerHTML = `
-                    <input type="checkbox" id="${modelId}" name="models" value="${modelId}" checked>
-                    <label for="${modelId}">${modelName}</label>
-                `;
-                
-                modelSelection.appendChild(modelOption);
-            });
-        } catch (error) {
-            console.error('Error updating model selection:', error);
-        }
-    }
-
-    async getAIResponse(message) {
-        if (!this.localAI) {
-            // Load AI model if not already loaded
-            await this.initializeLocalAI();
-        }
-
-        try {
-            // Check if we have a valid localAI instance with runInference method
-            if (this.localAI && typeof this.localAI.runInference === 'function') {
-                // Get selected model or use default
-                const modelSelect = document.getElementById('modelSelect');
-                const selectedModel = modelSelect && modelSelect.value ? modelSelect.value : 'tinyml-qa';
-                
-                // Search Wikipedia for context if available
-                let wikipediaContext = '';
-                if (this.wikipediaManager && typeof this.wikipediaManager.search === 'function') {
-                    try {
-                        const searchResults = await this.wikipediaManager.search(message);
-                        if (searchResults && searchResults.length > 0) {
-                            wikipediaContext = searchResults[0].content;
-                        }
-                    } catch (wikiError) {
-                        console.error('Wikipedia search error:', wikiError);
-                    }
-                }
-                
-                // Prepare prompt with context if available
-                const prompt = wikipediaContext 
-                    ? `Context: ${wikipediaContext}\n\nQuestion: ${message}\n\nAnswer:`
-                    : message;
-                
-                // Run inference
-                return await this.localAI.runInference(selectedModel, prompt);
-            } else {
-                // Fallback response if localAI is not properly initialized
-                return `I'm sorry, the AI model is not properly initialized. Please try refreshing the page.`;
-            }
-        } catch (error) {
-            console.error('Error getting AI response:', error);
-            return `I'm sorry, I encountered an error while processing your request: ${error.message}`;
-        }
-    }
-
-    stopGeneration() {
-        if (this.isGenerating && this.currentGeneration) {
-            // Cancel current generation if possible
-            if (this.localAI && typeof this.localAI.cancelInference === 'function') {
-                this.localAI.cancelInference();
-            }
-            
-            this.isGenerating = false;
-            this.currentGeneration = null;
-            
-            // Hide stop button
-            const stopBtn = document.getElementById('stopBtn');
-            if (stopBtn) {
-                stopBtn.style.display = 'none';
-            }
-            
-            // Show send button
-            const sendBtn = document.querySelector('.send-btn:not(#stopBtn)');
-            if (sendBtn) {
-                sendBtn.style.display = 'block';
-            }
-        }
-    }
+// Export for browser and Node.js environments
+if (typeof window !== 'undefined') {
+    window.AIModelManager = AIModelManager;
+} else if (typeof module !== 'undefined') {
+    module.exports = AIModelManager;
 }
-
-// Initialize when the document is loaded
-document.addEventListener('DOMContentLoaded', () => {
-    try {
-        console.log('✅ EnhancedOfflineApp initialized successfully');
-        window.offlineApp = new EnhancedOfflineApp();
-    } catch (error) {
-        console.error('❌ Failed to initialize EnhancedOfflineApp:', error);
-    }
-});
-
-// Create a compatibility wrapper for backward compatibility
-window.OfflineApp = OfflineAppEnhanced;

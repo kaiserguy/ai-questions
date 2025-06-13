@@ -1,39 +1,51 @@
 // Service Worker for AI Questions Offline Mode
 
 const CACHE_NAME = 'ai-questions-cache-v1';
-const ASSETS_TO_CACHE = [
+const OFFLINE_URL = '/offline';
+
+// Resources to cache immediately on install
+const PRECACHE_RESOURCES = [
   '/',
   '/offline',
-  // Remove references to non-existent files
-  // '/css/styles.css',
-  // '/js/main.js',
-  // '/img/logo.png',
-  '/manifest.json'
+  '/css/styles.css',
+  '/js/main.js',
+  '/manifest.json',
+  '/img/logo.png',
+  '/img/icon-192.png',
+  '/img/icon-512.png',
+  '/offline/ai-models.js',
+  '/offline/wikipedia.js',
+  '/offline/mock-wikipedia-db.js'
 ];
 
-// Install event - cache assets
+// Install event - precache resources
 self.addEventListener('install', event => {
+  console.log('Service worker installing...');
+  
   event.waitUntil(
     caches.open(CACHE_NAME)
       .then(cache => {
         console.log('Opened cache');
-        return cache.addAll(ASSETS_TO_CACHE);
+        return cache.addAll(PRECACHE_RESOURCES);
       })
       .catch(error => {
-        console.error('Cache installation failed:', error);
+        console.error('Precaching failed:', error);
       })
   );
 });
 
 // Activate event - clean up old caches
 self.addEventListener('activate', event => {
+  console.log('Service worker activating...');
+  
   event.waitUntil(
     caches.keys().then(cacheNames => {
       return Promise.all(
-        cacheNames.map(cacheName => {
-          if (cacheName !== CACHE_NAME) {
-            return caches.delete(cacheName);
-          }
+        cacheNames.filter(cacheName => {
+          return cacheName !== CACHE_NAME;
+        }).map(cacheName => {
+          console.log('Deleting old cache:', cacheName);
+          return caches.delete(cacheName);
         })
       );
     })
@@ -42,28 +54,70 @@ self.addEventListener('activate', event => {
 
 // Fetch event - serve from cache or network
 self.addEventListener('fetch', event => {
+  // Skip cross-origin requests
+  if (!event.request.url.startsWith(self.location.origin)) {
+    return;
+  }
+  
+  // Handle API requests differently
+  if (event.request.url.includes('/api/')) {
+    event.respondWith(
+      fetch(event.request)
+        .then(response => {
+          // Clone the response to store in cache
+          const responseToCache = response.clone();
+          
+          caches.open(CACHE_NAME)
+            .then(cache => {
+              cache.put(event.request, responseToCache);
+            });
+          
+          return response;
+        })
+        .catch(() => {
+          // If network request fails, try to serve from cache
+          return caches.match(event.request)
+            .then(cachedResponse => {
+              if (cachedResponse) {
+                return cachedResponse;
+              }
+              
+              // If not in cache, return offline fallback for API
+              return new Response(
+                JSON.stringify({ 
+                  error: 'Network request failed',
+                  offline: true 
+                }),
+                { 
+                  headers: { 'Content-Type': 'application/json' } 
+                }
+              );
+            });
+        })
+    );
+    return;
+  }
+  
+  // For regular requests
   event.respondWith(
     caches.match(event.request)
-      .then(response => {
-        // Cache hit - return response
-        if (response) {
-          return response;
+      .then(cachedResponse => {
+        // Return cached response if available
+        if (cachedResponse) {
+          return cachedResponse;
         }
         
-        // Clone the request
-        const fetchRequest = event.request.clone();
-        
-        return fetch(fetchRequest)
+        // Otherwise fetch from network
+        return fetch(event.request)
           .then(response => {
-            // Check if valid response
+            // Don't cache non-successful responses
             if (!response || response.status !== 200 || response.type !== 'basic') {
               return response;
             }
             
-            // Clone the response
+            // Clone the response to store in cache
             const responseToCache = response.clone();
             
-            // Cache the response
             caches.open(CACHE_NAME)
               .then(cache => {
                 cache.put(event.request, responseToCache);
@@ -72,100 +126,26 @@ self.addEventListener('fetch', event => {
             return response;
           })
           .catch(error => {
-            // If fetch fails, show offline page for navigation requests
+            console.error('Fetch failed:', error);
+            
+            // For navigation requests, serve the offline page
             if (event.request.mode === 'navigate') {
-              return caches.match('/offline');
+              return caches.match(OFFLINE_URL);
             }
             
-            // Otherwise, just propagate the error
-            throw error;
+            // For other requests, return a simple error response
+            return new Response('Network error', { 
+              status: 408, 
+              headers: { 'Content-Type': 'text/plain' } 
+            });
           });
       })
   );
 });
 
-// Background sync for pending requests
-self.addEventListener('sync', event => {
-  if (event.tag === 'sync-pending-requests') {
-    event.waitUntil(syncPendingRequests());
+// Handle messages from clients
+self.addEventListener('message', event => {
+  if (event.data && event.data.type === 'SKIP_WAITING') {
+    self.skipWaiting();
   }
 });
-
-// Function to sync pending requests when online
-async function syncPendingRequests() {
-  try {
-    const db = await openDatabase();
-    const pendingRequests = await db.getAll('pendingRequests');
-    
-    for (const request of pendingRequests) {
-      try {
-        const response = await fetch(request.url, {
-          method: request.method,
-          headers: request.headers,
-          body: request.body
-        });
-        
-        if (response.ok) {
-          await db.delete('pendingRequests', request.id);
-        }
-      } catch (error) {
-        console.error('Failed to sync request:', error);
-      }
-    }
-  } catch (error) {
-    console.error('Error syncing pending requests:', error);
-  }
-}
-
-// IndexedDB for storing pending requests
-function openDatabase() {
-  return new Promise((resolve, reject) => {
-    const request = indexedDB.open('AIQuestionsOfflineDB', 1);
-    
-    request.onerror = event => {
-      reject('Database error: ' + event.target.errorCode);
-    };
-    
-    request.onsuccess = event => {
-      const db = event.target.result;
-      
-      resolve({
-        getAll: (storeName) => {
-          return new Promise((resolve, reject) => {
-            const transaction = db.transaction(storeName, 'readonly');
-            const store = transaction.objectStore(storeName);
-            const request = store.getAll();
-            
-            request.onsuccess = () => resolve(request.result);
-            request.onerror = () => reject(request.error);
-          });
-        },
-        delete: (storeName, key) => {
-          return new Promise((resolve, reject) => {
-            const transaction = db.transaction(storeName, 'readwrite');
-            const store = transaction.objectStore(storeName);
-            const request = store.delete(key);
-            
-            request.onsuccess = () => resolve();
-            request.onerror = () => reject(request.error);
-          });
-        },
-        add: (storeName, item) => {
-          return new Promise((resolve, reject) => {
-            const transaction = db.transaction(storeName, 'readwrite');
-            const store = transaction.objectStore(storeName);
-            const request = store.add(item);
-            
-            request.onsuccess = () => resolve(request.result);
-            request.onerror = () => reject(request.error);
-          });
-        }
-      });
-    };
-    
-    request.onupgradeneeded = event => {
-      const db = event.target.result;
-      db.createObjectStore('pendingRequests', { keyPath: 'id', autoIncrement: true });
-    };
-  });
-}
