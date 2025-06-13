@@ -128,48 +128,99 @@
         window.addEventListener('online', updateConnectionStatus);
         window.addEventListener('offline', updateConnectionStatus);
         
+        // Fallback sample questions for when API is unavailable
+        const fallbackQuestions = [
+            {
+                question: "In '1984', was Winston Smith's rebellion against the Party justified?",
+                context: "In George Orwell's novel '1984', Winston Smith works at the Ministry of Truth but secretly rebels against the totalitarian regime of Big Brother and the Party.",
+                answer: "This is a fallback answer for offline mode. The actual answer would depend on the AI model's analysis of Winston Smith's motivations, actions, and the moral framework applied.",
+                model: "Offline Mode",
+                date: new Date().toISOString()
+            },
+            {
+                question: "How does the concept of 'doublethink' from '1984' relate to modern society?",
+                context: "In '1984', doublethink is described as the act of simultaneously accepting two mutually contradictory beliefs as correct.",
+                answer: "This is a fallback answer for offline mode. The actual answer would explore parallels between Orwell's concept and contemporary examples of cognitive dissonance in politics, media, and social discourse.",
+                model: "Offline Mode",
+                date: new Date().toISOString()
+            }
+        ];
+        
         // Load cached questions
         async function loadCachedQuestions() {
             const container = document.getElementById('questions-container');
             
             try {
                 // Try to fetch from cache first
-                const cache = await caches.open('ai-questions-cache');
+                const cache = await caches.open('ai-questions-cache-v1');
                 const cachedResponse = await cache.match('/api/cached-questions');
                 
                 if (cachedResponse) {
-                    const data = await cachedResponse.json();
-                    displayQuestions(data.questions);
-                } else {
-                    // If not in cache and online, fetch from server
-                    if (navigator.onLine) {
-                        const response = await fetch('/api/daily-question');
-                        const data = await response.json();
-                        
-                        // Store in cache for offline use
-                        const questionsCache = {
-                            questions: [
-                                {
-                                    question: data.question.question,
-                                    context: data.question.context,
-                                    answer: data.answer ? data.answer.answer : 'No answer available',
-                                    model: data.answer ? data.answer.model_name : 'Unknown',
-                                    date: new Date().toISOString()
-                                }
-                            ]
-                        };
-                        
-                        const cache = await caches.open('ai-questions-cache');
-                        await cache.put('/api/cached-questions', new Response(JSON.stringify(questionsCache)));
-                        
-                        displayQuestions(questionsCache.questions);
-                    } else {
-                        container.innerHTML = '<p>No cached questions available. Connect to the internet to download questions.</p>';
+                    try {
+                        const data = await cachedResponse.json();
+                        displayQuestions(data.questions);
+                        return;
+                    } catch (parseError) {
+                        console.error('Error parsing cached response:', parseError);
+                        // Continue to next approach if parsing fails
                     }
                 }
+                
+                // If not in cache and online, fetch from server
+                if (navigator.onLine) {
+                    try {
+                        const response = await fetch('/api/daily-question');
+                        
+                        if (response.ok) {
+                            const contentType = response.headers.get('content-type');
+                            if (contentType && contentType.includes('application/json')) {
+                                const data = await response.json();
+                                
+                                // Store in cache for offline use
+                                const questionsCache = {
+                                    questions: [
+                                        {
+                                            question: data.question.question,
+                                            context: data.question.context,
+                                            answer: data.answer ? data.answer.answer : 'No answer available',
+                                            model: data.answer ? data.answer.model_name : 'Unknown',
+                                            date: new Date().toISOString()
+                                        }
+                                    ]
+                                };
+                                
+                                const cache = await caches.open('ai-questions-cache-v1');
+                                await cache.put('/api/cached-questions', new Response(JSON.stringify(questionsCache)));
+                                
+                                displayQuestions(questionsCache.questions);
+                                return;
+                            } else {
+                                console.warn('API response is not JSON, using fallback content');
+                            }
+                        } else {
+                            console.warn('API request failed with status:', response.status);
+                        }
+                    } catch (fetchError) {
+                        console.error('Error fetching from API:', fetchError);
+                        // Continue to fallback if fetch fails
+                    }
+                }
+                
+                // If all else fails, use fallback content
+                displayQuestions(fallbackQuestions);
+                
+                // Also store fallback content in cache for future offline use
+                try {
+                    const cache = await caches.open('ai-questions-cache-v1');
+                    await cache.put('/api/cached-questions', new Response(JSON.stringify({ questions: fallbackQuestions })));
+                } catch (cacheError) {
+                    console.error('Error storing fallback content in cache:', cacheError);
+                }
+                
             } catch (error) {
                 console.error('Error loading cached questions:', error);
-                container.innerHTML = '<p>Error loading questions: ' + error.message + '</p>';
+                container.innerHTML = '<p>Error loading questions. Displaying fallback content.</p>';
+                displayQuestions(fallbackQuestions);
             }
         }
         
@@ -177,7 +228,7 @@
             const container = document.getElementById('questions-container');
             
             if (!questions || questions.length === 0) {
-                container.innerHTML = '<p>No cached questions available.</p>';
+                container.innerHTML = '<p>No questions available. Please try again later.</p>';
                 return;
             }
             
@@ -205,4 +256,3 @@
     </script>
 </body>
 </html>
-
