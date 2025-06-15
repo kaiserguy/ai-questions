@@ -15,6 +15,7 @@ const fs = require("fs");
 const archiver = require("archiver");
 
 // Import core components
+const offlinePackageRoutes = require("./core/offline-package-routes");
 const createApp = require("./core/app");
 const PostgresDatabase = require("./core/pg-db");
 const ExternalLLMClient = require("./core/external-llm-client");
@@ -143,6 +144,8 @@ const ensureAuthenticated = (req, res, next) => {
     }
     res.redirect("/login");
 };
+
+app.use("/", offlinePackageRoutes(app));
 
 // Mount common routes
 app.use("/", commonRoutes(db, ai, wikipedia, PUBLIC_CONFIG));
