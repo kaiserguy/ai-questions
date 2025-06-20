@@ -89,7 +89,7 @@
     },
     {
       "parameters": {
-        "url": "http://ai-questions:4000/api/agent/connectivity-update",
+        "url": "http://localhost:3000/api/agent/connectivity-update",
         "sendBody": true,
         "bodyContentType": "json",
         "jsonBody": "={{JSON.stringify($json.connectivity)}}",

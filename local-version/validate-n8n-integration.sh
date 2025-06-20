@@ -19,7 +19,7 @@ echo "✅ n8n is running"
 
 # Check if the AI Questions server is running
 echo "Checking AI Questions server availability..."
-server_status=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:4000 || echo "failed")
+server_status=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:3000 || echo "failed")
 
 if [ "$server_status" = "failed" ] || [ "$server_status" != "200" ]; then
   echo "⚠️ AI Questions server is not running. Please start the server before running this test."
@@ -55,7 +55,7 @@ fi
 
 # Test frontend integration
 echo "Testing frontend integration with n8n..."
-frontend_test=$(curl -s http://localhost:4000 | grep -c "n8n-query-logging.js")
+frontend_test=$(curl -s http://localhost:3000 | grep -c "n8n-query-logging.js")
 
 if [ "$frontend_test" -gt 0 ]; then
   echo "✅ Frontend integration test passed"

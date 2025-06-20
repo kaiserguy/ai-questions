@@ -8,23 +8,23 @@ echo "Starting AI Questions (Local) directly..."
 # Define directories
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
 
-# Check if port 4000 is already in use
-if lsof -Pi :4000 -sTCP:LISTEN -t >/dev/null ; then
-    echo "Port 4000 is already in use. Attempting to free it..."
-    lsof -ti:4000 | xargs kill -9 2>/dev/null || true
+# Check if port 3000 is already in use
+if lsof -Pi :3000 -sTCP:LISTEN -t >/dev/null ; then
+    echo "Port 3000 is already in use. Attempting to free it..."
+    lsof -ti:3000 | xargs kill -9 2>/dev/null || true
     sleep 2
-    if lsof -Pi :4000 -sTCP:LISTEN -t >/dev/null ; then
-        echo "Failed to free port 4000. Please close the application using this port and try again."
+    if lsof -Pi :3000 -sTCP:LISTEN -t >/dev/null ; then
+        echo "Failed to free port 3000. Please close the application using this port and try again."
         exit 1
     else
-        echo "Successfully freed port 4000."
+        echo "Successfully freed port 3000."
     fi
 fi
 
 # Start AI Questions with improved error handling
 echo "Starting AI Questions..."
 export LOCAL_MODE=true
-export PORT=4000
+export PORT=3000
 export N8N_READY=false # Simulate n8n not ready for direct processing fallback
 
 # Start in background but capture PID
@@ -38,7 +38,7 @@ attempt=0
 ai_questions_ready=false
 
 while [ $attempt -lt $max_attempts ]; do
-    if curl -s http://localhost:4000 > /dev/null; then
+    if curl -s http://localhost:3000 > /dev/null; then
         echo "AI Questions is ready!"
         ai_questions_ready=true
         break
@@ -67,7 +67,7 @@ fi
 echo "=================================================="
 echo "AI Questions (Local) is now running!"
 echo "=================================================="
-echo "AI Questions: http://localhost:4000"
+echo "AI Questions: http://localhost:3000"
 echo "n8n Status: Not Running (Simulated Fallback)"
 echo "=================================================="
 echo "Press Ctrl+C to stop the service"

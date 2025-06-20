@@ -16,7 +16,7 @@ NC='\033[0m' # No Color
 DB_NAME="ai_questions_local"
 DB_USER="aiuser"
 DB_PASSWORD="aipassword"
-APP_PORT="4000"
+APP_PORT="3000"
 
 # ===== WIKIPEDIA SETTINGS =====
 # Wikipedia database configuration
@@ -312,139 +312,8 @@ sudo ufw allow $APP_PORT/tcp
 sudo ufw allow 80/tcp
 sudo ufw allow 443/tcp
 
-# Create start/stop scripts
-echo -e "${BLUE}📝 Creating control scripts...${NC}"
-
-# Start script
-cat > start-local.sh << 'EOF'
-#!/bin/bash
-echo "🚀 Starting AI Questions..."
-
-# Load environment variables
-if [ -f .env.local ]; then
-    export $(cat .env.local | grep -v '^#' | xargs)
-fi
-
-# Check if Ollama is running
-if ! systemctl is-active --quiet ollama; then
-    echo "🤖 Starting Ollama service..."
-    sudo systemctl start ollama
-    sleep 3
-fi
-
-# Wait for Ollama to be ready
-echo "⏳ Waiting for Ollama to be ready..."
-for i in {1..15}; do
-    if curl -s http://localhost:11434/api/tags > /dev/null 2>&1; then
-        echo "✅ Ollama is ready"
-        break
-    fi
-    if [ $i -eq 15 ]; then
-        echo "⚠️  Ollama not responding, continuing anyway..."
-    fi
-    sleep 1
-done
-
-# Start the application
-node index.js
-EOF
-
-# Stop script
-cat > stop-local.sh << 'EOF'
-#!/bin/bash
-echo "🛑 Stopping AI Questions..."
-
-# Find and kill the process
-PID=$(pgrep -f "node index.js")
-if [ ! -z "$PID" ]; then
-    kill $PID
-    echo "✅ AI Questions stopped"
-else
-    echo "ℹ️  AI Questions is not running"
-fi
-EOF
-
-# Status script
-cat > status-local.sh << 'EOF'
-#!/bin/bash
-echo "📊 AI Questions Status"
-echo "====================="
-
-# Check if process is running
-PID=$(pgrep -f "node index.js")
-if [ ! -z "$PID" ]; then
-    echo "✅ Status: Running (PID: $PID)"
-    echo "🌐 URL: http://localhost:$(grep PORT .env.local | cut -d'=' -f2)"
-else
-    echo "❌ Status: Not running"
-fi
-
-# Check Ollama status
-if systemctl is-active --quiet ollama; then
-    echo "✅ Ollama: Running"
-    
-    # Check available models
-    if curl -s http://localhost:11434/api/tags > /dev/null 2>&1; then
-        MODEL_COUNT=$(curl -s http://localhost:11434/api/tags | jq '.models | length' 2>/dev/null || echo "0")
-        echo "🤖 Local Models: $MODEL_COUNT available"
-    else
-        echo "⚠️  Ollama: Service running but not responding"
-    fi
-else
-    echo "❌ Ollama: Not running"
-fi
-
-# Check database connection
-if [ -f .env.local ]; then
-    export $(cat .env.local | grep -v '^#' | xargs)
-    if psql "$DATABASE_URL" -c '\q' 2>/dev/null; then
-        echo "✅ Database: Connected"
-    else
-        echo "❌ Database: Connection failed"
-    fi
-fi
-
-# Check disk space
-echo "💾 Disk usage: $(df -h . | tail -1 | awk '{print $5}')"
-
-# Check memory usage
-echo "🧠 Memory usage: $(free -h | grep '^Mem:' | awk '{print $3"/"$2}')"
-EOF
-
 # Make scripts executable
-chmod +x start-local.sh stop-local.sh status-local.sh
-
-# Create backup script
-cat > backup-local.sh << 'EOF'
-#!/bin/bash
-echo "💾 Creating backup..."
-
-# Load environment variables
-if [ -f .env.local ]; then
-    export $(cat .env.local | grep -v '^#' | xargs)
-fi
-
-# Create backup directory
-BACKUP_DIR="backups/$(date +%Y%m%d_%H%M%S)"
-mkdir -p "$BACKUP_DIR"
-
-# Backup database
-echo "📊 Backing up database..."
-pg_dump "$DATABASE_URL" > "$BACKUP_DIR/database.sql"
-
-# Backup configuration
-echo "⚙️ Backing up configuration..."
-cp .env.local "$BACKUP_DIR/"
-
-# Create archive
-echo "📦 Creating archive..."
-tar -czf "$BACKUP_DIR.tar.gz" "$BACKUP_DIR"
-rm -rf "$BACKUP_DIR"
-
-echo "✅ Backup created: $BACKUP_DIR.tar.gz"
-EOF
-
-chmod +x backup-local.sh
+chmod +x start-local.sh stop-local.sh status-local.sh backup-local.sh
 
 # Create logs directory
 mkdir -p logs

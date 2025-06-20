@@ -34,7 +34,7 @@
     },
     {
       "parameters": {
-        "url": "http://ai-questions:4000/api/wikipedia/article/{{$parameter.id}}",
+        "url": "http://localhost:3000/api/wikipedia/article/{{$parameter.id}}",
         "options": {}
       },
       "id": "fetch-article",

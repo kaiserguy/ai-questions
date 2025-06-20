@@ -24,7 +24,7 @@ const N8nAgentIntegration = require("./local-version/n8n-agent-integration");
 const LOCAL_CONFIG = {
     isLocal: true,
     app: {
-        port: process.env.PORT || 4000,
+        port: process.env.PORT || 3000,
         name: "AI Questions (Local)"
     },
     session: {
