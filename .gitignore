@@ -6,3 +6,4 @@ local-version/wikipedia.db-shm
 local-version/wikipedia.db-wal
 local-version/__pycache__/*
 local-version/wikipedia_data/*
+**.log
