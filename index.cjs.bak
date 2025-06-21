@@ -1817,7 +1817,7 @@ app.get('/download/offline', async (req, res) => {
     });
     
     // Add local version files to inner zip
-    innerArchive.directory(path.join(__dirname, 'local-version'), false);
+    innerArchive.directory(path.join(__dirname, 'local'), false);
     innerArchive.finalize();
     
   } catch (error) {

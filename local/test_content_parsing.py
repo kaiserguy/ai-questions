@@ -5,7 +5,7 @@ Test the Wikipedia content parsing to debug the infobox issue
 
 import sys
 import os
-sys.path.append('/home/ubuntu/ai-questions/local-version')
+sys.path.append('/home/ubuntu/ai-questions/local')
 
 from wikipedia_search import WikipediaSearchEngine
 

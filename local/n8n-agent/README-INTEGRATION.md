@@ -111,7 +111,7 @@ n8n exposes these webhook endpoints for the application:
 
 1. Run the setup script:
    ```bash
-   cd /home/ubuntu/ai-questions/local-version
+   cd /home/ubuntu/ai-questions/local
    ./setup-ai-agent.sh
    ```
 

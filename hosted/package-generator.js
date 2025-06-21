@@ -81,17 +81,14 @@ class PackageGenerator {
             // Add core files
             archive.directory(path.join(__dirname, 'core'), 'core');
             
-            // Add local-version specific files
-            archive.directory(path.join(__dirname, 'local-version'), 'local-version');
+            // Add local specific files
+            archive.directory(path.join(__dirname, 'local'), 'local');
             
             // Add views
             archive.directory(path.join(__dirname, 'views'), 'views');
             
             // Add public assets
             archive.directory(path.join(__dirname, 'public'), 'public');
-            
-            // Add local-app.js
-            archive.file(path.join(__dirname, 'local-app.js'), { name: 'local-app.js' });
             
             // Add package.json with dependencies
             archive.file(path.join(__dirname, 'package.json'), { name: 'package.json' });
@@ -125,8 +122,8 @@ class PackageGenerator {
             archive.file(path.join(__dirname, 'README.md'), { name: 'README.md' });
             
             // Add installation scripts
-            archive.file(path.join(__dirname, 'local-version/setup-local.sh'), { name: 'setup-local.sh' });
-            archive.file(path.join(__dirname, 'local-version/start-local.sh'), { name: 'start-local.sh' });
+            archive.file(path.join(__dirname, 'local/setup-local.sh'), { name: 'setup-local.sh' });
+            archive.file(path.join(__dirname, 'local/start-local.sh'), { name: 'start-local.sh' });
             
             // Add license
             if (fs.existsSync(path.join(__dirname, 'LICENSE'))) {

@@ -6,7 +6,7 @@ This document outlines a re-architecture plan for the AI Questions project, aimi
 
 ## 2. Current Architecture Analysis
 
-The existing project structure involves two primary entry points: `index.cjs` for the publicly-hosted version and `local-version/index.js` for the locally-hosted version. While both share common functionalities such as question retrieval, answer generation, and EJS templating, their implementations are largely duplicated. Key observations include:
+The existing project structure involves two primary entry points: `index.cjs` for the publicly-hosted version and `local/index.js` for the locally-hosted version. While both share common functionalities such as question retrieval, answer generation, and EJS templating, their implementations are largely duplicated. Key observations include:
 
 *   **Duplicated Server Setup**: Both versions initialize Express applications, set up view engines, and configure middleware independently.
 *   **Divergent Database Handling**: The public version uses PostgreSQL with user authentication and persistent storage, while the local version employs a mock database to avoid external dependencies and simplify local setup.

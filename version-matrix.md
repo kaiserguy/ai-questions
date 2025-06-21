@@ -69,7 +69,7 @@ AI Questions is available in two primary deployment flavors: a publicly-hosted v
 - Scheduled backups
 
 **Locally-Hosted Version:**
-- In-memory mock database
+- In-memory database
 - Session-only persistence
 - Data lost on application restart
 - Optional file-based storage for answers
@@ -93,9 +93,10 @@ AI Questions is available in two primary deployment flavors: a publicly-hosted v
 ### Offline Capabilities
 
 **Publicly-Hosted Version:**
-- HTML5 offline mode
+- HTML5 offline mode via /offline endpoint
 - Service worker for resource caching
-- Limited functionality when offline
+- Local AI chat when offline
+- Local Wikipedia AI search offline
 
 **Locally-Hosted Version:**
 - Fully offline by design
@@ -105,8 +106,9 @@ AI Questions is available in two primary deployment flavors: a publicly-hosted v
 ### Wikipedia Integration
 
 **Publicly-Hosted Version:**
-- Optional Wikipedia integration
-- Requires separate setup
+- Offline AI Wikipedia integration
+- Basic English Wikipedia installed during offline initilization
+- Offline search and context extraction
 
 **Locally-Hosted Version:**
 - Included by default
@@ -181,8 +183,12 @@ AI Questions is available in two primary deployment flavors: a publicly-hosted v
 **Setup:**
 1. Download package from public version
 2. Run setup script
-3. Start local server
 4. Download recommended AI models
+5. Download Wikipedia dump
+6. Configure n8n workflows
+7. Start n8n management portal
+8. Configure Ollama models
+9. Start local server
 
 **Maintenance:**
 - Manual updates
@@ -197,7 +203,7 @@ The project has been re-architected to maximize code reuse between versions:
   - `app.js` - Base Express application setup
   - `db-interface.js` - Database interface
   - `pg-db.js` - PostgreSQL implementation
-  - `mock-db.js` - In-memory implementation
+  - `db.js` - In-memory implementation
   - `ai-interface.js` - AI model interface
   - `ollama-client.js` - Local AI implementation
   - `external-llm-client.js` - External API implementation
@@ -207,7 +213,7 @@ The project has been re-architected to maximize code reuse between versions:
 - `public-app.js` - Entry point for publicly-hosted version
 - `local-app.js` - Entry point for locally-hosted version
 
-- `local-version/` - Local-specific components
+- `local/` - Local-specific components
   - `n8n-integration.js` - n8n workflow integration
   - `setup-local.sh` - Local setup script
   - `start-local.sh` - Local startup script

@@ -1,9 +1,10 @@
 node_modules/
-local-version/.env.local
-local-version/backup-local.sh
-local-version/wikipedia.db
-local-version/wikipedia.db-shm
-local-version/wikipedia.db-wal
-local-version/__pycache__/*
-local-version/wikipedia_data/*
+local/.env.local
+local/backup-local.sh
+local/wikipedia.db
+local/wikipedia.db-shm
+local/wikipedia.db-wal
+local/__pycache__/*
+local/wikipedia_data/*
 **.log
+.env

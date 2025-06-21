@@ -16,13 +16,10 @@ const archiver = require("archiver");
 
 // Import core components
 const offlinePackageRoutes = require("./core/offline-package-routes");
-const createApp = require("./core/app");
-const PostgresDatabase = require("./core/pg-db");
-const ExternalLLMClient = require("./core/external-llm-client");
-const WikipediaIntegration = require("./core/wikipedia-integration");
-const commonRoutes = require("./core/routes");
-const DummyPgDb = require("./core/dummy-pg-db");
-const DummyAiClient = require("./core/dummy-ai-client");
+const createApp = require("../core/app");
+const PostgresDatabase = require("../core/pg-db");
+const ExternalLLMClient = require("../core/external-llm-client");
+const commonRoutes = require("../core/routes");
 
 // Public configuration
 const PUBLIC_CONFIG = {
@@ -56,15 +53,6 @@ const PUBLIC_CONFIG = {
     }
 };
 
-// Initialize database (using DummyPgDb for testing)
-const db = new DummyPgDb();
-
-// Initialize AI client (using DummyAiClient for testing)
-const ai = new DummyAiClient();
-
-// Initialize Wikipedia integration
-const wikipedia = new WikipediaIntegration(PUBLIC_CONFIG.wikipedia.dbPath);
-
 // Create Express app with core setup
 const app = createApp(PUBLIC_CONFIG);
 
@@ -82,39 +70,9 @@ app.use(session({
 app.use(passport.initialize());
 app.use(passport.session());
 
-// Dummy Google OAuth Strategy for testing
-passport.use(new GoogleStrategy({
-    clientID: "dummy-client-id",
-    clientSecret: "dummy-client-secret",
-    callbackURL: "/auth/google/callback"
-}, (accessToken, refreshToken, profile, done) => {
-    // Simulate a user
-    const user = {
-        id: "public-user-123",
-        google_id: "dummy-google-id",
-        email: "public@example.com",
-        name: "Public User",
-        avatar_url: "/img/default-avatar.png"
-    };
-    return done(null, user);
-}));
-
 // Serialize user for session
 passport.serializeUser((user, done) => {
     done(null, user.id);
-});
-
-// Deserialize user from session
-passport.deserializeUser(async (id, done) => {
-    // Simulate fetching user from DB
-    const user = {
-        id: "public-user-123",
-        google_id: "dummy-google-id",
-        email: "public@example.com",
-        name: "Public User",
-        avatar_url: "/img/default-avatar.png"
-    };
-    done(null, user);
 });
 
 // Authentication routes
@@ -148,7 +106,7 @@ const ensureAuthenticated = (req, res, next) => {
 app.use("/", offlinePackageRoutes(app));
 
 // Mount common routes
-app.use("/", commonRoutes(db, ai, wikipedia, PUBLIC_CONFIG));
+app.use("/", commonRoutes(db, ai, PUBLIC_CONFIG));
 
 // Serve offline HTML5 endpoint
 app.get("/offline", (req, res) => {
@@ -195,8 +153,8 @@ app.get("/generate-local-package", async (req, res) => {
         // Pipe archive data to the file
         archive.pipe(output);
         
-        // Add files from local-version directory
-        archive.directory(path.join(__dirname, "local-version"), "local-version");
+        // Add files from local directory
+        archive.directory(path.join(__dirname, "local"), "local");
         
         // Add core files
         archive.directory(path.join(__dirname, "core"), "core");
@@ -215,8 +173,8 @@ app.get("/generate-local-package", async (req, res) => {
         
         // Add README and installation instructions
         archive.file(path.join(__dirname, "README.md"), { name: "README.md" });
-        archive.file(path.join(__dirname, "local-version/setup-local.sh"), { name: "setup-local.sh" });
-        archive.file(path.join(__dirname, "local-version/start-local.sh"), { name: "start-local.sh" });
+        archive.file(path.join(__dirname, "local/setup-local.sh"), { name: "setup-local.sh" });
+        archive.file(path.join(__dirname, "local/start-local.sh"), { name: "start-local.sh" });
         
         // Finalize the archive
         await archive.finalize();

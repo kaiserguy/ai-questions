@@ -10,15 +10,15 @@ const path = require("path");
 const fs = require("fs");
 
 // Import core components
-const createApp = require("./core/app");
-const MockDatabase = require("./core/mock-db");
-const OllamaClient = require("./core/ollama-client");
-const WikipediaIntegration = require("./core/wikipedia-integration");
-const commonRoutes = require("./core/routes");
-const DummyAiClient = require("./core/dummy-ai-client");
+const createApp = require("../core/app");
+const MockDatabase = require("../core/db");
+const OllamaClient = require("../core/ollama-client");
+const WikipediaIntegration = require("../core/wikipedia-integration");
+const commonRoutes = require("../core/routes");
+const DummyAiClient = require("../core/ai-client");
 
 // Import n8n integration
-const N8nAgentIntegration = require("./local-version/n8n-agent-integration");
+const N8nAgentIntegration = require("./n8n-agent-integration");
 
 // Local configuration
 const LOCAL_CONFIG = {
@@ -31,13 +31,6 @@ const LOCAL_CONFIG = {
         secret: "local-session-secret",
         secure: false,
         maxAge: 24 * 60 * 60 * 1000 // 24 hours
-    },
-    defaultUser: {
-        id: 1,
-        google_id: "local-user",
-        email: "local@example.com",
-        name: "Local User",
-        avatar_url: "/img/default-avatar.png"
     },
     ollama: {
         url: process.env.OLLAMA_URL || "http://localhost:11434"
@@ -69,13 +62,6 @@ const n8n = {
 
 // Create Express app with core setup
 const app = createApp(LOCAL_CONFIG);
-
-// Add middleware to inject default user for local mode
-app.use((req, res, next) => {
-    req.user = LOCAL_CONFIG.defaultUser;
-    req.isAuthenticated = () => true;
-    next();
-});
 
 // Mount common routes
 app.use("/", commonRoutes(db, ai, wikipedia, LOCAL_CONFIG));

@@ -1,0 +1,124 @@
+<div id="chat-section" class="chat-section" style="background: #fff; border-radius: 8px; padding: 20px; margin-bottom: 20px; border: 1px solid #ddd; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+  <h4 style="margin: 0 0 15px 0; color: #333;">💬 Chat with Local AI</h4>
+  <p style="margin: 0 0 15px 0; color: #666; font-size: 14px;">Have a conversation with your local AI models. Responses will include Wikipedia links when relevant.</p>
+  
+  <!-- Chat Model Selector -->
+  <div style="margin-bottom: 15px;">
+      <label for="chat-model-select" style="display: block; margin-bottom: 5px; font-weight: 500;">Select AI Model:</label>
+      <select id="chat-model-select" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px; background: white;">
+          <option value="">Loading models...</option>
+      </select>
+  </div>
+  
+  <!-- Chat Messages Container -->
+  <div id="chat-messages" style="
+      height: 400px; 
+      overflow-y: auto; 
+      border: 1px solid #e9ecef; 
+      border-radius: 8px; 
+      padding: 15px; 
+      margin-bottom: 15px; 
+      background: #fafafa;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  ">
+      <div class="chat-welcome" style="text-align: center; color: #666; padding: 20px;">
+          <p>👋 Welcome to Local AI Chat!</p>
+          <p>Start a conversation with your local AI model. Your conversations are private and not stored.</p>
+      </div>
+  </div>
+  
+  <!-- Chat Input -->
+  <div style="display: flex; gap: 10px;">
+      <input type="text" id="chat-input" placeholder="Type your message..." style="
+          flex: 1; 
+          padding: 12px; 
+          border: 1px solid #ddd; 
+          border-radius: 6px; 
+          font-size: 14px;
+      " onkeypress="if(event.key==='Enter') sendChatMessage()">
+      <button onclick="sendChatMessage()" id="chat-send-btn" style="
+          background: #007bff; 
+          color: white; 
+          border: none; 
+          padding: 12px 20px; 
+          border-radius: 6px; 
+          cursor: pointer;
+          font-weight: 500;
+      ">Send</button>
+      <button onclick="clearChat()" style="
+          background: #6c757d; 
+          color: white; 
+          border: none; 
+          padding: 12px 16px; 
+          border-radius: 6px; 
+          cursor: pointer;
+      ">Clear</button>
+  </div>
+  
+  <!-- Chat Options -->
+  <div style="margin-top: 10px; display: flex; gap: 15px; align-items: center; font-size: 14px; flex-wrap: wrap;">
+      <label style="display: flex; align-items: center; gap: 5px;">
+          <input type="checkbox" id="chat-wikipedia-enabled" checked>
+          <span>🔗 Include Wikipedia links</span>
+      </label>
+      <label style="display: flex; align-items: center; gap: 5px;">
+          <input type="checkbox" id="chat-context-enabled" checked>
+          <span>🧠 Use conversation context</span>
+      </label>
+      <button onclick="toggleQueryLog()" id="query-log-toggle" style="
+          background: #f8f9fa; 
+          border: 1px solid #dee2e6; 
+          padding: 4px 8px; 
+          border-radius: 4px; 
+          cursor: pointer; 
+          font-size: 12px;
+          color: #495057;
+      ">
+          🔍 Show Query Logs <span id="query-log-indicator"></span>
+      </button>
+  </div>
+  
+  <!-- Query Log Container (Hidden by default) -->
+  <div id="query-log-container" style="
+      display: none;
+      margin-top: 15px;
+      border: 1px solid #dee2e6;
+      border-radius: 6px;
+      background: #f8f9fa;
+      max-height: 300px;
+      overflow: hidden;
+  ">
+      <div style="
+          padding: 10px 15px;
+          background: #e9ecef;
+          border-bottom: 1px solid #dee2e6;
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          font-weight: 500;
+          font-size: 14px;
+      ">
+          <span>🔍 Wikipedia Query Logs</span>
+          <button onclick="clearQueryLogs()" style="
+              background: none;
+              border: none;
+              color: #6c757d;
+              cursor: pointer;
+              font-size: 12px;
+              padding: 2px 6px;
+              border-radius: 3px;
+          " onmouseover="this.style.background='#dee2e6'" onmouseout="this.style.background='none'">
+              Clear
+          </button>
+      </div>
+      <div id="query-log-content" style="
+          padding: 10px;
+          max-height: 250px;
+          overflow-y: auto;
+          font-size: 12px;
+          line-height: 1.4;
+      ">
+          <div class="query-log-empty">No query logs yet. Start a conversation to see Wikipedia search details.</div>
+      </div>
+  </div>
+</div>

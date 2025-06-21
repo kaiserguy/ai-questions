@@ -69,49 +69,41 @@ if [ -f /etc/os-release ]; then
     fi
 fi
 
-# Check available disk space (need at least 2GB)
-AVAILABLE_SPACE=$(df . | tail -1 | awk '{print $4}')
-REQUIRED_SPACE=2097152  # 2GB in KB
-if [ $AVAILABLE_SPACE -lt $REQUIRED_SPACE ]; then
-    echo -e "${RED}❌ Insufficient disk space${NC}"
-    echo "Required: 2GB, Available: $(($AVAILABLE_SPACE / 1024 / 1024))GB"
-    exit 1
-fi
-
-echo -e "${GREEN}✅ System requirements met${NC}"
-echo ""
-
-# Extract the application files
-echo -e "${BLUE}📦 Extracting application files...${NC}"
-if [ ! -f "ai-questions-local.zip" ]; then
-    echo -e "${RED}❌ ai-questions-local.zip not found${NC}"
-    echo "This file should be in the same directory as this installer."
-    exit 1
-fi
-
-# Create installation directory
-INSTALL_DIR="$HOME/ai-questions-local"
+# Create installation directory if missing
+INSTALL_DIR="./local"
 if [ -d "$INSTALL_DIR" ]; then
-    echo -e "${YELLOW}⚠️  Installation directory already exists: $INSTALL_DIR${NC}"
-    read -p "Remove existing installation and continue? (y/N): " -n 1 -r
-    echo
-    if [[ $REPLY =~ ^[Yy]$ ]]; then
-        rm -rf "$INSTALL_DIR"
-    else
-        echo "Installation cancelled."
+    # continue if directory exists
+    echo -e "${YELLOW}⚠️  Installation directory $INSTALL_DIR already exists. Continuing...${NC}"
+else
+    # Check available disk space (need at least 2GB)
+    AVAILABLE_SPACE=$(df . | tail -1 | awk '{print $4}')
+    REQUIRED_SPACE=2097152  # 2GB in KB
+    if [ $AVAILABLE_SPACE -lt $REQUIRED_SPACE ]; then
+        echo -e "${RED}❌ Insufficient disk space${NC}"
+        echo "Required: 2GB, Available: $(($AVAILABLE_SPACE / 1024 / 1024))GB"
         exit 1
     fi
-fi
 
-# Extract files
-unzip -q ai-questions-local.zip -d "$HOME/"
-if [ $? -eq 0 ]; then
-    echo -e "${GREEN}✅ Files extracted to $INSTALL_DIR${NC}"
-else
-    echo -e "${RED}❌ Failed to extract files${NC}"
-    exit 1
-fi
+    echo -e "${GREEN}✅ System requirements met${NC}"
+    echo ""
 
+    # Extract the application files
+    echo -e "${BLUE}📦 Extracting application files...${NC}"
+    if [ ! -f "ai-questions-local.zip" ]; then
+        echo -e "${RED}❌ ai-questions-local.zip not found${NC}"
+        echo "This file should be in the same directory as this installer."
+        exit 1
+    fi
+    # Extract files
+    unzip -q ai-questions-local.zip -d "$HOME/"
+    if [ $? -eq 0 ]; then
+        echo -e "${GREEN}✅ Files extracted to $INSTALL_DIR${NC}"
+    else
+        echo -e "${RED}❌ Failed to extract files${NC}"
+        exit 1
+    fi
+
+fi
 # Change to installation directory
 cd "$INSTALL_DIR"
 

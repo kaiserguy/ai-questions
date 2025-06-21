@@ -28,7 +28,7 @@ export PORT=3000
 export N8N_READY=false # Simulate n8n not ready for direct processing fallback
 
 # Start in background but capture PID
-(cd /home/ubuntu/ai-questions && node local-app.js) &
+(node local-app.js) &
 AI_QUESTIONS_PID=$!
 
 # Wait for AI Questions to be ready
