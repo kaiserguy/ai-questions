@@ -187,5 +187,32 @@ Total size: ${cache.formatBytes(manifest.totalSize)}
     }
 });
 
+// Get minimal package manifest
+router.get('/api/offline/packages/minimal/manifest', (req, res) => {
+    try {
+        const manifest = cache.getManifest();
+        
+        if (!manifest) {
+            return res.status(404).json({ 
+                success: false,
+                error: 'Manifest not found',
+                message: 'Use /api/offline/packages/build to cache resources first'
+            });
+        }
+
+        res.json({
+            success: true,
+            manifest: manifest
+        });
+    } catch (error) {
+        console.error('Error getting minimal package manifest:', error);
+        res.status(500).json({ 
+            success: false,
+            error: 'Failed to get manifest',
+            message: error.message
+        });
+    }
+});
+
 module.exports = router;
 
