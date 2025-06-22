@@ -25,7 +25,7 @@ fi
 echo "Starting AI Questions..."
 export LOCAL_MODE=true
 export PORT=3000
-export N8N_READY=false # Simulate n8n not ready for direct processing fallback
+export N8N_READY=false # TODO: Check actual n8n status for direct processing fallback
 
 # Start in background but capture PID
 (node local-app.js) &
@@ -68,7 +68,7 @@ echo "=================================================="
 echo "AI Questions (Local) is now running!"
 echo "=================================================="
 echo "AI Questions: http://localhost:3000"
-echo "n8n Status: Not Running (Simulated Fallback)"
+echo "n8n Status: Not Running (TODO: Implement actual fallback)"
 echo "=================================================="
 echo "Press Ctrl+C to stop the service"
 

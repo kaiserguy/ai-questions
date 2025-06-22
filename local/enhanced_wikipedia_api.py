@@ -204,7 +204,7 @@ class EnhancedWikipediaAPI:
             final_results = list(all_results.values())
             final_results.sort(key=lambda x: x.relevance_score, reverse=True)
             
-            # Review articles for relevance (simulated LLM review)
+            # TODO: Review articles for relevance using actual LLM
             reviewed_results = []
             for i, result in enumerate(final_results[:limit]):
                 status_log.append(f"Reviewing article {i+1} of {min(len(final_results), limit)}: '{result.title}'")
