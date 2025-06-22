@@ -90,10 +90,9 @@ class WikipediaManager {
             
             this.updateStatus('Loading SQL.js library...');
             
-            // In a real implementation, this would load the actual library
-            // For now, we'll simulate loading
+            // TODO: Load actual SQL.js library
             setTimeout(() => {
-                // Simulate the SQL global object
+                // TODO: Initialize actual SQL library
                 window.SQL = {
                     Database: class {
                         constructor(data) {
@@ -102,13 +101,13 @@ class WikipediaManager {
                         }
                         
                         exec(sql) {
-                            // Simulate SQL execution
+                            // TODO: Execute actual SQL
                             console.log(`Executing SQL: ${sql}`);
                             return [];
                         }
                         
                         prepare(sql) {
-                            // Simulate prepared statement
+                            // TODO: Create actual prepared statement
                             return {
                                 bind: (params) => {},
                                 step: () => false,
@@ -139,19 +138,18 @@ class WikipediaManager {
         
         this.updateStatus(`Loading Wikipedia database (${config.articles})...`);
         
-        // In a real implementation, this would load the actual database
-        // For now, we'll simulate loading
+        // TODO: Load actual database
         return new Promise((resolve) => {
             setTimeout(() => {
-                // Simulate database object
+                // TODO: Create actual database object
                 this.db = {
                     exec: (sql) => {
-                        // Simulate SQL execution
+                        // TODO: Execute actual SQL
                         console.log(`Executing SQL: ${sql}`);
                         return [];
                     },
                     prepare: (sql) => {
-                        // Simulate prepared statement
+                        // TODO: Create actual prepared statement
                         return {
                             bind: (params) => {},
                             step: () => false,

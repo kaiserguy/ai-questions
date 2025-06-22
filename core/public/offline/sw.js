@@ -161,7 +161,7 @@ async function handleOfflineChat(request) {
         const body = await request.json();
         const { message, model } = body;
         
-        // Simulate AI processing (in real implementation, this would use WebAssembly models)
+        // TODO: Use WebAssembly models for actual AI processing
         const response = {
             message: `Echo: ${message}`,
             model: model || 'offline-model',
@@ -192,7 +192,7 @@ async function handleOfflineWikipedia(request) {
         });
     }
     
-    // Simulate Wikipedia search (in real implementation, this would query local database)
+    // TODO: Query local database for Wikipedia search results
     const results = [
         {
             title: `Article about ${query}`,

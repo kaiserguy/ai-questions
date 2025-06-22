@@ -134,10 +134,9 @@ class LocalAIModel {
         try {
             console.log(`Loading model ${modelId}...`);
             
-            // In a real implementation, this would use ONNX Runtime Web
-            // For now, we'll simulate model loading with a mock
+            // TODO: Use ONNX Runtime Web for actual model loading
             
-            // Simulate progress updates
+            // TODO: Implement actual progress updates
             let progress = 0;
             const progressInterval = setInterval(() => {
                 progress += 10;
@@ -160,7 +159,7 @@ class LocalAIModel {
             
             clearInterval(progressInterval);
             
-            // Simulate final loading
+            // TODO: Complete actual model loading
             this.emit('loadProgress', { modelId, progress: 100 });
             
             // Store the model
@@ -181,7 +180,7 @@ class LocalAIModel {
     }
     
     createMockModel(modelId) {
-        // Create a mock model that simulates AI responses
+        // TODO: Create actual model interface
         return {
             id: modelId,
             type: modelId.includes('qa') ? 'question-answering' : 'text-generation',
@@ -190,7 +189,7 @@ class LocalAIModel {
             async infer(input, options = {}) {
                 console.log(`Running inference with ${modelId}:`, input);
                 
-                // Simulate processing time
+                // TODO: Implement actual processing time
                 await new Promise(resolve => setTimeout(resolve, 500 + Math.random() * 1000));
                 
                 // Generate mock response based on model type
