@@ -15,7 +15,10 @@ const PORT = process.env.PORT || 3000;
 
 // Set up EJS as the view engine
 app.set('view engine', 'ejs');
-app.set('views', path.join(__dirname, 'views'));
+app.set('views', [
+  path.join(__dirname, 'views'),
+  path.join(__dirname, '../core/views')
+]);
 app.use(express.static(path.join(__dirname, 'public')));
 app.use(express.json());
 
@@ -686,7 +689,7 @@ async function deleteAnswer(id) {
 
 // Routes
 app.get('/offline', (req, res) => {
-  res.render('../core/views/offline');
+  res.render('offline');
 });
 
 app.get('/', async (req, res) => {
