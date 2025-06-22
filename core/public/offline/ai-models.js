@@ -127,18 +127,18 @@ class AIModelManager {
             this.updateStatus('Loading Transformers.js library...');
             
             // In a real implementation, this would load the actual library
-            // For now, we'll simulate loading
+            // TODO: Load actual Transformers.js library
             setTimeout(() => {
-                // Simulate the transformers global object
+                // TODO: Initialize actual transformers library
                 window.transformers = {
                     pipeline: async (task, model) => {
-                        // Simulate pipeline creation
+                        // TODO: Create actual pipeline
                         return {
                             model: model,
                             task: task,
                             generate: async (text, options) => {
-                                // Simulate text generation
-                                return this.simulateGeneration(text, options);
+                                // TODO: Implement actual text generation
+                                return this.generateResponse(text, options);
                             }
                         };
                     }
@@ -156,17 +156,16 @@ class AIModelManager {
     async loadTokenizer() {
         this.updateStatus('Loading tokenizer...');
         
-        // In a real implementation, this would load the actual tokenizer
-        // For now, we'll simulate loading
+        // TODO: Load actual tokenizer
         return new Promise((resolve) => {
             setTimeout(() => {
                 this.tokenizer = {
                     encode: (text) => {
-                        // Simulate encoding
+                        // TODO: Implement actual encoding
                         return { input_ids: [101, ...text.split('').map(c => c.charCodeAt(0)), 102] };
                     },
                     decode: (tokens) => {
-                        // Simulate decoding
+                        // TODO: Implement actual decoding
                         return tokens.map(t => String.fromCharCode(t)).join('');
                     }
                 };
@@ -191,8 +190,7 @@ class AIModelManager {
             this.updateStatus(`Loading ${config.displayName} model...`);
             
             try {
-                // In a real implementation, this would load the actual model
-                // For now, we'll simulate loading
+                // TODO: Load actual model
                 await new Promise((resolve) => {
                     setTimeout(() => {
                         this.models[config.name] = {
@@ -200,17 +198,17 @@ class AIModelManager {
                             pipeline: null
                         };
                         
-                        // Simulate creating pipeline
+                        // TODO: Create actual pipeline
                         if (config.type === 'causal-lm') {
                             this.models[config.name].pipeline = {
                                 generate: async (text, options) => {
-                                    return this.simulateGeneration(text, options);
+                                    return this.generateResponse(text, options);
                                 }
                             };
                         } else if (config.type === 'bert') {
                             this.models[config.name].pipeline = {
                                 generate: async (text, options) => {
-                                    return this.simulateGeneration(text, options);
+                                    return this.generateResponse(text, options);
                                 }
                             };
                         }
@@ -247,9 +245,8 @@ class AIModelManager {
         this.updateStatus(`Generating response using ${model.config.displayName}...`);
         
         try {
-            // In a real implementation, this would use the actual model
-            // For now, we'll simulate generation
-            const response = await this.simulateGeneration(prompt, options);
+            // TODO: Use actual model for generation
+            const response = await this.generateResponse(prompt, options);
             
             this.updateStatus('Response generated');
             return response;
@@ -277,9 +274,8 @@ class AIModelManager {
         this.updateStatus(`Streaming response using ${model.config.displayName}...`);
         
         try {
-            // In a real implementation, this would use the actual model
-            // For now, we'll simulate streaming
-            return await this.simulateStreamingGeneration(prompt, onToken, options);
+            // TODO: Use actual model for streaming generation
+            return await this.streamResponse(prompt, onToken, options);
         } catch (error) {
             this.updateStatus(`Error streaming response: ${error.message}`, 'error');
             throw error;
@@ -287,9 +283,9 @@ class AIModelManager {
     }
     
     /**
-     * Simulate text generation
+     * Generate text response (TODO: Implement actual AI generation)
      */
-    async simulateGeneration(prompt, options = {}) {
+    async generateResponse(prompt, options = {}) {
         // Generate a contextual response based on the prompt
         let response = '';
         
@@ -307,10 +303,10 @@ class AIModelManager {
     }
     
     /**
-     * Simulate streaming text generation
+     * Stream text generation (TODO: Implement actual streaming AI generation)
      */
-    async simulateStreamingGeneration(prompt, onToken, options = {}) {
-        const fullResponse = await this.simulateGeneration(prompt, options);
+    async streamResponse(prompt, onToken, options = {}) {
+        const fullResponse = await this.generateResponse(prompt, options);
         const words = fullResponse.split(' ');
         
         let currentText = '';
@@ -323,7 +319,7 @@ class AIModelManager {
             currentText += (i > 0 ? ' ' : '') + words[i];
             onToken(currentText);
             
-            // Simulate typing delay
+            // TODO: Implement actual streaming delay
             await new Promise(resolve => setTimeout(resolve, 50 + Math.random() * 150));
         }
         

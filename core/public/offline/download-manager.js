@@ -154,7 +154,7 @@ class DownloadManager {
             if (this.aborted) return;
             
             try {
-                // Simulate or actually download the library
+                // TODO: Actually download the library
                 await this.downloadResource(library.name, library.size);
                 
                 downloadedSize += library.size;
@@ -198,7 +198,7 @@ class DownloadManager {
                 }
             }
             
-            // Otherwise simulate or actually download the model
+            // TODO: Actually download the model
             const modelSize = this.getModelSize();
             await this.downloadResource(modelInfo.name, modelSize, (progress) => {
                 this.updateResource('aiModel', 'downloading', progress);
@@ -239,7 +239,7 @@ class DownloadManager {
                 }
             }
             
-            // Otherwise simulate or actually download the Wikipedia database
+            // TODO: Actually download the Wikipedia database
             const wikiSize = this.getWikiSize();
             await this.downloadResource(wikiInfo.name, wikiSize, (progress) => {
                 this.updateResource('wikipedia', 'downloading', progress);
@@ -323,8 +323,7 @@ class DownloadManager {
             
             console.log(`Downloading ${name} (${this.formatBytes(size)})...`);
             
-            // In a real implementation, this would be an actual download
-            // For now, we'll simulate the download with progress updates
+            // TODO: Implement actual download from server
             
             let progress = 0;
             const interval = setInterval(() => {
@@ -334,7 +333,7 @@ class DownloadManager {
                     return;
                 }
                 
-                // Simulate variable download speed
+                // TODO: Replace with actual download progress
                 progress += Math.random() * 5;
                 
                 if (progress >= 100) {
@@ -363,8 +362,7 @@ class DownloadManager {
             
             console.log(`Downloading cached resource ${filename} (${this.formatBytes(size)})...`);
             
-            // In a real implementation, this would download from the server's cache
-            // For now, we'll simulate the download with progress updates
+            // TODO: Download from server cache
             
             let progress = 0;
             const interval = setInterval(() => {
@@ -374,7 +372,7 @@ class DownloadManager {
                     return;
                 }
                 
-                // Simulate variable download speed (faster for cached resources)
+                // TODO: Replace with actual download progress (faster for cached resources)
                 progress += Math.random() * 10;
                 
                 if (progress >= 100) {
