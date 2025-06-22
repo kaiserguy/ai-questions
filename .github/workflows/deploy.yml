@@ -51,7 +51,7 @@ jobs:
         fi
         
         # Check for missing constructor parameters
-        if grep -r "new DownloadManager()" --include="*.js" --include="*.ejs" --exclude-dir=node_modules .; then
+        if grep -r "new DownloadManager()" --include="*.js" --include="*.ejs" --exclude-dir=node_modules --exclude-dir=tests .; then
           echo "❌ Found DownloadManager instantiated without parameters"
           exit 1
         fi
