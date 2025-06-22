@@ -1,10 +1,6 @@
 name: Post-Deployment Validation
 
 on:
-  # Trigger after successful deployment to Heroku
-  # This can be triggered by Heroku webhook or scheduled runs
-  schedule:
-    - cron: '*/15 * * * *'  # Run every 15 minutes to monitor production
   workflow_dispatch:  # Allow manual triggering
     inputs:
       deployment_url:
@@ -17,7 +13,7 @@ jobs:
     runs-on: ubuntu-latest
     
     env:
-      DEPLOYMENT_URL: ${{ github.event.inputs.deployment_url || 'https://peaceful-sierra-40313-4a09d237c70e.herokuapp.com' }}
+      DEPLOYMENT_URL: ${{ github.event.inputs.deployment_url }}
     
     steps:
     - name: Checkout code

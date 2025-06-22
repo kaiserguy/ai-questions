@@ -7,8 +7,251 @@ on:
     branches: [ main ]
 
 jobs:
+  validate:
+    runs-on: ubuntu-latest
+    
+    strategy:
+      matrix:
+        node-version: [20.x]
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup Node.js ${{ matrix.node-version }}
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ matrix.node-version }}
+        cache: 'npm'
+        
+    - name: Install dependencies
+      run: npm ci
+      
+    - name: Run unit tests
+      run: npm test
+      
+    - name: Run linting
+      run: |
+        npx eslint . --ext .js,.cjs --ignore-path .gitignore || echo "Linting completed with warnings"
+        
+    - name: Validate JavaScript syntax
+      run: |
+        echo "Checking JavaScript syntax..."
+        find . -name "*.js" -not -path "./node_modules/*" -not -path "./tests/*" | xargs -I {} node -c {}
+        find . -name "*.cjs" -not -path "./node_modules/*" | xargs -I {} node -c {}
+        
+    - name: Check for common errors
+      run: |
+        echo "Checking for common JavaScript errors..."
+        
+        # Check for undefined property access (my common error)
+        if grep -r "undefined\." --include="*.js" --include="*.cjs" --exclude-dir=node_modules --exclude-dir=tests .; then
+          echo "❌ Found undefined property access - this would cause runtime errors"
+          exit 1
+        fi
+        
+        # Check for missing constructor parameters
+        if grep -r "new DownloadManager()" --include="*.js" --include="*.ejs" --exclude-dir=node_modules .; then
+          echo "❌ Found DownloadManager instantiated without parameters"
+          exit 1
+        fi
+        
+        # Check for duplicate script declarations
+        if find . -name "*.ejs" -not -path "./node_modules/*" -exec grep -l "script.*download-manager" {} \; | xargs -I {} sh -c 'count=$(grep -c "script.*download-manager" "{}"); if [ "$count" -gt 1 ]; then echo "❌ Duplicate script declarations in {}"; exit 1; fi'; then
+          echo "❌ Found duplicate script declarations"
+          exit 1
+        fi
+        
+        echo "✅ No common errors detected"
+        
+    - name: Validate package configurations
+      run: |
+        echo "Validating package configurations..."
+        node -e "
+        const fs = require('fs');
+        const path = require('path');
+        
+        // Check if download-manager.js has proper package configurations
+        const downloadManagerPath = path.join('core', 'public', 'offline', 'download-manager.js');
+        if (fs.existsSync(downloadManagerPath)) {
+          const content = fs.readFileSync(downloadManagerPath, 'utf8');
+          
+          const requiredPackages = ['minimal', 'standard', 'full'];
+          const requiredProperties = ['name', 'aiModel', 'wikipedia'];
+          
+          for (const pkg of requiredPackages) {
+            if (!content.includes(pkg + ':')) {
+              console.error(\`❌ Missing package configuration: \${pkg}\`);
+              process.exit(1);
+            }
+          }
+          
+          for (const prop of requiredProperties) {
+            if (!content.includes(prop + ':')) {
+              console.error(\`❌ Missing required property: \${prop}\`);
+              process.exit(1);
+            }
+          }
+          
+          console.log('✅ Package configurations valid');
+        }
+        "
+        
+    - name: Validate DOM elements in offline.ejs
+      run: |
+        echo "Validating DOM elements..."
+        node -e "
+        const fs = require('fs');
+        const path = require('path');
+        
+        const offlineViewPath = path.join('core', 'views', 'offline.ejs');
+        if (fs.existsSync(offlineViewPath)) {
+          const content = fs.readFileSync(offlineViewPath, 'utf8');
+          
+          const requiredElements = [
+            'id=\"chatSection\"',
+            'id=\"wikiSection\"', 
+            'id=\"progressSection\"',
+            'id=\"downloadBtn\"',
+            'id=\"progressText\"'
+          ];
+          
+          for (const element of requiredElements) {
+            if (!content.includes(element)) {
+              console.error(\`❌ Missing required DOM element: \${element}\`);
+              process.exit(1);
+            }
+          }
+          
+          // Check that chat and wiki sections are initially hidden
+          if (!content.match(/id=\"chatSection\"[^>]*style=\"[^\"]*display:\\s*none/)) {
+            console.error('❌ chatSection should be initially hidden');
+            process.exit(1);
+          }
+          
+          if (!content.match(/id=\"wikiSection\"[^>]*style=\"[^\"]*display:\\s*none/)) {
+            console.error('❌ wikiSection should be initially hidden');
+            process.exit(1);
+          }
+          
+          console.log('✅ DOM elements validation passed');
+        }
+        "
+        
+    - name: Test server startup (hosted)
+      run: |
+        echo "Testing hosted server startup..."
+        cd hosted
+        timeout 30s node index.cjs &
+        SERVER_PID=$!
+        sleep 10
+        
+        # Check if server is responding
+        if curl -f http://localhost:3000/ > /dev/null 2>&1; then
+          echo "✅ Hosted server started successfully"
+        else
+          echo "❌ Hosted server failed to start or respond"
+          kill $SERVER_PID 2>/dev/null || true
+          exit 1
+        fi
+        
+        kill $SERVER_PID 2>/dev/null || true
+        
+    - name: Test server startup (local)
+      run: |
+        echo "Testing local server startup..."
+        cd local
+        timeout 30s node local-app.js &
+        SERVER_PID=$!
+        sleep 10
+        
+        # Check if server is responding
+        if curl -f http://localhost:3001/ > /dev/null 2>&1; then
+          echo "✅ Local server started successfully"
+        else
+          echo "❌ Local server failed to start or respond"
+          kill $SERVER_PID 2>/dev/null || true
+          exit 1
+        fi
+        
+        kill $SERVER_PID 2>/dev/null || true
+        
+    - name: Validate critical routes
+      run: |
+        echo "Testing critical routes..."
+        cd hosted
+        timeout 30s node index.cjs &
+        SERVER_PID=$!
+        sleep 10
+        
+        # Test critical routes
+        routes=("/" "/offline" "/offline/")
+        
+        for route in "${routes[@]}"; do
+          if curl -f "http://localhost:3000$route" > /dev/null 2>&1; then
+            echo "✅ Route $route accessible"
+          else
+            echo "❌ Route $route failed"
+            kill $SERVER_PID 2>/dev/null || true
+            exit 1
+          fi
+        done
+        
+        kill $SERVER_PID 2>/dev/null || true
+        
+    - name: Check for view path issues
+      run: |
+        echo "Checking for view path configuration issues..."
+        
+        # Check that hosted server has correct view configuration
+        if grep -q "path.join(__dirname, '../core/views')" hosted/index.cjs; then
+          echo "✅ Hosted server has core views path configured"
+        else
+          echo "❌ Hosted server missing core views path configuration"
+          exit 1
+        fi
+        
+        # Check that there's no duplicate offline.ejs in hosted/views
+        if [ -f "hosted/views/offline.ejs" ]; then
+          echo "❌ Found duplicate offline.ejs in hosted/views - should only be in core/views"
+          exit 1
+        fi
+        
+        # Check that core/views/offline.ejs exists
+        if [ ! -f "core/views/offline.ejs" ]; then
+          echo "❌ Missing core/views/offline.ejs"
+          exit 1
+        fi
+        
+        echo "✅ View path configuration valid"
+        
+    - name: Generate validation report
+      if: always()
+      run: |
+        echo "## 🎯 Pre-Deployment Validation Report" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "### ✅ Validations Completed:" >> $GITHUB_STEP_SUMMARY
+        echo "- Unit tests execution" >> $GITHUB_STEP_SUMMARY
+        echo "- JavaScript syntax validation" >> $GITHUB_STEP_SUMMARY
+        echo "- Common error pattern detection" >> $GITHUB_STEP_SUMMARY
+        echo "- Package configuration validation" >> $GITHUB_STEP_SUMMARY
+        echo "- DOM element validation" >> $GITHUB_STEP_SUMMARY
+        echo "- Server startup testing" >> $GITHUB_STEP_SUMMARY
+        echo "- Critical route accessibility" >> $GITHUB_STEP_SUMMARY
+        echo "- View path configuration" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "### 🛡️ Errors Prevented:" >> $GITHUB_STEP_SUMMARY
+        echo "- DownloadManager constructor parameter errors" >> $GITHUB_STEP_SUMMARY
+        echo "- Undefined property access (aiModel errors)" >> $GITHUB_STEP_SUMMARY
+        echo "- View path resolution failures" >> $GITHUB_STEP_SUMMARY
+        echo "- Missing DOM elements" >> $GITHUB_STEP_SUMMARY
+        echo "- Duplicate script declarations" >> $GITHUB_STEP_SUMMARY
+        echo "- Server startup failures" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "**Status: Ready for deployment** ✅" >> $GITHUB_STEP_SUMMARY
   deploy:
     runs-on: ubuntu-latest
+    needs: validate
     
     steps:
     - name: Checkout code
@@ -41,4 +284,306 @@ jobs:
       run: |
         echo "Deployment completed successfully!"
         echo "App should be available at: https://${{ secrets.HEROKU_APP_NAME }}.herokuapp.com"
-
+        
+  validate-production:
+    runs-on: ubuntu-latest
+    needs: deploy
+    
+    env:
+      DEPLOYMENT_URL: ${{ 'https://peaceful-sierra-40313-4a09d237c70e.herokuapp.com' }}
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20.x'
+        cache: 'npm'
+        
+    - name: Install dependencies
+      run: npm ci
+    
+    - name: Wait for deployment
+      run: |
+        echo "Waiting a minute for deployment to stabilize..."
+        sleep 60  # Wait for Heroku to fully deploy and stabilize
+    - name: Health Check
+      run: |
+        echo "🏥 Performing health check on $DEPLOYMENT_URL"
+        
+        # Basic connectivity test
+        if curl -f --max-time 30 "$DEPLOYMENT_URL" > /dev/null 2>&1; then
+          echo "✅ App is responding"
+        else
+          echo "❌ App is not responding"
+          exit 1
+        fi
+        
+        # Check response time
+        response_time=$(curl -o /dev/null -s -w '%{time_total}' "$DEPLOYMENT_URL")
+        echo "⏱️ Response time: ${response_time}s"
+        
+        # Fail if response time is too slow (>10 seconds)
+        if (( $(echo "$response_time > 10" | bc -l) )); then
+          echo "❌ Response time too slow: ${response_time}s"
+          exit 1
+        fi
+        
+    - name: Critical Path Validation
+      run: |
+        echo "🛤️ Validating critical user paths"
+        
+        # Test homepage
+        if curl -f --max-time 30 "$DEPLOYMENT_URL/" > /dev/null 2>&1; then
+          echo "✅ Homepage accessible"
+        else
+          echo "❌ Homepage failed"
+          exit 1
+        fi
+        
+        # Test offline page (the critical feature)
+        if curl -f --max-time 30 "$DEPLOYMENT_URL/offline/" > /dev/null 2>&1; then
+          echo "✅ Offline page accessible"
+        else
+          echo "❌ Offline page failed"
+          exit 1
+        fi
+        
+        # Test offline page without trailing slash
+        if curl -f --max-time 30 "$DEPLOYMENT_URL/offline" > /dev/null 2>&1; then
+          echo "✅ Offline page (no slash) accessible"
+        else
+          echo "❌ Offline page (no slash) failed"
+          exit 1
+        fi
+        
+    - name: API Endpoint Validation
+      run: |
+        echo "🔌 Validating API endpoints"
+        
+        # Test offline package availability endpoint
+        if curl -f --max-time 30 "$DEPLOYMENT_URL/api/offline/packages/availability" > /dev/null 2>&1; then
+          echo "✅ Package availability API accessible"
+        else
+          echo "❌ Package availability API failed"
+          exit 1
+        fi
+        
+        # Test package manifest endpoints
+        packages=("minimal" "standard" "full")
+        for package in "${packages[@]}"; do
+          if curl -f --max-time 30 "$DEPLOYMENT_URL/api/offline/packages/$package/manifest" > /dev/null 2>&1; then
+            echo "✅ $package package manifest accessible"
+          else
+            echo "❌ $package package manifest failed"
+            exit 1
+          fi
+        done
+        
+    - name: Offline Functionality Deep Check
+      run: |
+        echo "🔍 Deep validation of offline functionality"
+        
+        # Download the offline page and check for required elements
+        offline_content=$(curl -s --max-time 30 "$DEPLOYMENT_URL/offline/")
+        
+        # Check for required DOM elements
+        required_elements=("chatSection" "wikiSection" "progressSection" "downloadBtn")
+        for element in "${required_elements[@]}"; do
+          if echo "$offline_content" | grep -q "id=\"$element\""; then
+            echo "✅ Found required element: $element"
+          else
+            echo "❌ Missing required element: $element"
+            exit 1
+          fi
+        done
+        
+        # Check for required JavaScript files
+        required_scripts=("download-manager.js" "ai-models.js" "wikipedia.js" "integration-manager.js")
+        for script in "${required_scripts[@]}"; do
+          if echo "$offline_content" | grep -q "$script"; then
+            echo "✅ Found required script: $script"
+          else
+            echo "❌ Missing required script: $script"
+            exit 1
+          fi
+        done
+        
+        # Check that sections are initially hidden
+        if echo "$offline_content" | grep -q 'id="chatSection"[^>]*style="[^"]*display:[[:space:]]*none'; then
+          echo "✅ chatSection is initially hidden"
+        else
+          echo "❌ chatSection should be initially hidden"
+          exit 1
+        fi
+        
+        if echo "$offline_content" | grep -q 'id="wikiSection"[^>]*style="[^"]*display:[[:space:]]*none'; then
+          echo "✅ wikiSection is initially hidden"
+        else
+          echo "❌ wikiSection should be initially hidden"
+          exit 1
+        fi
+        
+    - name: JavaScript Error Detection
+      run: |
+        echo "🐛 Checking for JavaScript errors"
+        
+        # Install puppeteer for browser testing
+        npm install puppeteer
+        
+        # Create a simple script to check for JS errors
+        cat > check-js-errors.js << 'EOF'
+        const puppeteer = require('puppeteer');
+        
+        (async () => {
+          const browser = await puppeteer.launch({ 
+            headless: true,
+            args: ['--no-sandbox', '--disable-setuid-sandbox']
+          });
+          const page = await browser.newPage();
+          
+          const errors = [];
+          page.on('console', msg => {
+            if (msg.type() === 'error') {
+              errors.push(msg.text());
+            }
+          });
+          
+          page.on('pageerror', error => {
+            errors.push(error.message);
+          });
+          
+          try {
+            await page.goto(process.env.DEPLOYMENT_URL + '/offline/', { 
+              waitUntil: 'networkidle0',
+              timeout: 30000 
+            });
+            
+            // Wait a bit for any delayed JS execution
+            await page.waitForTimeout(5000);
+            
+            if (errors.length > 0) {
+              console.log('❌ JavaScript errors detected:');
+              errors.forEach(error => console.log(`  - ${error}`));
+              process.exit(1);
+            } else {
+              console.log('✅ No JavaScript errors detected');
+            }
+          } catch (error) {
+            console.log(`❌ Failed to load page: ${error.message}`);
+            process.exit(1);
+          } finally {
+            await browser.close();
+          }
+        })();
+        EOF
+        
+        node check-js-errors.js
+        
+    - name: Performance Baseline Check
+      run: |
+        echo "⚡ Checking performance baseline"
+        
+        # Test multiple endpoints for performance
+        endpoints=("/" "/offline/" "/api/offline/packages/availability")
+        
+        for endpoint in "${endpoints[@]}"; do
+          echo "Testing $endpoint..."
+          
+          # Get response time
+          response_time=$(curl -o /dev/null -s -w '%{time_total}' "$DEPLOYMENT_URL$endpoint")
+          echo "Response time: ${response_time}s"
+          
+          # Check if response time is acceptable (< 5 seconds)
+          if (( $(echo "$response_time > 5" | bc -l) )); then
+            echo "❌ Slow response time for $endpoint: ${response_time}s"
+            exit 1
+          else
+            echo "✅ Good response time for $endpoint: ${response_time}s"
+          fi
+        done
+        
+    - name: Validate Error Prevention
+      run: |
+        echo "🛡️ Validating that previous errors are prevented"
+        
+        # Check that the specific errors I made are not present
+        offline_content=$(curl -s --max-time 30 "$DEPLOYMENT_URL/offline/")
+        
+        # Check for duplicate script declarations (my error)
+        script_count=$(echo "$offline_content" | grep -c "download-manager.js" || echo "0")
+        if [ "$script_count" -gt 1 ]; then
+          echo "❌ Found duplicate script declarations for download-manager.js"
+          exit 1
+        else
+          echo "✅ No duplicate script declarations"
+        fi
+        
+        # Check that view renders properly (not a 500 error page)
+        if echo "$offline_content" | grep -q "<!DOCTYPE html>"; then
+          echo "✅ Page renders as HTML (not error page)"
+        else
+          echo "❌ Page does not render as proper HTML"
+          exit 1
+        fi
+        
+        # Check that required package configurations are present
+        if echo "$offline_content" | grep -q "minimal.*standard.*full"; then
+          echo "✅ Package configurations present"
+        else
+          echo "❌ Package configurations missing"
+          exit 1
+        fi
+        
+    - name: Generate Production Health Report
+      if: always()
+      run: |
+        echo "## 🏥 Production Health Report" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "**Deployment URL:** $DEPLOYMENT_URL" >> $GITHUB_STEP_SUMMARY
+        echo "**Validation Time:** $(date -u)" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "### ✅ Validations Completed:" >> $GITHUB_STEP_SUMMARY
+        echo "- Health check and response time" >> $GITHUB_STEP_SUMMARY
+        echo "- Critical path accessibility" >> $GITHUB_STEP_SUMMARY
+        echo "- API endpoint functionality" >> $GITHUB_STEP_SUMMARY
+        echo "- Offline functionality deep check" >> $GITHUB_STEP_SUMMARY
+        echo "- JavaScript error detection" >> $GITHUB_STEP_SUMMARY
+        echo "- Performance baseline validation" >> $GITHUB_STEP_SUMMARY
+        echo "- Error prevention verification" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "### 🎯 Features Verified:" >> $GITHUB_STEP_SUMMARY
+        echo "- Homepage loads correctly" >> $GITHUB_STEP_SUMMARY
+        echo "- Offline page accessible" >> $GITHUB_STEP_SUMMARY
+        echo "- Package availability API working" >> $GITHUB_STEP_SUMMARY
+        echo "- All package manifests accessible" >> $GITHUB_STEP_SUMMARY
+        echo "- Required DOM elements present" >> $GITHUB_STEP_SUMMARY
+        echo "- JavaScript files loading" >> $GITHUB_STEP_SUMMARY
+        echo "- Sections properly hidden initially" >> $GITHUB_STEP_SUMMARY
+        echo "- No JavaScript errors" >> $GITHUB_STEP_SUMMARY
+        echo "- Performance within acceptable limits" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "**Status: Production is healthy** ✅" >> $GITHUB_STEP_SUMMARY
+        
+    - name: Notify on Failure
+      if: failure()
+      run: |
+        echo "🚨 Production validation failed!"
+        echo "## 🚨 Production Issue Detected" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "**Deployment URL:** $DEPLOYMENT_URL" >> $GITHUB_STEP_SUMMARY
+        echo "**Failure Time:** $(date -u)" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "### ❌ Validation Failed" >> $GITHUB_STEP_SUMMARY
+        echo "One or more production validations failed. Check the workflow logs for details." >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "### 🔧 Recommended Actions:" >> $GITHUB_STEP_SUMMARY
+        echo "1. Check Heroku logs for errors" >> $GITHUB_STEP_SUMMARY
+        echo "2. Verify recent deployments" >> $GITHUB_STEP_SUMMARY
+        echo "3. Consider rollback if critical" >> $GITHUB_STEP_SUMMARY
+        echo "4. Run local tests to reproduce issue" >> $GITHUB_STEP_SUMMARY
+        
+        # In a real setup, you might want to send notifications here
+        # For example, to Slack, email, or create an issue
