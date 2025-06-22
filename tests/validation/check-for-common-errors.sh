@@ -13,7 +13,7 @@ if grep -r "new DownloadManager()" --include="*.js" --include="*.ejs" --exclude-
 fi
 
 # Check for duplicate script declarations
-if find . -name "*.ejs" -not -path "./node_modules/*" -exec grep -l "script.*download-manager" {} \; | xargs -I {} sh -c 'count=$(grep -c "script.*download-manager" "{}"); if [ "$count" -gt 1 ]; then echo "❌ Duplicate script declarations in {}"; exit 1; fi'; then
+if find . -name "*.ejs" -not -path "./node_modules/*" -exec grep -l "script.*download-manager" {} \; | xargs -I {} sh -c 'count=$(grep -c "script.*download-manager" "{}"); if [ "$count" -gt 1 ]; then echo "❌ Duplicate script declarations in {}"; exit 1; fi' | grep -q "❌"; then
   echo "❌ Found duplicate script declarations"
   exit 1
 fi

@@ -2437,7 +2437,9 @@ app.post('/api/chat/stream', async (req, res) => {
       response = "I can help you search through the local Wikipedia database. What topic would you like to explore?";
     } else {
       response = `I understand you're asking about "${message}". As an offline AI assistant, I can provide information and analysis based on my training data. Could you be more specific about what aspect you'd like me to focus on?`;
-     // Stream the response word by word for typing effect
+    }
+    
+    // Stream the response word by word for typing effect
     const words = response.split(' ');
     
     res.write(`data: ${JSON.stringify({ type: 'start', model: model })}\n\n`);
@@ -2447,7 +2449,10 @@ app.post('/api/chat/stream', async (req, res) => {
       res.write(`data: ${JSON.stringify({ type: 'token', content: word })}\n\n`);
       
       // TODO: Implement actual streaming delay
-      await new Promise(resolve => setTimeout(resolve, 50 + Math.random() * 100));dd Wikipedia context if requested
+      await new Promise(resolve => setTimeout(resolve, 50 + Math.random() * 100));
+    }
+    
+    // Add Wikipedia context if requested
     if (includeWikipedia && message.length > 10) {
       const keywords = message.toLowerCase().split(' ').filter(word => 
         word.length > 3 && !['what', 'when', 'where', 'why', 'how', 'the', 'and', 'or', 'but'].includes(word)

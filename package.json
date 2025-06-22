@@ -28,6 +28,7 @@
     "passport": "^0.7.0",
     "passport-google-oauth20": "^2.0.0",
     "pg": "^8.14.1",
+    "puppeteer": "^24.10.2",
     "sqlite3": "^5.1.7"
   },
   "devDependencies": {
