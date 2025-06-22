@@ -12,22 +12,32 @@ router.get('/api/offline/packages/availability', async (req, res) => {
         const packageInfo = cache.getPackageInfo();
         
         res.json({
-            minimal: {
-                available: packageInfo.available,
-                info: packageInfo
-            },
-            standard: {
-                available: false,
-                info: { reason: 'Standard package requires client-side download' }
-            },
-            full: {
-                available: false,
-                info: { reason: 'Full package requires client-side download' }
+            success: true,
+            packages: {
+                minimal: {
+                    available: packageInfo.available,
+                    cached: packageInfo.available,
+                    info: packageInfo
+                },
+                standard: {
+                    available: false,
+                    cached: false,
+                    info: { reason: 'Standard package requires client-side download' }
+                },
+                full: {
+                    available: false,
+                    cached: false,
+                    info: { reason: 'Full package requires client-side download' }
+                }
             }
         });
     } catch (error) {
         console.error('Error checking package availability:', error);
-        res.status(500).json({ error: 'Failed to check package availability' });
+        res.status(500).json({ 
+            success: false,
+            error: 'Failed to check package availability',
+            message: error.message
+        });
     }
 });
 
