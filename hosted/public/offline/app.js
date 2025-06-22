@@ -1,6 +1,6 @@
 class OfflineApp {
     constructor() {
-        this.downloadManager = new DownloadManager();
+        this.downloadManager = new DownloadManager('minimal');
         this.aiManager = null;
         this.wikipediaManager = null;
         this.selectedPackage = null;

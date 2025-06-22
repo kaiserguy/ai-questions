@@ -7,7 +7,7 @@ class OfflineApp {
         this.aiModel = null;
         this.wikipediaDB = null;
         this.chatHistory = [];
-        this.downloadManager = new DownloadManager();
+        this.downloadManager = new DownloadManager('minimal');
         
         this.init();
     }
