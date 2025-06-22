@@ -429,100 +429,6 @@
             background: #ef4444;
         }
 
-        /* Clear Cache Section Styles */
-        .clear-cache-section {
-            margin: 30px 0;
-        }
-
-        .clear-cache-card {
-            background: white;
-            border-radius: 12px;
-            padding: 30px;
-            text-align: center;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
-            border: 2px solid #fef3c7;
-            background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%);
-        }
-
-        .clear-cache-icon {
-            font-size: 48px;
-            margin-bottom: 20px;
-        }
-
-        .clear-cache-card h3 {
-            color: #92400e;
-            margin-bottom: 15px;
-            font-size: 24px;
-        }
-
-        .clear-cache-card p {
-            color: #b45309;
-            margin-bottom: 25px;
-            font-size: 16px;
-            line-height: 1.6;
-        }
-
-        .clear-cache-btn {
-            background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);
-            color: white;
-            border: none;
-            padding: 15px 30px;
-            border-radius: 8px;
-            font-size: 16px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            display: inline-flex;
-            align-items: center;
-            gap: 10px;
-            min-width: 160px;
-            justify-content: center;
-        }
-
-        .clear-cache-btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 10px 20px rgba(220, 38, 38, 0.3);
-        }
-
-        .clear-cache-btn:disabled {
-            background: #9ca3af;
-            cursor: not-allowed;
-            transform: none;
-            box-shadow: none;
-        }
-
-        .clear-cache-status {
-            margin-top: 15px;
-            font-weight: 500;
-            min-height: 20px;
-        }
-
-        .clear-cache-status.success {
-            color: #059669;
-        }
-
-        .clear-cache-status.error {
-            color: #dc2626;
-        }
-
-        .clear-cache-status.info {
-            color: #2563eb;
-        }
-
-        .spinner {
-            width: 16px;
-            height: 16px;
-            border: 2px solid transparent;
-            border-top: 2px solid currentColor;
-            border-radius: 50%;
-            animation: spin 1s linear infinite;
-        }
-
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-
         @media (max-width: 768px) {
             .header h1 {
                 font-size: 2rem;
@@ -663,27 +569,10 @@
         </div>
     </div>
 
-    <!-- Clear Cache Section -->
-    <div class="container">
-        <div class="clear-cache-section">
-            <div class="clear-cache-card">
-                <div class="clear-cache-icon">🗑️</div>
-                <h3>Clear Local Data</h3>
-                <p>Reset all offline data including cached models, Wikipedia content, and conversation history. Use this if you're experiencing issues or want a fresh start.</p>
-                <button id="clearCacheBtn" class="clear-cache-btn" onclick="clearAllCache()">
-                    <span id="clearCacheText">Clear All Cache</span>
-                    <span id="clearCacheSpinner" class="spinner" style="display: none;"></span>
-                </button>
-                <div id="clearCacheStatus" class="clear-cache-status"></div>
-            </div>
-        </div>
-    </div>
-
     <!-- Load required scripts -->
     <script src="/offline/download-manager.js"></script>
     <script src="/offline/ai-models.js"></script>
     <script src="/offline/wikipedia.js"></script>
-    <script src="/offline/offline-ai-chat.js"></script>
     <script src="/offline/integration-manager.js"></script>
 
     <script>
@@ -703,17 +592,13 @@
         // Global variables
         let selectedPackage = 'standard';
         let integrationManager = null;
-        let offlineAI = null;
         let isGenerating = false;
         window.shouldStopGeneration = false;
         
         // Initialize when page loads
         document.addEventListener('DOMContentLoaded', () => {
-            // Check browser compatibility first
+            // Check browser compatibility
             checkBrowserCompatibility();
-            
-            // Check if we should show package selection or chat interface
-            checkInitialPageState();
             
             // Package selection
             document.querySelectorAll('.download-option').forEach(option => {
@@ -725,8 +610,8 @@
                 });
             });
 
-            // Download button - simulate download and show chat interface
-            document.getElementById('downloadBtn').addEventListener('click', startDownloadProcess);
+            // Download button
+            document.getElementById('downloadBtn').addEventListener('click', startDownload);
             
             // Chat functionality
             document.getElementById('sendBtn').addEventListener('click', sendChatMessage);
@@ -740,121 +625,10 @@
             document.getElementById('wikiSearchInput').addEventListener('keypress', (e) => {
                 if (e.key === 'Enter') searchWikipedia();
             });
+            
+            // Check for existing installation
+            checkExistingInstallation();
         });
-
-        // Check what state the page should be in
-        function checkInitialPageState() {
-            // Check if offline AI data exists
-            const hasOfflineData = checkForOfflineData();
-            
-            if (hasOfflineData) {
-                // Initialize offline AI and show chat interface
-                initializeOfflineAI();
-                showChatInterface();
-            } else {
-                // Show package selection
-                showPackageSelection();
-            }
-        }
-
-        // Check if offline data exists
-        function checkForOfflineData() {
-            // Check localStorage for completion flag
-            const downloadComplete = localStorage.getItem('offlineDownloadComplete');
-            if (downloadComplete === 'true') {
-                return true;
-            }
-            
-            // Check for IndexedDB databases
-            if ('indexedDB' in window) {
-                // We can't easily check IndexedDB synchronously, so we'll rely on localStorage flag
-                return false;
-            }
-            
-            return false;
-        }
-
-        // Show package selection (initial state)
-        function showPackageSelection() {
-            document.getElementById('downloadSection').style.display = 'block';
-            document.getElementById('progressSection').style.display = 'none';
-            document.getElementById('chatSection').style.display = 'none';
-            document.getElementById('wikiSection').style.display = 'none';
-        }
-
-        // Start download process
-        function startDownloadProcess() {
-            // Set completion flag
-            localStorage.setItem('offlineDownloadComplete', 'true');
-            
-            // Show progress section
-            document.getElementById('downloadSection').style.display = 'none';
-            document.getElementById('progressSection').style.display = 'block';
-            
-            // Simulate download progress
-            simulateDownload();
-        }
-
-        // Simulate download progress
-        function simulateDownload() {
-            const progressBar = document.querySelector('.progress-fill');
-            const progressText = document.getElementById('progressText');
-            const progressDetails = document.getElementById('progressDetails');
-            
-            if (!progressBar || !progressText || !progressDetails) {
-                console.error('Progress elements not found');
-                // Fallback: complete immediately
-                setTimeout(() => {
-                    initializeOfflineAI();
-                    showChatInterface();
-                }, 1000);
-                return;
-            }
-            
-            let progress = 0;
-            const interval = setInterval(() => {
-                progress += Math.random() * 15;
-                if (progress > 100) progress = 100;
-                
-                progressBar.style.width = progress + '%';
-                progressText.textContent = `Downloading... ${Math.round(progress)}%`;
-                
-                if (progress >= 100) {
-                    clearInterval(interval);
-                    progressDetails.textContent = 'Download complete! Initializing offline AI...';
-                    
-                    // Initialize offline AI and show chat interface
-                    setTimeout(() => {
-                        initializeOfflineAI();
-                        showChatInterface();
-                    }, 1000);
-                }
-            }, 200);
-        }
-
-        // Initialize offline AI
-        async function initializeOfflineAI() {
-            try {
-                if (!window.OfflineAIChat) {
-                    console.warn('OfflineAIChat not available, using fallback');
-                    return;
-                }
-                
-                offlineAI = new OfflineAIChat();
-                await offlineAI.initialize();
-                console.log('Offline AI initialized successfully');
-            } catch (error) {
-                console.error('Failed to initialize offline AI:', error);
-            }
-        }
-
-        // Show chat interface
-        function showChatInterface() {
-            document.getElementById('downloadSection').style.display = 'none';
-            document.getElementById('progressSection').style.display = 'none';
-            document.getElementById('chatSection').style.display = 'block';
-            document.getElementById('wikiSection').style.display = 'block';
-        }
         
         // Check browser compatibility
         function checkBrowserCompatibility() {
@@ -862,41 +636,100 @@
             const statusText = document.getElementById('statusText');
             const statusDescription = document.getElementById('statusDescription');
             
-            // For offline mode, we just need basic browser features
-            const hasLocalStorage = typeof(Storage) !== "undefined";
-            const hasIndexedDB = 'indexedDB' in window;
+            const compatibility = OfflineIntegrationManager.checkBrowserCompatibility();
             
-            if (hasLocalStorage) {
+            if (compatibility.compatible) {
                 statusDot.classList.add('online');
                 statusText.textContent = 'Browser supports offline mode';
                 statusDescription.textContent = 'Your browser has all the required features for offline operation.';
             } else {
                 statusDot.classList.remove('online');
                 statusText.textContent = 'Browser compatibility issues';
-                statusDescription.textContent = 'Your browser is missing required features for offline operation.';
+                
+                const missingFeatures = compatibility.missingFeatures.join(', ');
+                
+                statusDescription.textContent = `Your browser is missing required features: ${missingFeatures}. Some functionality may not work correctly.`;
             }
         }
         
-        // Chat functionality - completely offline
+        // Check for existing installation
+        async function checkExistingInstallation() {
+            try {
+                const installation = await OfflineIntegrationManager.checkExistingInstallation();
+                
+                if (installation.installed) {
+                    console.log('Found existing installation:', installation);
+                    
+                    // Initialize with existing package
+                    selectedPackage = installation.packageType || 'standard';
+                    
+                    // Skip download and go straight to initialization
+                    document.getElementById('downloadSection').style.display = 'none';
+                    document.getElementById('progressSection').style.display = 'block';
+                    
+                    // Create integration manager
+                    integrationManager = new OfflineIntegrationManager();
+                    integrationManager.setPackageType(selectedPackage);
+                    
+                    // Set up event handlers
+                    setupIntegrationEventHandlers();
+                    
+                    // Initialize components
+                    integrationManager.initializeComponents();
+                }
+            } catch (error) {
+                console.error('Error checking for existing installation:', error);
+            }
+        }
+        
+        // Start download process
+        function startDownload() {
+            document.getElementById('downloadSection').style.display = 'none';
+            document.getElementById('progressSection').style.display = 'block';
+            
+            // Create integration manager
+            integrationManager = new OfflineIntegrationManager();
+            integrationManager.setPackageType(selectedPackage);
+            
+            // Set up event handlers
+            setupIntegrationEventHandlers();
+            
+            // Start download
+            integrationManager.startDownload();
+        }
+        
+        // Set up integration event handlers
+        function setupIntegrationEventHandlers() {
+            integrationManager.setEventHandlers({
+                onStatusUpdate: (message, status) => {
+                    console.log(`Status: ${message} (${status})`);
+                    document.getElementById('progressDetails').textContent = message;
+                }
+            });
+        }
+        
+        // Chat functionality
         async function sendChatMessage() {
             const input = document.getElementById('chatInput');
             const message = input.value.trim();
-            if (!message || isGenerating) return;
+            if (!message) return;
 
             const chatContainer = document.getElementById('chatContainer');
             const sendBtn = document.getElementById('sendBtn');
-            const stopBtn = document.getElementById('stopBtn');
             
-            // Set generating state
-            isGenerating = true;
+            // Disable input and button
             input.disabled = true;
-            sendBtn.style.display = 'none';
-            if (stopBtn) stopBtn.style.display = 'inline-block';
+            sendBtn.disabled = true;
+            sendBtn.textContent = 'Sending...';
             
             // Add user message to chat
             const userMessageDiv = document.createElement('div');
-            userMessageDiv.className = 'message user';
-            userMessageDiv.innerHTML = `<strong>You:</strong> ${message}`;
+            userMessageDiv.className = 'chat-message user-message';
+            userMessageDiv.innerHTML = `
+                <div class="message-content">
+                    <strong>You:</strong> ${message}
+                </div>
+            `;
             chatContainer.appendChild(userMessageDiv);
             
             // Clear input
@@ -904,47 +737,38 @@
             
             // Add AI response placeholder
             const aiMessageDiv = document.createElement('div');
-            aiMessageDiv.className = 'message ai';
-            aiMessageDiv.innerHTML = `<strong>AI:</strong> <span class="typing-indicator"><span></span><span></span><span></span></span>`;
+            aiMessageDiv.className = 'chat-message ai-message';
+            aiMessageDiv.innerHTML = `
+                <div class="message-content">
+                    <strong>AI:</strong> <span class="typing-indicator">Thinking...</span>
+                </div>
+            `;
             chatContainer.appendChild(aiMessageDiv);
             
             // Scroll to bottom
             chatContainer.scrollTop = chatContainer.scrollHeight;
             
             try {
-                if (!window.offlineAI) {
-                    throw new Error('Offline AI not initialized');
-                }
+                // Use integration manager to send chat message
+                const response = await integrationManager.sendChatMessage(message, 'offline-ai');
                 
-                let fullResponse = '';
-                
-                // Generate response using offline AI
-                const response = await window.offlineAI.generateResponse(message, (token) => {
-                    if (window.shouldStopGeneration) return;
-                    
-                    fullResponse += token;
-                    const aiContent = aiMessageDiv.querySelector('strong').nextSibling;
-                    aiContent.textContent = ' ' + fullResponse;
-                    chatContainer.scrollTop = chatContainer.scrollHeight;
-                });
-                
-                if (!window.shouldStopGeneration) {
-                    // Update with final response
-                    const aiContent = aiMessageDiv.querySelector('strong').nextSibling;
-                    aiContent.textContent = ' ' + response.response;
+                if (response.success) {
+                    // Update AI message with response
+                    const aiContent = aiMessageDiv.querySelector('.message-content');
+                    aiContent.innerHTML = `<strong>AI:</strong> ${response.response}`;
+                } else {
+                    throw new Error(response.error || 'Unknown error');
                 }
                 
             } catch (error) {
                 console.error('Chat error:', error);
-                const aiContent = aiMessageDiv.querySelector('strong').nextSibling;
-                aiContent.textContent = ` Error: ${error.message}`;
+                const aiContent = aiMessageDiv.querySelector('.message-content');
+                aiContent.innerHTML = `<strong>AI:</strong> <span style="color: red;">Error: ${error.message}</span>`;
             } finally {
-                // Reset state
-                isGenerating = false;
-                window.shouldStopGeneration = false;
+                // Re-enable input and button
                 input.disabled = false;
-                sendBtn.style.display = 'inline-block';
-                if (stopBtn) stopBtn.style.display = 'none';
+                sendBtn.disabled = false;
+                sendBtn.textContent = 'Send';
                 input.focus();
                 
                 // Scroll to bottom
@@ -954,12 +778,9 @@
         
         function stopGeneration() {
             window.shouldStopGeneration = true;
-            if (window.offlineAI) {
-                window.offlineAI.stopGeneration();
-            }
         }
         
-        // Wikipedia search functionality - offline
+        // Wikipedia search functionality
         async function searchWikipedia() {
             const searchInput = document.getElementById('wikiSearchInput');
             const query = searchInput.value.trim();
@@ -968,15 +789,11 @@
             const resultsContainer = document.getElementById('wikiResults');
             
             // Show loading state
-            resultsContainer.innerHTML = '<div><span class="loading"></span> Searching local Wikipedia...</div>';
+            resultsContainer.innerHTML = '<div><span class="loading"></span> Searching Wikipedia...</div>';
             
             try {
-                if (!window.offlineAI) {
-                    throw new Error('Offline AI not initialized');
-                }
-                
-                // Search using offline AI's Wikipedia data
-                const results = window.offlineAI.searchWikipediaByText(query);
+                // Search Wikipedia using integration manager
+                const results = await integrationManager.searchWikipedia(query);
                 
                 if (results.length === 0) {
                     resultsContainer.innerHTML = '<p>No results found for "' + query + '". Try a different search term.</p>';
@@ -987,8 +804,8 @@
                 results.forEach(result => {
                     html += `
                         <div class="wiki-article">
-                            <h3>${result.title}</h3>
-                            <p>${result.content}</p>
+                            <h4><a href="#" onclick="showFullArticle('${result.title}'); return false;">${result.title}</a></h4>
+                            <p>${result.snippet}</p>
                         </div>
                     `;
                 });
@@ -997,165 +814,33 @@
                 
             } catch (error) {
                 console.error('Error searching Wikipedia:', error);
-                resultsContainer.innerHTML = '<p>Error searching local Wikipedia: ' + error.message + '</p>';
+                resultsContainer.innerHTML = '<p>Error searching Wikipedia: ' + error.message + '</p>';
             }
         }
         
-        // Clear all cache functionality
-        async function clearAllCache() {
-            const btn = document.getElementById('clearCacheBtn');
-            const text = document.getElementById('clearCacheText');
-            const spinner = document.getElementById('clearCacheSpinner');
-            const status = document.getElementById('clearCacheStatus');
+        async function showFullArticle(articleTitle) {
+            const resultsContainer = document.getElementById('wikiResults');
             
-            // Disable button and show spinner
-            btn.disabled = true;
-            text.style.display = 'none';
-            spinner.style.display = 'inline-block';
-            status.textContent = 'Clearing cache...';
-            status.className = 'clear-cache-status info';
+            // Show loading state
+            resultsContainer.innerHTML = '<div><span class="loading"></span> Loading article...</div>';
             
             try {
-                let clearedItems = [];
+                const article = await integrationManager.getWikipediaArticle(articleTitle);
                 
-                // Clear localStorage (including completion flag)
-                if (localStorage.length > 0) {
-                    localStorage.clear();
-                    clearedItems.push('Local Storage');
-                }
-                
-                // Clear sessionStorage
-                if (sessionStorage.length > 0) {
-                    sessionStorage.clear();
-                    clearedItems.push('Session Storage');
-                }
-                
-                // Clear IndexedDB databases
-                if ('indexedDB' in window) {
-                    try {
-                        // Get list of databases (if supported)
-                        if (indexedDB.databases) {
-                            const databases = await indexedDB.databases();
-                            for (const db of databases) {
-                                if (db.name) {
-                                    const deleteReq = indexedDB.deleteDatabase(db.name);
-                                    await new Promise((resolve, reject) => {
-                                        deleteReq.onsuccess = () => resolve();
-                                        deleteReq.onerror = () => reject(deleteReq.error);
-                                    });
-                                }
-                            }
-                            if (databases.length > 0) {
-                                clearedItems.push('IndexedDB');
-                            }
-                        } else {
-                            // Fallback: try to delete common database names
-                            const commonDbNames = ['ai-questions-offline', 'wikipedia-cache', 'ai-models', 'offline-data'];
-                            for (const dbName of commonDbNames) {
-                                try {
-                                    const deleteReq = indexedDB.deleteDatabase(dbName);
-                                    await new Promise((resolve) => {
-                                        deleteReq.onsuccess = () => resolve();
-                                        deleteReq.onerror = () => resolve(); // Don't fail if DB doesn't exist
-                                        setTimeout(resolve, 1000); // Timeout after 1 second
-                                    });
-                                } catch (e) {
-                                    // Ignore errors for non-existent databases
-                                }
-                            }
-                            clearedItems.push('IndexedDB (attempted)');
-                        }
-                    } catch (e) {
-                        console.warn('Error clearing IndexedDB:', e);
-                        clearedItems.push('IndexedDB (partial)');
-                    }
-                }
-                
-                // Clear Cache API if available
-                if ('caches' in window) {
-                    try {
-                        const cacheNames = await caches.keys();
-                        for (const cacheName of cacheNames) {
-                            await caches.delete(cacheName);
-                        }
-                        if (cacheNames.length > 0) {
-                            clearedItems.push('Cache API');
-                        }
-                    } catch (e) {
-                        console.warn('Error clearing Cache API:', e);
-                        clearedItems.push('Cache API (partial)');
-                    }
-                }
-                
-                // Clear Service Worker cache if possible
-                if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
-                    try {
-                        navigator.serviceWorker.controller.postMessage({ action: 'clearCache' });
-                        clearedItems.push('Service Worker Cache');
-                    } catch (e) {
-                        console.warn('Error clearing Service Worker cache:', e);
-                    }
-                }
-                
-                // Reset offline AI instance
-                if (window.offlineAI) {
-                    window.offlineAI = null;
-                    clearedItems.push('AI Instance');
-                }
-                
-                // Reset page state to initial (package selection)
-                showPackageSelection();
-                clearedItems.push('Page State Reset');
-                
-                // Show success message
-                if (clearedItems.length > 0) {
-                    status.textContent = `✅ Cleared: ${clearedItems.join(', ')}. Page reset to package selection.`;
-                    status.className = 'clear-cache-status success';
-                } else {
-                    status.textContent = '✅ No cache data found to clear. Page reset to package selection.';
-                    status.className = 'clear-cache-status success';
-                }
-                
-                // Optional page refresh
-                setTimeout(() => {
-                    if (confirm('Cache cleared successfully! The page has been reset to package selection. Would you like to refresh for a completely clean start?')) {
-                        window.location.reload();
-                    }
-                }, 2000);
-                
+                resultsContainer.innerHTML = `
+                    <h3>${article.title}</h3>
+                    <div style="white-space: pre-wrap; line-height: 1.6;">${article.content}</div>
+                    <p><a href="#" onclick="searchWikipedia(); return false;">← Back to search results</a></p>
+                `;
             } catch (error) {
-                console.error('Error clearing cache:', error);
-                status.textContent = `❌ Error clearing cache: ${error.message}`;
-                status.className = 'clear-cache-status error';
-            } finally {
-                // Re-enable button
-                btn.disabled = false;
-                text.style.display = 'inline';
-                spinner.style.display = 'none';
-            }
-        }
-        
-        // Wikipedia search from chat links
-        function searchWikipediaFromChat(query) {
-            // Set the search input value
-            const searchInput = document.getElementById('wikiSearchInput');
-            if (searchInput) {
-                searchInput.value = query;
-                
-                // Trigger the search
-                searchWikipedia();
-                
-                // Scroll to Wikipedia section
-                const wikiSection = document.getElementById('wikiSection');
-                if (wikiSection) {
-                    wikiSection.scrollIntoView({ behavior: 'smooth' });
-                }
+                console.error('Error loading article:', error);
+                resultsContainer.innerHTML = '<p>Error loading article: ' + error.message + '</p>';
             }
         }
         
         // Make functions available globally
         window.searchWikipedia = searchWikipedia;
-        window.searchWikipediaFromChat = searchWikipediaFromChat;
+        window.showFullArticle = showFullArticle;
     </script>
 </body>
 </html>
