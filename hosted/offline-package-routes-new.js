@@ -1,7 +1,7 @@
 const express = require('express');
 const path = require('path');
 const fs = require('fs');
-const OfflineResourceCache = require('../offline-resource-cache');
+const OfflineResourceCache = require('./offline-resource-cache');
 
 const router = express.Router();
 const cache = new OfflineResourceCache();
