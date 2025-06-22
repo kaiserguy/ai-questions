@@ -689,7 +689,7 @@
             isGenerating = true;
             input.disabled = true;
             sendBtn.style.display = 'none';
-            stopBtn.style.display = 'inline-block';
+            if (stopBtn) stopBtn.style.display = 'inline-block';
             
             // Add user message to chat
             const userMessageDiv = document.createElement('div');
@@ -710,10 +710,14 @@
             chatContainer.scrollTop = chatContainer.scrollHeight;
             
             try {
+                if (!window.offlineAI) {
+                    throw new Error('Offline AI not initialized');
+                }
+                
                 let fullResponse = '';
                 
                 // Generate response using offline AI
-                const response = await offlineAI.generateResponse(message, (token) => {
+                const response = await window.offlineAI.generateResponse(message, (token) => {
                     if (window.shouldStopGeneration) return;
                     
                     fullResponse += token;
@@ -738,7 +742,7 @@
                 window.shouldStopGeneration = false;
                 input.disabled = false;
                 sendBtn.style.display = 'inline-block';
-                stopBtn.style.display = 'none';
+                if (stopBtn) stopBtn.style.display = 'none';
                 input.focus();
                 
                 // Scroll to bottom
@@ -748,8 +752,8 @@
         
         function stopGeneration() {
             window.shouldStopGeneration = true;
-            if (offlineAI) {
-                offlineAI.stopGeneration();
+            if (window.offlineAI) {
+                window.offlineAI.stopGeneration();
             }
         }
         
@@ -765,8 +769,12 @@
             resultsContainer.innerHTML = '<div><span class="loading"></span> Searching local Wikipedia...</div>';
             
             try {
+                if (!window.offlineAI) {
+                    throw new Error('Offline AI not initialized');
+                }
+                
                 // Search using offline AI's Wikipedia data
-                const results = offlineAI.searchWikipediaByText(query);
+                const results = window.offlineAI.searchWikipediaByText(query);
                 
                 if (results.length === 0) {
                     resultsContainer.innerHTML = '<p>No results found for "' + query + '". Try a different search term.</p>';
