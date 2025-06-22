@@ -53,8 +53,7 @@ class OfflineResourceMonitor {
         const requiredScripts = [
             'app-enhanced.js',
             'local-ai-model.js',
-            'wikipedia.js',
-            'mock-wikipedia-db.js'
+            'wikipedia.js'
         ];
         
         const loadedScripts = Array.from(document.querySelectorAll('script'))

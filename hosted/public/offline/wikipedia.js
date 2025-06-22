@@ -139,34 +139,81 @@ class WikipediaManager {
         
         this.updateStatus(`Loading Wikipedia database (${config.articles})...`);
         
-        // In a real implementation, this would load the actual database
-        // For now, we'll simulate loading
-        return new Promise((resolve) => {
-            setTimeout(() => {
-                // Simulate database object
-                this.db = {
-                    exec: (sql) => {
-                        // Simulate SQL execution
-                        console.log(`Executing SQL: ${sql}`);
-                        return [];
-                    },
-                    prepare: (sql) => {
-                        // Simulate prepared statement
-                        return {
-                            bind: (params) => {},
-                            step: () => false,
-                            get: () => ({}),
-                            getAsObject: () => ({}),
-                            getColumnNames: () => [],
-                            free: () => {}
-                        };
-                    }
-                };
-                
-                this.updateStatus('Wikipedia database loaded');
-                resolve();
-            }, 1500);
+        try {
+            // Try to load the actual database file
+            const response = await fetch(config.path);
+            
+            if (!response.ok) {
+                throw new Error(`Failed to load database: ${response.status} ${response.statusText}`);
+            }
+            
+            const arrayBuffer = await response.arrayBuffer();
+            const uint8Array = new Uint8Array(arrayBuffer);
+            
+            // Create SQL.js database from the loaded data
+            this.db = new window.SQL.Database(uint8Array);
+            
+            this.updateStatus(`Wikipedia database loaded successfully (${config.articles})`);
+            
+        } catch (error) {
+            console.warn('Failed to load real Wikipedia database, using fallback:', error);
+            
+            // Fallback to a minimal in-memory database with basic articles
+            this.createFallbackDatabase();
+            
+            this.updateStatus('Using fallback Wikipedia database');
+        }
+    }
+    
+    /**
+     * Create a fallback in-memory database with basic articles
+     */
+    createFallbackDatabase() {
+        // Create an empty database
+        this.db = new window.SQL.Database();
+        
+        // Create articles table
+        this.db.exec(`
+            CREATE TABLE articles (
+                id INTEGER PRIMARY KEY,
+                title TEXT NOT NULL,
+                content TEXT NOT NULL,
+                summary TEXT,
+                categories TEXT
+            );
+        `);
+        
+        // Insert some basic articles
+        const basicArticles = [
+            {
+                title: 'Poland',
+                content: 'Poland, officially the Republic of Poland, is a country in Central Europe. It is divided into 16 administrative provinces called voivodeships, covering an area of 312,696 square kilometres (120,733 sq mi), and has a largely temperate seasonal climate. With a population of nearly 38.5 million people, Poland is the fifth-most populous member state of the European Union.',
+                summary: 'Poland is a country in Central Europe with a population of nearly 38.5 million people.',
+                categories: 'Countries, Europe, Central Europe'
+            },
+            {
+                title: 'Artificial Intelligence',
+                content: 'Artificial intelligence (AI) is intelligence demonstrated by machines, as opposed to natural intelligence displayed by animals including humans. AI research has been defined as the field of study of intelligent agents, which refers to any system that perceives its environment and takes actions that maximize its chance of achieving its goals.',
+                summary: 'Intelligence demonstrated by machines, as opposed to natural intelligence displayed by animals including humans.',
+                categories: 'Computer Science, Technology, Machine Learning'
+            },
+            {
+                title: 'Wikipedia',
+                content: 'Wikipedia is a multilingual free online encyclopedia written and maintained by a community of volunteers through open collaboration and a wiki-based editing system. Individual contributors, also called editors, are known as Wikipedians. Wikipedia is the largest and most-read reference work in history.',
+                summary: 'A multilingual free online encyclopedia written and maintained by a community of volunteers.',
+                categories: 'Encyclopedias, Websites, Knowledge'
+            }
+        ];
+        
+        // Insert the articles
+        const stmt = this.db.prepare('INSERT INTO articles (title, content, summary, categories) VALUES (?, ?, ?, ?)');
+        
+        basicArticles.forEach(article => {
+            stmt.bind([article.title, article.content, article.summary, article.categories]);
+            stmt.step();
         });
+        
+        stmt.free();
     }
     
     /**
@@ -180,128 +227,80 @@ class WikipediaManager {
         this.updateStatus(`Searching Wikipedia for: "${query}"`);
         
         try {
-            // In a real implementation, this would search the actual database
-            // For now, we'll simulate search results
-            const results = await this.simulateSearch(query, options);
+            const limit = options.limit || 10;
             
-            this.updateStatus(`Found ${results.length} results for "${query}"`);
+            // Search for articles matching the query
+            const searchSQL = `
+                SELECT title, summary, content, categories
+                FROM articles 
+                WHERE title LIKE ? OR content LIKE ? OR summary LIKE ?
+                LIMIT ?
+            `;
+            
+            const searchTerm = `%${query}%`;
+            const stmt = this.db.prepare(searchSQL);
+            stmt.bind([searchTerm, searchTerm, searchTerm, limit]);
+            
+            const results = [];
+            while (stmt.step()) {
+                const row = stmt.getAsObject();
+                results.push({
+                    title: row.title,
+                    snippet: row.summary || row.content.substring(0, 200) + '...',
+                    extract: row.summary,
+                    content: row.content,
+                    categories: row.categories
+                });
+            }
+            
+            stmt.free();
+            
+            this.updateStatus(`Found ${results.length} Wikipedia articles`);
             return results;
+            
         } catch (error) {
-            this.updateStatus(`Error searching Wikipedia: ${error.message}`, 'error');
-            throw error;
+            console.error('Wikipedia search error:', error);
+            this.updateStatus(`Search error: ${error.message}`, 'error');
+            return [];
         }
     }
     
     /**
-     * Get a Wikipedia article by ID or title
+     * Get a specific Wikipedia article
      */
-    async getArticle(idOrTitle) {
+    async getArticle(titleOrId) {
         if (!this.initialized) {
             throw new Error('Wikipedia manager not initialized');
         }
         
-        this.updateStatus(`Getting Wikipedia article: ${idOrTitle}`);
-        
         try {
-            // In a real implementation, this would get the actual article
-            // For now, we'll simulate an article
-            const article = await this.simulateGetArticle(idOrTitle);
+            const stmt = this.db.prepare('SELECT * FROM articles WHERE title = ? OR id = ?');
+            stmt.bind([titleOrId, titleOrId]);
             
-            this.updateStatus(`Retrieved article: ${article.title}`);
-            return article;
+            if (stmt.step()) {
+                const article = stmt.getAsObject();
+                stmt.free();
+                return article;
+            }
+            
+            stmt.free();
+            return null;
+            
         } catch (error) {
-            this.updateStatus(`Error getting article: ${error.message}`, 'error');
-            throw error;
-        }
-    }
-    
-    /**
-     * Simulate Wikipedia search
-     */
-    async simulateSearch(query, options = {}) {
-        // Simulate processing time
-        await new Promise(resolve => setTimeout(resolve, 300 + Math.random() * 700));
-        
-        // Generate mock results based on the query
-        const results = [];
-        
-        // Add a result that matches the query
-        results.push({
-            id: 'article1',
-            title: query.charAt(0).toUpperCase() + query.slice(1),
-            summary: `This is a simulated Wikipedia article about "${query}". In a real implementation, this would be actual content from a locally stored Wikipedia database.`,
-            relevance: 0.95
-        });
-        
-        // Add a disambiguation result
-        results.push({
-            id: 'article2',
-            title: query.charAt(0).toUpperCase() + query.slice(1) + ' (disambiguation)',
-            summary: `"${query}" may refer to multiple topics. This simulated disambiguation page would list various meanings and related articles in a real implementation.`,
-            relevance: 0.8
-        });
-        
-        // Add a history result
-        results.push({
-            id: 'article3',
-            title: 'History of ' + query.charAt(0).toUpperCase() + query.slice(1),
-            summary: `A simulated article about the history and development of "${query}" throughout different time periods and contexts.`,
-            relevance: 0.7
-        });
-        
-        return results;
-    }
-    
-    /**
-     * Simulate getting a Wikipedia article
-     */
-    async simulateGetArticle(idOrTitle) {
-        // Simulate processing time
-        await new Promise(resolve => setTimeout(resolve, 200 + Math.random() * 500));
-        
-        // Return a mock article
-        return {
-            id: typeof idOrTitle === 'number' ? idOrTitle : 'article1',
-            title: typeof idOrTitle === 'string' ? idOrTitle : 'Simulated Wikipedia Article',
-            content: `
-                <h2>Introduction</h2>
-                <p>This is a simulated Wikipedia article that would be loaded from a local database in a real implementation. The article would contain comprehensive information about the topic, with proper formatting, references, and links to related articles.</p>
-                
-                <h2>Content</h2>
-                <p>In a real implementation, this section would contain the actual content of the Wikipedia article, retrieved from a local database that was downloaded as part of the offline package.</p>
-                
-                <h2>References</h2>
-                <p>This section would list references and citations for the information presented in the article.</p>
-            `,
-            lastUpdated: new Date().toISOString()
-        };
-    }
-    
-    /**
-     * Update status and notify listeners
-     */
-    updateStatus(message, status = 'info') {
-        console.log(`[WikipediaManager] ${message}`);
-        
-        if (this.onStatusUpdate) {
-            this.onStatusUpdate(message, status);
-        }
-    }
-    
-    /**
-     * Get database info
-     */
-    getDatabaseInfo() {
-        const config = this.dbConfigs[this.packageType];
-        if (!config) {
+            console.error('Error getting Wikipedia article:', error);
             return null;
         }
+    }
+    
+    /**
+     * Update status message
+     */
+    updateStatus(message, type = 'info') {
+        console.log(`📚 Wikipedia: ${message}`);
         
-        return {
-            size: config.size,
-            articles: config.articles,
-            packageType: this.packageType
-        };
+        if (this.onStatusUpdate) {
+            this.onStatusUpdate(message, type);
+        }
     }
 }
 
