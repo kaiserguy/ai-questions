@@ -760,10 +760,8 @@
             // Check if offline components are already installed
             if (localStorage.getItem('offlineInstalled') === 'true') {
                 document.getElementById('downloadSection').style.display = 'none';
-                document.getElementById('chatSection').style.display = 'block';
-                document.getElementById('wikiSection').style.display = 'block';
                 
-                // Initialize the integration manager
+                // Initialize the integration manager - it will handle showing sections
                 initializeOfflineMode();
             }
         }
@@ -858,11 +856,8 @@
                 }
             });
             
+            // Let the integration manager handle showing sections via checkInitializationComplete
             integrationManager.initialize().then(() => {
-                document.getElementById('progressSection').style.display = 'none';
-                document.getElementById('chatSection').style.display = 'block';
-                document.getElementById('wikiSection').style.display = 'block';
-                
                 localStorage.setItem('offlineInstalled', 'true');
             });
         }
