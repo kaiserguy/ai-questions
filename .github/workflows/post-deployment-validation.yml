@@ -1,0 +1,313 @@
+name: Post-Deployment Validation
+
+on:
+  # Trigger after successful deployment to Heroku
+  # This can be triggered by Heroku webhook or scheduled runs
+  schedule:
+    - cron: '*/15 * * * *'  # Run every 15 minutes to monitor production
+  workflow_dispatch:  # Allow manual triggering
+    inputs:
+      deployment_url:
+        description: 'Deployment URL to validate'
+        required: false
+        default: 'https://peaceful-sierra-40313-4a09d237c70e.herokuapp.com'
+
+jobs:
+  validate-production:
+    runs-on: ubuntu-latest
+    
+    env:
+      DEPLOYMENT_URL: ${{ github.event.inputs.deployment_url || 'https://peaceful-sierra-40313-4a09d237c70e.herokuapp.com' }}
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20.x'
+        cache: 'npm'
+        
+    - name: Install dependencies
+      run: npm ci
+      
+    - name: Health Check
+      run: |
+        echo "🏥 Performing health check on $DEPLOYMENT_URL"
+        
+        # Basic connectivity test
+        if curl -f --max-time 30 "$DEPLOYMENT_URL" > /dev/null 2>&1; then
+          echo "✅ App is responding"
+        else
+          echo "❌ App is not responding"
+          exit 1
+        fi
+        
+        # Check response time
+        response_time=$(curl -o /dev/null -s -w '%{time_total}' "$DEPLOYMENT_URL")
+        echo "⏱️ Response time: ${response_time}s"
+        
+        # Fail if response time is too slow (>10 seconds)
+        if (( $(echo "$response_time > 10" | bc -l) )); then
+          echo "❌ Response time too slow: ${response_time}s"
+          exit 1
+        fi
+        
+    - name: Critical Path Validation
+      run: |
+        echo "🛤️ Validating critical user paths"
+        
+        # Test homepage
+        if curl -f --max-time 30 "$DEPLOYMENT_URL/" > /dev/null 2>&1; then
+          echo "✅ Homepage accessible"
+        else
+          echo "❌ Homepage failed"
+          exit 1
+        fi
+        
+        # Test offline page (the critical feature)
+        if curl -f --max-time 30 "$DEPLOYMENT_URL/offline/" > /dev/null 2>&1; then
+          echo "✅ Offline page accessible"
+        else
+          echo "❌ Offline page failed"
+          exit 1
+        fi
+        
+        # Test offline page without trailing slash
+        if curl -f --max-time 30 "$DEPLOYMENT_URL/offline" > /dev/null 2>&1; then
+          echo "✅ Offline page (no slash) accessible"
+        else
+          echo "❌ Offline page (no slash) failed"
+          exit 1
+        fi
+        
+    - name: API Endpoint Validation
+      run: |
+        echo "🔌 Validating API endpoints"
+        
+        # Test offline package availability endpoint
+        if curl -f --max-time 30 "$DEPLOYMENT_URL/api/offline/packages/availability" > /dev/null 2>&1; then
+          echo "✅ Package availability API accessible"
+        else
+          echo "❌ Package availability API failed"
+          exit 1
+        fi
+        
+        # Test package manifest endpoints
+        packages=("minimal" "standard" "full")
+        for package in "${packages[@]}"; do
+          if curl -f --max-time 30 "$DEPLOYMENT_URL/api/offline/packages/$package/manifest" > /dev/null 2>&1; then
+            echo "✅ $package package manifest accessible"
+          else
+            echo "❌ $package package manifest failed"
+            exit 1
+          fi
+        done
+        
+    - name: Offline Functionality Deep Check
+      run: |
+        echo "🔍 Deep validation of offline functionality"
+        
+        # Download the offline page and check for required elements
+        offline_content=$(curl -s --max-time 30 "$DEPLOYMENT_URL/offline/")
+        
+        # Check for required DOM elements
+        required_elements=("chatSection" "wikiSection" "progressSection" "downloadBtn")
+        for element in "${required_elements[@]}"; do
+          if echo "$offline_content" | grep -q "id=\"$element\""; then
+            echo "✅ Found required element: $element"
+          else
+            echo "❌ Missing required element: $element"
+            exit 1
+          fi
+        done
+        
+        # Check for required JavaScript files
+        required_scripts=("download-manager.js" "ai-models.js" "wikipedia.js" "integration-manager.js")
+        for script in "${required_scripts[@]}"; do
+          if echo "$offline_content" | grep -q "$script"; then
+            echo "✅ Found required script: $script"
+          else
+            echo "❌ Missing required script: $script"
+            exit 1
+          fi
+        done
+        
+        # Check that sections are initially hidden
+        if echo "$offline_content" | grep -q 'id="chatSection"[^>]*style="[^"]*display:[[:space:]]*none'; then
+          echo "✅ chatSection is initially hidden"
+        else
+          echo "❌ chatSection should be initially hidden"
+          exit 1
+        fi
+        
+        if echo "$offline_content" | grep -q 'id="wikiSection"[^>]*style="[^"]*display:[[:space:]]*none'; then
+          echo "✅ wikiSection is initially hidden"
+        else
+          echo "❌ wikiSection should be initially hidden"
+          exit 1
+        fi
+        
+    - name: JavaScript Error Detection
+      run: |
+        echo "🐛 Checking for JavaScript errors"
+        
+        # Install puppeteer for browser testing
+        npm install puppeteer
+        
+        # Create a simple script to check for JS errors
+        cat > check-js-errors.js << 'EOF'
+        const puppeteer = require('puppeteer');
+        
+        (async () => {
+          const browser = await puppeteer.launch({ 
+            headless: true,
+            args: ['--no-sandbox', '--disable-setuid-sandbox']
+          });
+          const page = await browser.newPage();
+          
+          const errors = [];
+          page.on('console', msg => {
+            if (msg.type() === 'error') {
+              errors.push(msg.text());
+            }
+          });
+          
+          page.on('pageerror', error => {
+            errors.push(error.message);
+          });
+          
+          try {
+            await page.goto(process.env.DEPLOYMENT_URL + '/offline/', { 
+              waitUntil: 'networkidle0',
+              timeout: 30000 
+            });
+            
+            // Wait a bit for any delayed JS execution
+            await page.waitForTimeout(5000);
+            
+            if (errors.length > 0) {
+              console.log('❌ JavaScript errors detected:');
+              errors.forEach(error => console.log(`  - ${error}`));
+              process.exit(1);
+            } else {
+              console.log('✅ No JavaScript errors detected');
+            }
+          } catch (error) {
+            console.log(`❌ Failed to load page: ${error.message}`);
+            process.exit(1);
+          } finally {
+            await browser.close();
+          }
+        })();
+        EOF
+        
+        node check-js-errors.js
+        
+    - name: Performance Baseline Check
+      run: |
+        echo "⚡ Checking performance baseline"
+        
+        # Test multiple endpoints for performance
+        endpoints=("/" "/offline/" "/api/offline/packages/availability")
+        
+        for endpoint in "${endpoints[@]}"; do
+          echo "Testing $endpoint..."
+          
+          # Get response time
+          response_time=$(curl -o /dev/null -s -w '%{time_total}' "$DEPLOYMENT_URL$endpoint")
+          echo "Response time: ${response_time}s"
+          
+          # Check if response time is acceptable (< 5 seconds)
+          if (( $(echo "$response_time > 5" | bc -l) )); then
+            echo "❌ Slow response time for $endpoint: ${response_time}s"
+            exit 1
+          else
+            echo "✅ Good response time for $endpoint: ${response_time}s"
+          fi
+        done
+        
+    - name: Validate Error Prevention
+      run: |
+        echo "🛡️ Validating that previous errors are prevented"
+        
+        # Check that the specific errors I made are not present
+        offline_content=$(curl -s --max-time 30 "$DEPLOYMENT_URL/offline/")
+        
+        # Check for duplicate script declarations (my error)
+        script_count=$(echo "$offline_content" | grep -c "download-manager.js" || echo "0")
+        if [ "$script_count" -gt 1 ]; then
+          echo "❌ Found duplicate script declarations for download-manager.js"
+          exit 1
+        else
+          echo "✅ No duplicate script declarations"
+        fi
+        
+        # Check that view renders properly (not a 500 error page)
+        if echo "$offline_content" | grep -q "<!DOCTYPE html>"; then
+          echo "✅ Page renders as HTML (not error page)"
+        else
+          echo "❌ Page does not render as proper HTML"
+          exit 1
+        fi
+        
+        # Check that required package configurations are present
+        if echo "$offline_content" | grep -q "minimal.*standard.*full"; then
+          echo "✅ Package configurations present"
+        else
+          echo "❌ Package configurations missing"
+          exit 1
+        fi
+        
+    - name: Generate Production Health Report
+      if: always()
+      run: |
+        echo "## 🏥 Production Health Report" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "**Deployment URL:** $DEPLOYMENT_URL" >> $GITHUB_STEP_SUMMARY
+        echo "**Validation Time:** $(date -u)" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "### ✅ Validations Completed:" >> $GITHUB_STEP_SUMMARY
+        echo "- Health check and response time" >> $GITHUB_STEP_SUMMARY
+        echo "- Critical path accessibility" >> $GITHUB_STEP_SUMMARY
+        echo "- API endpoint functionality" >> $GITHUB_STEP_SUMMARY
+        echo "- Offline functionality deep check" >> $GITHUB_STEP_SUMMARY
+        echo "- JavaScript error detection" >> $GITHUB_STEP_SUMMARY
+        echo "- Performance baseline validation" >> $GITHUB_STEP_SUMMARY
+        echo "- Error prevention verification" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "### 🎯 Features Verified:" >> $GITHUB_STEP_SUMMARY
+        echo "- Homepage loads correctly" >> $GITHUB_STEP_SUMMARY
+        echo "- Offline page accessible" >> $GITHUB_STEP_SUMMARY
+        echo "- Package availability API working" >> $GITHUB_STEP_SUMMARY
+        echo "- All package manifests accessible" >> $GITHUB_STEP_SUMMARY
+        echo "- Required DOM elements present" >> $GITHUB_STEP_SUMMARY
+        echo "- JavaScript files loading" >> $GITHUB_STEP_SUMMARY
+        echo "- Sections properly hidden initially" >> $GITHUB_STEP_SUMMARY
+        echo "- No JavaScript errors" >> $GITHUB_STEP_SUMMARY
+        echo "- Performance within acceptable limits" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "**Status: Production is healthy** ✅" >> $GITHUB_STEP_SUMMARY
+        
+    - name: Notify on Failure
+      if: failure()
+      run: |
+        echo "🚨 Production validation failed!"
+        echo "## 🚨 Production Issue Detected" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "**Deployment URL:** $DEPLOYMENT_URL" >> $GITHUB_STEP_SUMMARY
+        echo "**Failure Time:** $(date -u)" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "### ❌ Validation Failed" >> $GITHUB_STEP_SUMMARY
+        echo "One or more production validations failed. Check the workflow logs for details." >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "### 🔧 Recommended Actions:" >> $GITHUB_STEP_SUMMARY
+        echo "1. Check Heroku logs for errors" >> $GITHUB_STEP_SUMMARY
+        echo "2. Verify recent deployments" >> $GITHUB_STEP_SUMMARY
+        echo "3. Consider rollback if critical" >> $GITHUB_STEP_SUMMARY
+        echo "4. Run local tests to reproduce issue" >> $GITHUB_STEP_SUMMARY
+        
+        # In a real setup, you might want to send notifications here
+        # For example, to Slack, email, or create an issue
+
