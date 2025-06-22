@@ -92,7 +92,7 @@ class AIModelManager {
             this.loadingProgress = 25;
             this.updateStatus('Setting up AI framework...');
             
-            // Simulate loading delay
+            // TODO: Implement actual loading delay
             await new Promise(resolve => setTimeout(resolve, 1000));
             
             this.loadingProgress = 50;
@@ -147,7 +147,7 @@ class AIModelManager {
                 // TODO: Initialize actual transformers library
                 window.transformers = {
                     pipeline: async (task, model) => {
-                        // Simulate pipeline creation
+                        // TODO: Create actual pipeline
                         return {
                             model: model,
                             task: task,
@@ -171,17 +171,16 @@ class AIModelManager {
     async loadTokenizer() {
         this.updateStatus('Loading tokenizer...');
         
-        // In a real implementation, this would load the actual tokenizer
-        // For now, we'll simulate loading
+        // TODO: Load actual tokenizer
         return new Promise((resolve) => {
             setTimeout(() => {
                 this.tokenizer = {
                     encode: (text) => {
-                        // Simulate encoding
+                        // TODO: Implement actual encoding
                         return { input_ids: [101, ...text.split('').map(c => c.charCodeAt(0)), 102] };
                     },
                     decode: (tokens) => {
-                        // Simulate decoding
+                        // TODO: Implement actual decoding
                         return tokens.map(t => String.fromCharCode(t)).join('');
                     }
                 };
@@ -206,8 +205,7 @@ class AIModelManager {
             this.updateStatus(`Loading ${config.displayName} model...`);
             
             try {
-                // In a real implementation, this would load the actual model
-                // For now, we'll simulate loading
+                // TODO: Load actual model
                 await new Promise((resolve) => {
                     setTimeout(() => {
                         this.models[config.name] = {
@@ -215,7 +213,7 @@ class AIModelManager {
                             pipeline: null
                         };
                         
-                        // Simulate creating pipeline
+                        // TODO: Create actual pipeline
                         if (config.type === 'causal-lm') {
                             this.models[config.name].pipeline = {
                                 generate: async (text, options) => {
@@ -428,7 +426,7 @@ The local Wikipedia database contains extensive information on many topics, so s
             currentText += (i > 0 ? ' ' : '') + words[i];
             onToken(currentText);
             
-            // Simulate typing delay
+            // TODO: Implement actual streaming delay
             await new Promise(resolve => setTimeout(resolve, 50 + Math.random() * 150));
         }
         

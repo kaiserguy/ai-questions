@@ -379,7 +379,7 @@ class OfflineApp {
         this.addChatMessage(question, true);
         
         try {
-            // Simulate AI processing
+            // TODO: Implement actual AI processing
             this.addChatMessage('🤔 Thinking...', false, true);
             
             await new Promise(resolve => setTimeout(resolve, 1000 + Math.random() * 2000));
