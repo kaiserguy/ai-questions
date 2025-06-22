@@ -686,7 +686,7 @@ async function deleteAnswer(id) {
 
 // Routes
 app.get('/offline', (req, res) => {
-  res.render('offline');
+  res.render('../core/views/offline');
 });
 
 app.get('/', async (req, res) => {

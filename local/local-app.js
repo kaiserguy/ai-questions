@@ -84,7 +84,7 @@ app.use((req, res, next) => {
 
 // Serve offline HTML5 endpoint
 app.get("/offline", (req, res) => {
-    res.render("offline", { 
+    res.render("../core/views/offline", { 
         title: "AI Questions - Offline Mode",
         isLocal: true
     });
