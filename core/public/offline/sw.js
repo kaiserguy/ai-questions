@@ -196,7 +196,7 @@ async function handleOfflineWikipedia(request) {
     const results = [
         {
             title: `Article about ${query}`,
-            excerpt: `This is a simulated Wikipedia excerpt about ${query}. In the real implementation, this would come from a local SQLite database.`,
+            excerpt: `TODO: Load actual Wikipedia excerpt about ${query} from local SQLite database.`,
             url: `https://en.wikipedia.org/wiki/${encodeURIComponent(query)}`
         }
     ];

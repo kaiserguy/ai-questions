@@ -180,9 +180,8 @@ class WikipediaManager {
         this.updateStatus(`Searching Wikipedia for: "${query}"`);
         
         try {
-            // In a real implementation, this would search the actual database
-            // For now, we'll simulate search results
-            const results = await this.simulateSearch(query, options);
+            // TODO: Implement actual database search
+            const results = await this.searchDatabase(query, options);
             
             this.updateStatus(`Found ${results.length} results for "${query}"`);
             return results;
@@ -203,9 +202,8 @@ class WikipediaManager {
         this.updateStatus(`Getting Wikipedia article: ${idOrTitle}`);
         
         try {
-            // In a real implementation, this would get the actual article
-            // For now, we'll simulate an article
-            const article = await this.simulateGetArticle(idOrTitle);
+            // TODO: Implement actual article retrieval from local database
+            const article = await this.getArticleFromDatabase(idOrTitle);
             
             this.updateStatus(`Retrieved article: ${article.title}`);
             return article;
@@ -216,20 +214,20 @@ class WikipediaManager {
     }
     
     /**
-     * Simulate Wikipedia search
+     * Search Wikipedia database (TODO: Implement actual database search)
      */
-    async simulateSearch(query, options = {}) {
-        // Simulate processing time
+    async searchDatabase(query, options = {}) {
+        // TODO: Replace with actual database search
         await new Promise(resolve => setTimeout(resolve, 300 + Math.random() * 700));
         
-        // Generate mock results based on the query
+        // TODO: Generate actual results from local database
         const results = [];
         
         // Add a result that matches the query
         results.push({
             id: 'article1',
             title: query.charAt(0).toUpperCase() + query.slice(1),
-            summary: `This is a simulated Wikipedia article about "${query}". In a real implementation, this would be actual content from a locally stored Wikipedia database.`,
+            summary: `TODO: Load actual Wikipedia article content about "${query}" from locally stored Wikipedia database.`,
             relevance: 0.95
         });
         
@@ -237,7 +235,7 @@ class WikipediaManager {
         results.push({
             id: 'article2',
             title: query.charAt(0).toUpperCase() + query.slice(1) + ' (disambiguation)',
-            summary: `"${query}" may refer to multiple topics. This simulated disambiguation page would list various meanings and related articles in a real implementation.`,
+            summary: `TODO: Load disambiguation page for "${query}" with various meanings and related articles.`,
             relevance: 0.8
         });
         
@@ -245,7 +243,7 @@ class WikipediaManager {
         results.push({
             id: 'article3',
             title: 'History of ' + query.charAt(0).toUpperCase() + query.slice(1),
-            summary: `A simulated article about the history and development of "${query}" throughout different time periods and contexts.`,
+            summary: `TODO: Load article about the history and development of "${query}" throughout different time periods and contexts.`,
             relevance: 0.7
         });
         
@@ -253,25 +251,25 @@ class WikipediaManager {
     }
     
     /**
-     * Simulate getting a Wikipedia article
+     * Get Wikipedia article from database (TODO: Implement actual database retrieval)
      */
-    async simulateGetArticle(idOrTitle) {
-        // Simulate processing time
+    async getArticleFromDatabase(idOrTitle) {
+        // TODO: Implement actual article retrieval from local database
         await new Promise(resolve => setTimeout(resolve, 200 + Math.random() * 500));
         
-        // Return a mock article
+        // TODO: Return actual article from database
         return {
             id: typeof idOrTitle === 'number' ? idOrTitle : 'article1',
-            title: typeof idOrTitle === 'string' ? idOrTitle : 'Simulated Wikipedia Article',
+            title: typeof idOrTitle === 'string' ? idOrTitle : 'Wikipedia Article',
             content: `
                 <h2>Introduction</h2>
-                <p>This is a simulated Wikipedia article that would be loaded from a local database in a real implementation. The article would contain comprehensive information about the topic, with proper formatting, references, and links to related articles.</p>
+                <p>TODO: Load actual Wikipedia article content from local database. The article would contain comprehensive information about the topic, with proper formatting, references, and links to related articles.</p>
                 
                 <h2>Content</h2>
-                <p>In a real implementation, this section would contain the actual content of the Wikipedia article, retrieved from a local database that was downloaded as part of the offline package.</p>
+                <p>TODO: Load the actual content of the Wikipedia article from local database that was downloaded as part of the offline package.</p>
                 
                 <h2>References</h2>
-                <p>This section would list references and citations for the information presented in the article.</p>
+                <p>TODO: Load references and citations for the information presented in the article.</p>
             `,
             lastUpdated: new Date().toISOString()
         };

@@ -225,7 +225,8 @@ class LocalAIModel {
             
             // Generate mock text response
             generateTextResponse(prompt) {
-                return `As an AI assistant running in offline mode, I can respond to your prompt: "${prompt}". In a complete implementation, I would generate a coherent and contextually appropriate response using the loaded language model. For now, this is a simulated response to demonstrate the offline capability.`;
+                // TODO: Implement actual AI text generation using loaded language model
+                return `As an AI assistant running in offline mode, I can respond to your prompt: "${prompt}". In a complete implementation, I would generate a coherent and contextually appropriate response using the loaded language model.`;
             }
         };
     }

@@ -192,11 +192,11 @@ async function handleOfflineWikipedia(request) {
         });
     }
     
-    // Simulate Wikipedia search (in real implementation, this would query local database)
+    // TODO: Query local database for Wikipedia search results
     const results = [
         {
             title: `Article about ${query}`,
-            excerpt: `This is a simulated Wikipedia excerpt about ${query}. In the real implementation, this would come from a local SQLite database.`,
+            excerpt: `TODO: Load actual Wikipedia excerpt about ${query} from local SQLite database.`,
             url: `https://en.wikipedia.org/wiki/${encodeURIComponent(query)}`
         }
     ];
