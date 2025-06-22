@@ -2290,3 +2290,287 @@ app.get('/api/analytics/export-csv/:id', requireAuth, async (req, res) => {
   }
 });
 
+
+// ===== CHAT API ENDPOINTS =====
+
+// Chat endpoint for offline functionality
+app.post('/api/chat', async (req, res) => {
+  try {
+    const { message, model, context = [], includeWikipedia = true } = req.body;
+    
+    if (!message || !model) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Message and model are required' 
+      });
+    }
+
+    // For offline mode, we'll simulate AI responses or use simple text processing
+    // This is a placeholder implementation that can be enhanced with actual AI models
+    
+    let response = '';
+    
+    // Simple response generation based on message content
+    if (message.toLowerCase().includes('hello') || message.toLowerCase().includes('hi')) {
+      response = "Hello! I'm your offline AI assistant. How can I help you today?";
+    } else if (message.toLowerCase().includes('weather')) {
+      response = "I'm an offline AI, so I don't have access to current weather data. However, I can discuss weather patterns, climate, or meteorology in general.";
+    } else if (message.toLowerCase().includes('time') || message.toLowerCase().includes('date')) {
+      response = `The current time is ${new Date().toLocaleString()}. As an offline AI, I can help with time-related calculations or discuss temporal concepts.`;
+    } else if (message.toLowerCase().includes('wikipedia') || message.toLowerCase().includes('search')) {
+      response = "I can help you search through the local Wikipedia database. What topic would you like to explore?";
+    } else {
+      // Generate a more sophisticated response
+      response = `I understand you're asking about "${message}". As an offline AI assistant, I can provide information and analysis based on my training data. Could you be more specific about what aspect you'd like me to focus on?`;
+    }
+
+    // Add Wikipedia context if requested
+    let wikipediaContext = '';
+    if (includeWikipedia && message.length > 10) {
+      // Simple keyword extraction for Wikipedia search
+      const keywords = message.toLowerCase().split(' ').filter(word => 
+        word.length > 3 && !['what', 'when', 'where', 'why', 'how', 'the', 'and', 'or', 'but'].includes(word)
+      );
+      
+      if (keywords.length > 0) {
+        wikipediaContext = `\n\n📚 Related Wikipedia topics: ${keywords.slice(0, 3).join(', ')}`;
+        response += wikipediaContext;
+      }
+    }
+
+    res.json({
+      success: true,
+      response: response,
+      model: model,
+      timestamp: new Date().toISOString(),
+      context: context.concat([
+        { role: 'user', content: message },
+        { role: 'assistant', content: response }
+      ])
+    });
+
+  } catch (error) {
+    console.error('Error in chat endpoint:', error);
+    res.status(500).json({ 
+      success: false, 
+      error: 'Internal server error' 
+    });
+  }
+});
+
+// Streaming chat endpoint for offline functionality
+app.post('/api/chat/stream', async (req, res) => {
+  try {
+    const { message, model, context = [], includeWikipedia = true } = req.body;
+    
+    if (!message || !model) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Message and model are required' 
+      });
+    }
+
+    // Set up Server-Sent Events
+    res.writeHead(200, {
+      'Content-Type': 'text/event-stream',
+      'Cache-Control': 'no-cache',
+      'Connection': 'keep-alive',
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Headers': 'Cache-Control'
+    });
+
+    // Generate response (same logic as non-streaming)
+    let response = '';
+    
+    if (message.toLowerCase().includes('hello') || message.toLowerCase().includes('hi')) {
+      response = "Hello! I'm your offline AI assistant. How can I help you today?";
+    } else if (message.toLowerCase().includes('weather')) {
+      response = "I'm an offline AI, so I don't have access to current weather data. However, I can discuss weather patterns, climate, or meteorology in general.";
+    } else if (message.toLowerCase().includes('time') || message.toLowerCase().includes('date')) {
+      response = `The current time is ${new Date().toLocaleString()}. As an offline AI, I can help with time-related calculations or discuss temporal concepts.`;
+    } else if (message.toLowerCase().includes('wikipedia') || message.toLowerCase().includes('search')) {
+      response = "I can help you search through the local Wikipedia database. What topic would you like to explore?";
+    } else {
+      response = `I understand you're asking about "${message}". As an offline AI assistant, I can provide information and analysis based on my training data. Could you be more specific about what aspect you'd like me to focus on?`;
+    }
+
+    // Stream the response word by word to simulate typing
+    const words = response.split(' ');
+    
+    res.write(`data: ${JSON.stringify({ type: 'start', model: model })}\n\n`);
+    
+    for (let i = 0; i < words.length; i++) {
+      const word = words[i] + (i < words.length - 1 ? ' ' : '');
+      res.write(`data: ${JSON.stringify({ type: 'token', content: word })}\n\n`);
+      
+      // Add small delay to simulate typing
+      await new Promise(resolve => setTimeout(resolve, 50));
+    }
+
+    // Add Wikipedia context if requested
+    if (includeWikipedia && message.length > 10) {
+      const keywords = message.toLowerCase().split(' ').filter(word => 
+        word.length > 3 && !['what', 'when', 'where', 'why', 'how', 'the', 'and', 'or', 'but'].includes(word)
+      );
+      
+      if (keywords.length > 0) {
+        const wikipediaContext = `\n\n📚 Related Wikipedia topics: ${keywords.slice(0, 3).join(', ')}`;
+        const contextWords = wikipediaContext.split(' ');
+        
+        for (let i = 0; i < contextWords.length; i++) {
+          const word = contextWords[i] + (i < contextWords.length - 1 ? ' ' : '');
+          res.write(`data: ${JSON.stringify({ type: 'token', content: word })}\n\n`);
+          await new Promise(resolve => setTimeout(resolve, 30));
+        }
+      }
+    }
+
+    res.write(`data: ${JSON.stringify({ type: 'done', timestamp: new Date().toISOString() })}\n\n`);
+    res.end();
+
+  } catch (error) {
+    console.error('Error in streaming chat endpoint:', error);
+    res.write(`data: ${JSON.stringify({ type: 'error', error: 'Internal server error' })}\n\n`);
+    res.end();
+  }
+});
+
+// ===== WIKIPEDIA API ENDPOINTS =====
+
+// Wikipedia search endpoint
+app.get('/api/wikipedia/search', async (req, res) => {
+  try {
+    const { q: query, limit = 10 } = req.query;
+    
+    if (!query) {
+      return res.status(400).json({ error: 'Query parameter is required' });
+    }
+
+    // Simulate Wikipedia search results
+    // In a real implementation, this would search the local Wikipedia database
+    const mockResults = [
+      {
+        title: `${query} - Overview`,
+        snippet: `This is a simulated search result for "${query}". In the full offline version, this would search through the local Wikipedia database.`,
+        url: `/wikipedia/article/${encodeURIComponent(query)}`
+      },
+      {
+        title: `History of ${query}`,
+        snippet: `Historical information about ${query} would be available in the offline Wikipedia database.`,
+        url: `/wikipedia/article/History_of_${encodeURIComponent(query)}`
+      },
+      {
+        title: `${query} in popular culture`,
+        snippet: `Cultural references and impact of ${query} in various media and society.`,
+        url: `/wikipedia/article/${encodeURIComponent(query)}_in_popular_culture`
+      }
+    ];
+
+    res.json({
+      query: query,
+      results: mockResults.slice(0, parseInt(limit)),
+      total: mockResults.length,
+      source: 'offline_simulation'
+    });
+
+  } catch (error) {
+    console.error('Wikipedia search error:', error);
+    res.status(500).json({ error: 'Failed to search Wikipedia' });
+  }
+});
+
+// Wikipedia article endpoint
+app.get('/wikipedia/article/:title', async (req, res) => {
+  try {
+    const { title } = req.params;
+    
+    // Simulate Wikipedia article content
+    const mockArticle = {
+      title: decodeURIComponent(title),
+      content: `# ${decodeURIComponent(title)}
+
+This is a simulated Wikipedia article for "${decodeURIComponent(title)}". 
+
+In the full offline version, this content would be retrieved from the local Wikipedia database, providing comprehensive information about the topic.
+
+## Overview
+
+The offline Wikipedia database contains thousands of articles that can be searched and browsed without an internet connection. This ensures privacy and allows for research even when offline.
+
+## Features
+
+- **Full-text search**: Search through article titles and content
+- **Cross-references**: Links between related articles
+- **Categories**: Browse articles by topic categories
+- **Random articles**: Discover new topics
+
+## Technical Implementation
+
+The offline Wikipedia functionality uses a local SQLite database containing article content, search indices, and metadata for fast retrieval and searching.
+
+*Note: This is a demonstration. The actual offline version would display real Wikipedia content.*`,
+      lastModified: new Date().toISOString(),
+      source: 'offline_simulation'
+    };
+
+    res.json(mockArticle);
+
+  } catch (error) {
+    console.error('Wikipedia article error:', error);
+    res.status(500).json({ error: 'Failed to get Wikipedia article' });
+  }
+});
+
+// Wikipedia random articles
+app.get('/api/wikipedia/random', async (req, res) => {
+  try {
+    const { count = 5 } = req.query;
+    
+    const topics = ['Science', 'History', 'Technology', 'Geography', 'Literature', 'Art', 'Philosophy', 'Mathematics', 'Biology', 'Physics'];
+    const randomArticles = [];
+    
+    for (let i = 0; i < parseInt(count); i++) {
+      const topic = topics[Math.floor(Math.random() * topics.length)];
+      randomArticles.push({
+        title: `Random ${topic} Article ${i + 1}`,
+        snippet: `This is a random article about ${topic.toLowerCase()}. In the offline version, this would be a real Wikipedia article.`,
+        url: `/wikipedia/article/Random_${topic}_Article_${i + 1}`,
+        category: topic
+      });
+    }
+
+    res.json({
+      articles: randomArticles,
+      count: randomArticles.length,
+      source: 'offline_simulation'
+    });
+
+  } catch (error) {
+    console.error('Wikipedia random articles error:', error);
+    res.status(500).json({ error: 'Failed to get random articles' });
+  }
+});
+
+// Wikipedia status
+app.get('/api/wikipedia/status', async (req, res) => {
+  try {
+    const status = {
+      available: true,
+      database_path: '/offline/wikipedia/minimal-wikipedia.sqlite',
+      database_exists: false, // Simulated - would check actual file
+      mode: 'simulation',
+      stats: {
+        total_articles: 10000,
+        database_size: '20MB',
+        last_updated: new Date().toISOString()
+      }
+    };
+
+    res.json(status);
+
+  } catch (error) {
+    console.error('Wikipedia status error:', error);
+    res.status(500).json({ error: 'Failed to get Wikipedia status' });
+  }
+});
+

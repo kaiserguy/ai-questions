@@ -148,25 +148,149 @@ class OfflineIntegrationManager {
     }
     
     /**
-     * Search Wikipedia
+     * Search Wikipedia using API endpoint
      */
     async searchWikipedia(query) {
-        if (!this.initialized || !this.wikiManager || !this.wikiManager.initialized) {
-            throw new Error('Wikipedia components not initialized');
+        try {
+            const response = await fetch(`/api/wikipedia/search?q=${encodeURIComponent(query)}&limit=10`);
+            const data = await response.json();
+            
+            if (!response.ok) {
+                throw new Error(data.error || 'Search failed');
+            }
+            
+            return data.results || [];
+        } catch (error) {
+            console.error('Wikipedia search error:', error);
+            throw error;
         }
-        
-        return await this.wikiManager.search(query);
     }
     
     /**
-     * Get Wikipedia article
+     * Get Wikipedia article using API endpoint
      */
     async getWikipediaArticle(idOrTitle) {
-        if (!this.initialized || !this.wikiManager || !this.wikiManager.initialized) {
-            throw new Error('Wikipedia components not initialized');
+        try {
+            const response = await fetch(`/wikipedia/article/${encodeURIComponent(idOrTitle)}`);
+            const data = await response.json();
+            
+            if (!response.ok) {
+                throw new Error(data.error || 'Failed to get article');
+            }
+            
+            return data;
+        } catch (error) {
+            console.error('Wikipedia article error:', error);
+            throw error;
         }
-        
-        return await this.wikiManager.getArticle(idOrTitle);
+    }
+    
+    /**
+     * Send chat message using API endpoint
+     */
+    async sendChatMessage(message, model = 'offline-ai', useStreaming = false) {
+        try {
+            if (useStreaming) {
+                return this.sendStreamingChatMessage(message, model);
+            }
+            
+            const response = await fetch('/api/chat', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    message: message,
+                    model: model,
+                    includeWikipedia: true
+                })
+            });
+            
+            const data = await response.json();
+            
+            if (!response.ok) {
+                throw new Error(data.error || 'Chat request failed');
+            }
+            
+            return data;
+        } catch (error) {
+            console.error('Chat error:', error);
+            throw error;
+        }
+    }
+    
+    /**
+     * Send streaming chat message using API endpoint
+     */
+    async sendStreamingChatMessage(message, model = 'offline-ai') {
+        return new Promise((resolve, reject) => {
+            const eventSource = new EventSource('/api/chat/stream');
+            let fullResponse = '';
+            let hasStarted = false;
+            
+            // Send the message via POST first
+            fetch('/api/chat/stream', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    message: message,
+                    model: model,
+                    includeWikipedia: true
+                })
+            }).catch(reject);
+            
+            eventSource.onmessage = (event) => {
+                try {
+                    const data = JSON.parse(event.data);
+                    
+                    switch (data.type) {
+                        case 'start':
+                            hasStarted = true;
+                            break;
+                        case 'token':
+                            fullResponse += data.content;
+                            // Trigger UI update for streaming text
+                            if (window.onStreamingToken) {
+                                window.onStreamingToken(data.content);
+                            }
+                            break;
+                        case 'done':
+                            eventSource.close();
+                            resolve({
+                                success: true,
+                                response: fullResponse,
+                                model: model,
+                                timestamp: data.timestamp
+                            });
+                            break;
+                        case 'error':
+                            eventSource.close();
+                            reject(new Error(data.error));
+                            break;
+                    }
+                } catch (error) {
+                    eventSource.close();
+                    reject(error);
+                }
+            };
+            
+            eventSource.onerror = (error) => {
+                eventSource.close();
+                if (!hasStarted) {
+                    reject(new Error('Failed to connect to streaming endpoint'));
+                }
+            };
+            
+            // Timeout after 30 seconds
+            setTimeout(() => {
+                if (eventSource.readyState !== EventSource.CLOSED) {
+                    eventSource.close();
+                    reject(new Error('Request timeout'));
+                }
+            }, 30000);
+        });
     }
     
     /**

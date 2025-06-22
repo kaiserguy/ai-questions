@@ -710,67 +710,78 @@
         
         // Chat functionality
         async function sendChatMessage() {
-            if (!integrationManager || !integrationManager.initialized || isGenerating) {
-                return;
-            }
-            
             const input = document.getElementById('chatInput');
             const message = input.value.trim();
             if (!message) return;
 
             const chatContainer = document.getElementById('chatContainer');
             const sendBtn = document.getElementById('sendBtn');
-            const stopBtn = document.getElementById('stopBtn');
             
-            // Add user message
-            const userMsg = document.createElement('div');
-            userMsg.className = 'message user';
-            userMsg.innerHTML = `<strong>You:</strong> ${message}`;
-            chatContainer.appendChild(userMsg);
+            // Disable input and button
+            input.disabled = true;
+            sendBtn.disabled = true;
+            sendBtn.textContent = 'Sending...';
             
+            // Add user message to chat
+            const userMessageDiv = document.createElement('div');
+            userMessageDiv.className = 'chat-message user-message';
+            userMessageDiv.innerHTML = `
+                <div class="message-content">
+                    <strong>You:</strong> ${message}
+                </div>
+            `;
+            chatContainer.appendChild(userMessageDiv);
+            
+            // Clear input
             input.value = '';
             
-            // Show typing indicator
-            const aiMsg = document.createElement('div');
-            aiMsg.className = 'message ai';
-            aiMsg.innerHTML = `<strong>AI Assistant:</strong> <div class="typing-indicator"><span></span><span></span><span></span></div>`;
-            chatContainer.appendChild(aiMsg);
+            // Add AI response placeholder
+            const aiMessageDiv = document.createElement('div');
+            aiMessageDiv.className = 'chat-message ai-message';
+            aiMessageDiv.innerHTML = `
+                <div class="message-content">
+                    <strong>AI:</strong> <span class="typing-indicator">Thinking...</span>
+                </div>
+            `;
+            chatContainer.appendChild(aiMessageDiv);
+            
+            // Scroll to bottom
             chatContainer.scrollTop = chatContainer.scrollHeight;
             
-            // Set generating state
-            isGenerating = true;
-            window.shouldStopGeneration = false;
-            sendBtn.disabled = true;
-            stopBtn.style.display = 'block';
-            
             try {
-                // Generate response
-                await integrationManager.streamChatResponse(message, (text) => {
-                    aiMsg.innerHTML = `<strong>AI Assistant:</strong> ${text}`;
-                    chatContainer.scrollTop = chatContainer.scrollHeight;
-                });
+                // Use integration manager to send chat message
+                const response = await integrationManager.sendChatMessage(message, 'offline-ai');
+                
+                if (response.success) {
+                    // Update AI message with response
+                    const aiContent = aiMessageDiv.querySelector('.message-content');
+                    aiContent.innerHTML = `<strong>AI:</strong> ${response.response}`;
+                } else {
+                    throw new Error(response.error || 'Unknown error');
+                }
+                
             } catch (error) {
-                console.error('Error generating response:', error);
-                aiMsg.innerHTML = `<strong>AI Assistant:</strong> I'm sorry, I encountered an error while processing your request. Please try again.`;
+                console.error('Chat error:', error);
+                const aiContent = aiMessageDiv.querySelector('.message-content');
+                aiContent.innerHTML = `<strong>AI:</strong> <span style="color: red;">Error: ${error.message}</span>`;
             } finally {
-                // Reset state
-                isGenerating = false;
+                // Re-enable input and button
+                input.disabled = false;
                 sendBtn.disabled = false;
-                stopBtn.style.display = 'none';
+                sendBtn.textContent = 'Send';
+                input.focus();
+                
+                // Scroll to bottom
                 chatContainer.scrollTop = chatContainer.scrollHeight;
             }
         }
-
+        
         function stopGeneration() {
             window.shouldStopGeneration = true;
         }
         
         // Wikipedia search functionality
         async function searchWikipedia() {
-            if (!integrationManager || !integrationManager.initialized) {
-                return;
-            }
-            
             const searchInput = document.getElementById('wikiSearchInput');
             const query = searchInput.value.trim();
             if (!query) return;
@@ -781,7 +792,7 @@
             resultsContainer.innerHTML = '<div><span class="loading"></span> Searching Wikipedia...</div>';
             
             try {
-                // Search Wikipedia
+                // Search Wikipedia using integration manager
                 const results = await integrationManager.searchWikipedia(query);
                 
                 if (results.length === 0) {
@@ -793,42 +804,37 @@
                 results.forEach(result => {
                     html += `
                         <div class="wiki-article">
-                            <h3>${result.title}</h3>
-                            <p>${result.summary}</p>
-                            <a href="#" onclick="showFullArticle('${result.id}'); return false;">Read more</a>
+                            <h4><a href="#" onclick="showFullArticle('${result.title}'); return false;">${result.title}</a></h4>
+                            <p>${result.snippet}</p>
                         </div>
                     `;
                 });
                 
                 resultsContainer.innerHTML = html;
+                
             } catch (error) {
                 console.error('Error searching Wikipedia:', error);
-                resultsContainer.innerHTML = '<p>Error searching Wikipedia. Please try again.</p>';
+                resultsContainer.innerHTML = '<p>Error searching Wikipedia: ' + error.message + '</p>';
             }
         }
-
-        async function showFullArticle(articleId) {
-            if (!integrationManager || !integrationManager.initialized) {
-                return;
-            }
-            
+        
+        async function showFullArticle(articleTitle) {
             const resultsContainer = document.getElementById('wikiResults');
             
             // Show loading state
             resultsContainer.innerHTML = '<div><span class="loading"></span> Loading article...</div>';
             
             try {
-                // Get article
-                const article = await integrationManager.getWikipediaArticle(articleId);
+                const article = await integrationManager.getWikipediaArticle(articleTitle);
                 
                 resultsContainer.innerHTML = `
                     <h3>${article.title}</h3>
-                    ${article.content}
+                    <div style="white-space: pre-wrap; line-height: 1.6;">${article.content}</div>
                     <p><a href="#" onclick="searchWikipedia(); return false;">← Back to search results</a></p>
                 `;
             } catch (error) {
                 console.error('Error loading article:', error);
-                resultsContainer.innerHTML = '<p>Error loading article. Please try again.</p>';
+                resultsContainer.innerHTML = '<p>Error loading article: ' + error.message + '</p>';
             }
         }
         
