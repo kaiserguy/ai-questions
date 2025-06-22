@@ -413,8 +413,7 @@ class OfflineIntegrationManager {
      * Check for existing installation in IndexedDB
      */
     static async checkExistingInstallation() {
-        // In a real implementation, this would check IndexedDB for existing data
-        // For now, we'll simulate this check
+        // TODO: Check IndexedDB for existing data
         return {
             installed: false,
             packageType: null

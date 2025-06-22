@@ -388,7 +388,7 @@ class OfflineAIChat {
     }
 
     /**
-     * Stream response word by word to simulate typing
+     * Stream response word by word for typing effect
      */
     async streamResponse(response, onToken) {
         const words = response.split(' ');
@@ -399,7 +399,7 @@ class OfflineAIChat {
             const word = words[i] + (i < words.length - 1 ? ' ' : '');
             onToken(word);
             
-            // Add small delay to simulate typing
+            // TODO: Implement actual typing delay
             await new Promise(resolve => setTimeout(resolve, 50));
         }
     }

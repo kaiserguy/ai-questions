@@ -329,7 +329,7 @@ class DownloadManager {
      */
     async initializeStorage() {
         return new Promise((resolve) => {
-            // Simulate storage initialization
+            // TODO: Initialize actual IndexedDB storage
             setTimeout(() => {
                 console.log('Storage initialized');
                 resolve();
@@ -342,7 +342,7 @@ class DownloadManager {
      */
     async initializeAIModels() {
         return new Promise((resolve) => {
-            // Simulate AI model initialization
+            // TODO: Initialize actual AI models
             setTimeout(() => {
                 console.log('AI models initialized');
                 resolve();
@@ -355,7 +355,7 @@ class DownloadManager {
      */
     async initializeWikipedia() {
         return new Promise((resolve) => {
-            // Simulate Wikipedia initialization
+            // TODO: Initialize actual Wikipedia database
             setTimeout(() => {
                 console.log('Wikipedia database initialized');
                 resolve();

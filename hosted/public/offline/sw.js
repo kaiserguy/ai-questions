@@ -161,7 +161,7 @@ async function handleOfflineChat(request) {
         const body = await request.json();
         const { message, model } = body;
         
-        // Simulate AI processing (in real implementation, this would use WebAssembly models)
+        // TODO: Use WebAssembly models for actual AI processing
         const response = {
             message: `Echo: ${message}`,
             model: model || 'offline-model',

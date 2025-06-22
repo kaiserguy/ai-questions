@@ -59,7 +59,7 @@ class WikipediaManager {
             this.loadingProgress = 25;
             this.updateStatus('Setting up Wikipedia framework...');
             
-            // Simulate loading delay
+            // TODO: Implement actual loading delay
             await new Promise(resolve => setTimeout(resolve, 1000));
             
             this.loadingProgress = 50;
@@ -105,10 +105,9 @@ class WikipediaManager {
             
             this.updateStatus('Loading SQL.js library...');
             
-            // In a real implementation, this would load the actual library
-            // For now, we'll simulate loading
+            // TODO: Load actual SQL.js library
             setTimeout(() => {
-                // Simulate the SQL global object
+                // TODO: Initialize actual SQL library
                 window.SQL = {
                     Database: class {
                         constructor(data) {
@@ -117,13 +116,13 @@ class WikipediaManager {
                         }
                         
                         exec(sql) {
-                            // Simulate SQL execution
+                            // TODO: Execute actual SQL
                             console.log(`Executing SQL: ${sql}`);
                             return [];
                         }
                         
                         prepare(sql) {
-                            // Simulate prepared statement
+                            // TODO: Create actual prepared statement
                             return {
                                 bind: (params) => {},
                                 step: () => false,

@@ -368,7 +368,7 @@ class DownloadManagerEnhanced {
         if (progressSection) progressSection.style.display = 'block';
         
         try {
-            // Simulate download process
+            // TODO: Implement actual download process
             await this.downloadPackage(this.currentPackage);
             
             // Show success message
@@ -461,7 +461,7 @@ class DownloadManagerEnhanced {
                 `Component ${i + 1} of ${componentCount}`
             );
             
-            // Simulate component download
+            // TODO: Download actual component
             await this.downloadComponent(component, componentInfo, cache);
             
             // Update total progress
@@ -509,11 +509,11 @@ class DownloadManagerEnhanced {
     }
 
     async downloadComponent(componentId, componentInfo, cache) {
-        // Simulate download time based on component size
+        // TODO: Calculate actual download time based on component size
         const sizeInMB = parseInt(componentInfo.size) || 10;
         const downloadTimeMs = Math.min(sizeInMB * 20, 3000); // Faster for demo
         
-        // Simulate progress updates
+        // TODO: Implement actual progress updates
         const updateInterval = 100;
         const steps = downloadTimeMs / updateInterval;
         
@@ -599,9 +599,8 @@ class DownloadManagerEnhanced {
     }
 
     async cacheWikipediaFiles(cache, wikipediaId) {
-        // In a real implementation, this would download and cache the Wikipedia database
-        // For now, we'll just simulate it
-        console.log(`Simulating Wikipedia database download: ${wikipediaId}`);
+        // TODO: Download and cache actual Wikipedia database
+        console.log(`TODO: Download Wikipedia database: ${wikipediaId}`);
         
         // Create a dummy database file in IndexedDB
         try {
