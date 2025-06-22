@@ -148,74 +148,108 @@ class OfflineIntegrationManager {
     }
     
     /**
-     * Search Wikipedia using API endpoint
+     * Search Wikipedia using local database (no network requests)
      */
     async searchWikipedia(query) {
         try {
-            const response = await fetch(`/api/wikipedia/search?q=${encodeURIComponent(query)}&limit=10`);
-            const data = await response.json();
-            
-            if (!response.ok) {
-                throw new Error(data.error || 'Search failed');
+            if (!this.wikiManager || !this.wikiManager.initialized) {
+                throw new Error('Wikipedia database not initialized. Please download an offline package first.');
             }
             
-            return data.results || [];
+            const results = await this.wikiManager.search(query, 10);
+            return results || [];
+            
         } catch (error) {
-            console.error('Wikipedia search error:', error);
+            console.error('Local Wikipedia search error:', error);
             throw error;
         }
     }
     
     /**
-     * Get Wikipedia article using API endpoint
+     * Get Wikipedia article using local database (no network requests)
      */
     async getWikipediaArticle(idOrTitle) {
         try {
-            const response = await fetch(`/wikipedia/article/${encodeURIComponent(idOrTitle)}`);
-            const data = await response.json();
-            
-            if (!response.ok) {
-                throw new Error(data.error || 'Failed to get article');
+            if (!this.wikiManager || !this.wikiManager.initialized) {
+                throw new Error('Wikipedia database not initialized. Please download an offline package first.');
             }
             
-            return data;
+            const article = await this.wikiManager.getArticle(idOrTitle);
+            if (!article) {
+                throw new Error('Article not found in local database');
+            }
+            
+            return article;
+            
         } catch (error) {
-            console.error('Wikipedia article error:', error);
+            console.error('Local Wikipedia article error:', error);
             throw error;
         }
     }
     
     /**
-     * Send chat message using API endpoint
+     * Send chat message using offline AI (no network requests)
      */
     async sendChatMessage(message, model = 'offline-ai', useStreaming = false) {
         try {
+            // Check if offline AI is initialized
+            if (!this.initialized || !this.aiManager || !this.aiManager.initialized) {
+                // Try to initialize if not already done
+                if (!this.aiManager) {
+                    await this.initializeAI();
+                }
+                
+                if (!this.initialized || !this.aiManager || !this.aiManager.initialized) {
+                    throw new Error('Offline AI not initialized. Please download an offline package first.');
+                }
+            }
+            
+            // Generate response using local AI
+            let response;
             if (useStreaming) {
-                return this.sendStreamingChatMessage(message, model);
+                response = await this.streamChatResponse(message, null);
+            } else {
+                response = await this.generateChatResponse(message);
             }
             
-            const response = await fetch('/api/chat', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    message: message,
-                    model: model,
-                    includeWikipedia: true
-                })
-            });
-            
-            const data = await response.json();
-            
-            if (!response.ok) {
-                throw new Error(data.error || 'Chat request failed');
+            // Search local Wikipedia for relevant context
+            let wikipediaLinks = [];
+            try {
+                if (this.wikiManager && this.wikiManager.initialized) {
+                    const searchResults = await this.wikiManager.search(message, 3);
+                    wikipediaLinks = searchResults.map(result => ({
+                        title: result.title,
+                        url: `/wikipedia/article/${encodeURIComponent(result.title)}`,
+                        snippet: result.snippet || result.extract
+                    }));
+                }
+            } catch (wikiError) {
+                console.warn('Wikipedia search failed:', wikiError);
             }
             
-            return data;
+            // Format response with Wikipedia links if available
+            let formattedResponse = response;
+            if (wikipediaLinks.length > 0) {
+                const linkText = wikipediaLinks.map(link => 
+                    `<a href="${link.url}" onclick="searchWikipediaFromChat('${link.title.replace(/'/g, "\\'")}'); return false;">${link.title}</a>`
+                ).join(', ');
+                formattedResponse += `<br><br><small>📚 Related Wikipedia articles: ${linkText}</small>`;
+            }
+            
+            return {
+                success: true,
+                response: formattedResponse,
+                model: model,
+                wikipediaLinks: wikipediaLinks
+            };
+            
         } catch (error) {
-            console.error('Chat error:', error);
-            throw error;
+            console.error('Offline chat error:', error);
+            return {
+                success: false,
+                error: error.message,
+                response: `Error: ${error.message}`
+            };
         }
     }
     
