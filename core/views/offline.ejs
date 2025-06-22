@@ -773,14 +773,14 @@
             document.getElementById('downloadBtn').style.display = 'none';
             document.getElementById('progressSection').style.display = 'block';
             
-            // Initialize download manager
-            downloadManager = new DownloadManager();
+            // Initialize download manager with package type
+            downloadManager = new DownloadManager(selectedPackage);
             
             // Set up integration event handlers
             setupIntegrationEventHandlers();
             
             // Start the download
-            downloadManager.startDownload(selectedPackage);
+            downloadManager.startDownload();
         }
 
         // Set up integration event handlers
