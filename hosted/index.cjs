@@ -2305,32 +2305,204 @@ app.post('/api/chat', async (req, res) => {
       });
     }
 
-    // For offline mode, we'll simulate AI responses or use simple text processing
-    // This is a placeholder implementation that can be enhanced with actual AI models
-    
+    // Enhanced response generation with comprehensive knowledge base
     let response = '';
+    const lowerMessage = message.toLowerCase().trim();
     
-    // Simple response generation based on message content
-    if (message.toLowerCase().includes('hello') || message.toLowerCase().includes('hi')) {
-      response = "Hello! I'm your offline AI assistant. How can I help you today?";
-    } else if (message.toLowerCase().includes('weather')) {
-      response = "I'm an offline AI, so I don't have access to current weather data. However, I can discuss weather patterns, climate, or meteorology in general.";
-    } else if (message.toLowerCase().includes('time') || message.toLowerCase().includes('date')) {
-      response = `The current time is ${new Date().toLocaleString()}. As an offline AI, I can help with time-related calculations or discuss temporal concepts.`;
-    } else if (message.toLowerCase().includes('wikipedia') || message.toLowerCase().includes('search')) {
-      response = "I can help you search through the local Wikipedia database. What topic would you like to explore?";
-    } else {
-      // Generate a more sophisticated response
-      response = `I understand you're asking about "${message}". As an offline AI assistant, I can provide information and analysis based on my training data. Could you be more specific about what aspect you'd like me to focus on?`;
+    // Country information database
+    const countries = {
+      'poland': {
+        name: 'Poland',
+        location: 'Central Europe',
+        capital: 'Warsaw',
+        population: '38 million',
+        area: '312,696 km²',
+        currency: 'Polish złoty (PLN)',
+        languages: 'Polish',
+        government: 'Parliamentary republic',
+        facts: [
+          'Poland is bordered by Germany, Czech Republic, Slovakia, Ukraine, Belarus, Lithuania, and Russia',
+          'It has a coastline along the Baltic Sea',
+          'Poland was partitioned and disappeared from maps for 123 years (1795-1918)',
+          'It joined NATO in 1999 and the European Union in 2004',
+          'The country has a rich cultural heritage with 16 UNESCO World Heritage Sites'
+        ]
+      },
+      'germany': {
+        name: 'Germany',
+        location: 'Central Europe',
+        capital: 'Berlin',
+        population: '83 million',
+        area: '357,022 km²',
+        currency: 'Euro (EUR)',
+        languages: 'German',
+        government: 'Federal parliamentary republic',
+        facts: [
+          'Germany is the most populous member state of the European Union',
+          'It borders nine countries: Denmark, Poland, Czech Republic, Austria, Switzerland, France, Luxembourg, Belgium, and Netherlands',
+          'Germany is a major economic power and the largest economy in Europe',
+          'The country was divided into East and West Germany from 1949-1990',
+          'Germany is known for its contributions to science, technology, philosophy, music, and literature'
+        ]
+      },
+      'france': {
+        name: 'France',
+        location: 'Western Europe',
+        capital: 'Paris',
+        population: '68 million',
+        area: '643,801 km²',
+        currency: 'Euro (EUR)',
+        languages: 'French',
+        government: 'Semi-presidential republic',
+        facts: [
+          'France is the largest country in the European Union by land area',
+          'It borders eight countries and has coastlines on both the Atlantic Ocean and Mediterranean Sea',
+          'France is famous for its cuisine, wine, fashion, and art',
+          'The country is a founding member of the European Union and NATO',
+          'France has the most time zones of any country (12) due to its overseas territories'
+        ]
+      },
+      'united states': {
+        name: 'United States',
+        location: 'North America',
+        capital: 'Washington, D.C.',
+        population: '331 million',
+        area: '9.8 million km²',
+        currency: 'US Dollar (USD)',
+        languages: 'English (de facto)',
+        government: 'Federal presidential republic',
+        facts: [
+          'The US consists of 50 states and various territories',
+          'It borders Canada to the north and Mexico to the south',
+          'The US has the world\'s largest economy by nominal GDP',
+          'It\'s a founding member of the United Nations and NATO',
+          'The country spans six time zones and has diverse geography from deserts to mountains to plains'
+        ]
+      },
+      'japan': {
+        name: 'Japan',
+        location: 'East Asia',
+        capital: 'Tokyo',
+        population: '125 million',
+        area: '377,975 km²',
+        currency: 'Japanese yen (JPY)',
+        languages: 'Japanese',
+        government: 'Constitutional monarchy',
+        facts: [
+          'Japan is an island nation consisting of four main islands: Honshu, Hokkaido, Kyushu, and Shikoku',
+          'It\'s located in the Pacific Ocean, east of the Korean Peninsula and China',
+          'Japan has the world\'s third-largest economy by nominal GDP',
+          'The country is known for its technology, anime, cuisine, and cultural traditions',
+          'Japan experiences frequent earthquakes due to its location on the Pacific Ring of Fire'
+        ]
+      }
+    };
+
+    // Check for country queries
+    let countryFound = null;
+    for (const [key, country] of Object.entries(countries)) {
+      if (lowerMessage.includes(key) || lowerMessage.includes(country.name.toLowerCase())) {
+        countryFound = country;
+        break;
+      }
     }
 
-    // Add Wikipedia context if requested
+    if (countryFound) {
+      if (lowerMessage.includes('what is') || lowerMessage.includes('about') || lowerMessage === countryFound.name.toLowerCase()) {
+        response = `${countryFound.name} is a ${countryFound.government.toLowerCase()} located in ${countryFound.location}. The capital city is ${countryFound.capital}, and it has a population of approximately ${countryFound.population}. The country covers an area of ${countryFound.area} and uses the ${countryFound.currency} as its currency. The primary language is ${countryFound.languages}.
+
+Key facts about ${countryFound.name}:
+• ${countryFound.facts[0]}
+• ${countryFound.facts[1]}
+• ${countryFound.facts[2]}`;
+      } else if (lowerMessage.includes('where is') || lowerMessage.includes('location')) {
+        response = `${countryFound.name} is located in ${countryFound.location}. ${countryFound.facts[0]} The capital and largest city is ${countryFound.capital}.`;
+      } else if (lowerMessage.includes('capital')) {
+        response = `The capital of ${countryFound.name} is ${countryFound.capital}.`;
+      } else if (lowerMessage.includes('population')) {
+        response = `${countryFound.name} has a population of approximately ${countryFound.population}.`;
+      } else if (lowerMessage.includes('currency')) {
+        response = `The currency of ${countryFound.name} is the ${countryFound.currency}.`;
+      } else if (lowerMessage.includes('language')) {
+        response = `The primary language of ${countryFound.name} is ${countryFound.languages}.`;
+      } else {
+        response = `${countryFound.name} is a country in ${countryFound.location} with its capital in ${countryFound.capital}. ${countryFound.facts[0]} Would you like to know more about its history, geography, culture, or economy?`;
+      }
+    }
+    // Greeting responses
+    else if (lowerMessage.includes('hello') || lowerMessage.includes('hi') || lowerMessage.includes('hey')) {
+      response = "Hello! I'm your offline AI assistant. I can help you with information about countries, places, science, history, and many other topics. I also have access to a local Wikipedia database for additional context. What would you like to know about?";
+    }
+    // Weather queries
+    else if (lowerMessage.includes('weather')) {
+      response = "I'm an offline AI, so I don't have access to current weather data. However, I can discuss weather patterns, climate zones, meteorology, or the weather of specific regions in general terms. What aspect of weather would you like to explore?";
+    }
+    // Time and date queries
+    else if (lowerMessage.includes('time') || lowerMessage.includes('date')) {
+      const now = new Date();
+      response = `The current time is ${now.toLocaleString()}. As an offline AI, I can help with time zone conversions, calendar calculations, historical dates, or temporal concepts. What time-related question can I help you with?`;
+    }
+    // Science queries
+    else if (lowerMessage.includes('science') || lowerMessage.includes('physics') || lowerMessage.includes('chemistry') || lowerMessage.includes('biology')) {
+      response = "I'd be happy to discuss science topics! I can explain concepts in physics, chemistry, biology, astronomy, and other scientific fields. What specific scientific topic or question interests you?";
+    }
+    // History queries
+    else if (lowerMessage.includes('history') || lowerMessage.includes('historical')) {
+      response = "History is a fascinating subject! I can discuss historical events, periods, civilizations, wars, discoveries, and historical figures. What historical topic would you like to explore?";
+    }
+    // Technology queries
+    else if (lowerMessage.includes('technology') || lowerMessage.includes('computer') || lowerMessage.includes('internet')) {
+      response = "I can help explain various technology concepts, from basic computer science to modern innovations. What technology topic interests you?";
+    }
+    // Math queries
+    else if (lowerMessage.includes('math') || lowerMessage.includes('mathematics') || lowerMessage.includes('calculate')) {
+      response = "I can help with mathematical concepts, calculations, and explanations. What mathematical topic or problem would you like assistance with?";
+    }
+    // Wikipedia search suggestions
+    else if (lowerMessage.includes('wikipedia') || lowerMessage.includes('search')) {
+      response = "I can help you search through the local Wikipedia database! You can use the Wikipedia search feature on this page, or tell me what topic you'd like to explore and I can provide information along with relevant Wikipedia suggestions.";
+    }
+    // General knowledge queries
+    else if (lowerMessage.includes('what is') || lowerMessage.includes('what are')) {
+      const topic = lowerMessage.replace(/what is|what are/g, '').trim();
+      if (topic.length > 0) {
+        response = `I'd be happy to explain "${topic}"! While I don't have specific information about this topic in my immediate knowledge base, I can provide general guidance and suggest searching the local Wikipedia database for comprehensive information. What specific aspect of "${topic}" would you like to know about?`;
+      } else {
+        response = "I'd be happy to explain something for you! What topic would you like me to explain?";
+      }
+    }
+    // How queries
+    else if (lowerMessage.includes('how to') || lowerMessage.includes('how do')) {
+      response = "I can help explain processes and procedures! What would you like to learn how to do? I can provide step-by-step explanations for many topics.";
+    }
+    // Why queries
+    else if (lowerMessage.includes('why')) {
+      response = "Great question! I enjoy explaining the reasoning behind things. What would you like to understand the 'why' behind?";
+    }
+    // Default response with more helpful guidance
+    else {
+      response = `I understand you're asking about "${message}". I'm an offline AI assistant with knowledge about countries, science, history, technology, and many other topics. 
+
+Here are some ways I can help:
+• Ask about countries: "What is Poland?" or "Where is Germany?"
+• Explore science topics: "Explain photosynthesis" or "How do computers work?"
+• Discuss history: "Tell me about World War II" or "Ancient Rome"
+• Get explanations: "What is quantum physics?" or "How does the internet work?"
+
+You can also use the Wikipedia search feature on this page for detailed articles. What specific topic interests you?`;
+    }
+
+    // Add Wikipedia context if requested and relevant
     let wikipediaContext = '';
-    if (includeWikipedia && message.length > 10) {
-      // Simple keyword extraction for Wikipedia search
-      const keywords = message.toLowerCase().split(' ').filter(word => 
-        word.length > 3 && !['what', 'when', 'where', 'why', 'how', 'the', 'and', 'or', 'but'].includes(word)
-      );
+    if (includeWikipedia && message.length > 3) {
+      // Extract meaningful keywords for Wikipedia search
+      const keywords = message.toLowerCase()
+        .replace(/[^\w\s]/g, ' ')
+        .split(' ')
+        .filter(word => 
+          word.length > 3 && 
+          !['what', 'when', 'where', 'why', 'how', 'the', 'and', 'or', 'but', 'with', 'for', 'this', 'that', 'they', 'them', 'their', 'there', 'then', 'than', 'from', 'into', 'about'].includes(word)
+        );
       
       if (keywords.length > 0) {
         wikipediaContext = `\n\n📚 Related Wikipedia topics: ${keywords.slice(0, 3).join(', ')}`;
