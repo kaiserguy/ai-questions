@@ -555,6 +555,32 @@
             </div>
         </div>
 
+        <!-- Chat Section (hidden until initialization complete) -->
+        <div class="chat-section" id="chatSection" style="display: none;">
+            <h2>🤖 Offline AI Chat</h2>
+            <div class="chat-container" id="chatContainer">
+                <div class="message ai">
+                    <strong>AI Assistant:</strong> Hello! I'm running completely offline in your browser. Ask me anything, and I can also search the local Wikipedia database for additional context.
+                </div>
+            </div>
+            <div class="chat-input-container">
+                <input type="text" class="chat-input" id="chatInput" placeholder="Ask me anything..." />
+                <button class="send-btn" id="sendBtn">Send</button>
+            </div>
+        </div>
+
+        <!-- Wikipedia Section (hidden until initialization complete) -->
+        <div class="wiki-section" id="wikiSection" style="display: none;">
+            <h2>📚 Local Wikipedia Search</h2>
+            <div class="wiki-search-container">
+                <input type="text" class="wiki-search-input" id="wikiSearchInput" placeholder="Search Wikipedia..." />
+                <button class="wiki-search-btn" id="wikiSearchBtn">Search</button>
+            </div>
+            <div class="wiki-results" id="wikiResults">
+                <p>Enter a search term to find articles in the local Wikipedia database.</p>
+            </div>
+        </div>
+
         <!-- Features Grid -->
         <div class="feature-grid">
             <div class="feature-card">
@@ -606,8 +632,7 @@
         let integrationManager = null;
         let isGenerating = false;
         window.shouldStopGeneration = false;
-        
-        // Initialize when page loads
+          // Initialize when page loads
         document.addEventListener('DOMContentLoaded', () => {
             // Check browser compatibility
             checkBrowserCompatibility();
@@ -621,29 +646,51 @@
                     document.getElementById('downloadBtn').textContent = `Download ${option.querySelector('.option-title').textContent}`;
                 });
             });
-
+            
             // Download button
             document.getElementById('downloadBtn').addEventListener('click', startDownload);
             
-            // Log toggle button
-            document.getElementById('toggleLogBtn').addEventListener('click', toggleDownloadLog);
+            // Set up event listeners for chat
+            const chatInput = document.getElementById('chatInput');
+            const sendBtn = document.getElementById('sendBtn');
             
-            // Chat functionality
-            document.getElementById('sendBtn').addEventListener('click', sendChatMessage);
-            document.getElementById('stopBtn').addEventListener('click', stopGeneration);
-            document.getElementById('chatInput').addEventListener('keypress', (e) => {
-                if (e.key === 'Enter') sendChatMessage();
-            });
+            if (chatInput && sendBtn) {
+                chatInput.addEventListener('keypress', function(e) {
+                    if (e.key === 'Enter') {
+                        sendChatMessage();
+                    }
+                });
+                
+                sendBtn.addEventListener('click', sendChatMessage);
+            }
             
-            // Wikipedia search
-            document.getElementById('wikiSearchBtn').addEventListener('click', searchWikipedia);
-            document.getElementById('wikiSearchInput').addEventListener('keypress', (e) => {
-                if (e.key === 'Enter') searchWikipedia();
-            });
+            // Set up event listeners for Wikipedia search
+            const wikiInput = document.getElementById('wikiSearchInput');
+            const wikiBtn = document.getElementById('wikiSearchBtn');
             
-            // Check for existing installation
-            checkExistingInstallation();
+            if (wikiInput && wikiBtn) {
+                wikiInput.addEventListener('keypress', function(e) {
+                    if (e.key === 'Enter') {
+                        searchWikipedia();
+                    }
+                });
+                
+                wikiBtn.addEventListener('click', searchWikipedia);
+            }
+            
+            // Set up toggle log button
+            const toggleLogBtn = document.getElementById('toggleLogBtn');
+            if (toggleLogBtn) {
+                toggleLogBtn.addEventListener('click', toggleDownloadLog);
+            }
         });
+        
+        // Package selection functions
+        function selectPackage(packageType) {
+            selectedPackage = packageType;
+            document.querySelectorAll('.download-option').forEach(opt => opt.classList.remove('selected'));
+            document.querySelector(`[data-package="${packageType}"]`).classList.add('selected');
+        }
         
         // Check browser compatibility
         function checkBrowserCompatibility() {
