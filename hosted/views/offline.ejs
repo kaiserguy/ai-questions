@@ -838,9 +838,28 @@
             }
         }
         
+        // Wikipedia search from chat links
+        function searchWikipediaFromChat(query) {
+            // Set the search input value
+            const searchInput = document.getElementById('wikiSearchInput');
+            if (searchInput) {
+                searchInput.value = query;
+                
+                // Trigger the search
+                searchWikipedia();
+                
+                // Scroll to Wikipedia section
+                const wikiSection = document.querySelector('.wikipedia-section');
+                if (wikiSection) {
+                    wikiSection.scrollIntoView({ behavior: 'smooth' });
+                }
+            }
+        }
+        
         // Make functions available globally
         window.searchWikipedia = searchWikipedia;
         window.showFullArticle = showFullArticle;
+        window.searchWikipediaFromChat = searchWikipediaFromChat;
     </script>
 </body>
 </html>

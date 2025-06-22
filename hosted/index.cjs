@@ -2505,7 +2505,12 @@ You can also use the Wikipedia search feature on this page for detailed articles
         );
       
       if (keywords.length > 0) {
-        wikipediaContext = `\n\n📚 Related Wikipedia topics: ${keywords.slice(0, 3).join(', ')}`;
+        // Create clickable Wikipedia links
+        const wikipediaLinks = keywords.slice(0, 3).map(keyword => 
+          `<a href="#" onclick="searchWikipediaFromChat('${keyword}'); return false;" style="color: #0066cc; text-decoration: underline;">${keyword}</a>`
+        ).join(', ');
+        
+        wikipediaContext = `\n\n📚 Related Wikipedia topics: ${wikipediaLinks}`;
         response += wikipediaContext;
       }
     }
