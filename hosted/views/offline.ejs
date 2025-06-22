@@ -709,11 +709,11 @@
         
         // Initialize when page loads
         document.addEventListener('DOMContentLoaded', () => {
-            // Initialize offline AI immediately
-            initializeOfflineAI();
-            
-            // Check browser compatibility
+            // Check browser compatibility first
             checkBrowserCompatibility();
+            
+            // Check if we should show package selection or chat interface
+            checkInitialPageState();
             
             // Package selection
             document.querySelectorAll('.download-option').forEach(option => {
@@ -725,8 +725,8 @@
                 });
             });
 
-            // Download button - for now, just show the chat interface
-            document.getElementById('downloadBtn').addEventListener('click', showChatInterface);
+            // Download button - simulate download and show chat interface
+            document.getElementById('downloadBtn').addEventListener('click', startDownloadProcess);
             
             // Chat functionality
             document.getElementById('sendBtn').addEventListener('click', sendChatMessage);
@@ -742,15 +742,97 @@
             });
         });
 
+        // Check what state the page should be in
+        function checkInitialPageState() {
+            // Check if offline AI data exists
+            const hasOfflineData = checkForOfflineData();
+            
+            if (hasOfflineData) {
+                // Initialize offline AI and show chat interface
+                initializeOfflineAI();
+                showChatInterface();
+            } else {
+                // Show package selection
+                showPackageSelection();
+            }
+        }
+
+        // Check if offline data exists
+        function checkForOfflineData() {
+            // Check localStorage for completion flag
+            const downloadComplete = localStorage.getItem('offlineDownloadComplete');
+            if (downloadComplete === 'true') {
+                return true;
+            }
+            
+            // Check for IndexedDB databases
+            if ('indexedDB' in window) {
+                // We can't easily check IndexedDB synchronously, so we'll rely on localStorage flag
+                return false;
+            }
+            
+            return false;
+        }
+
+        // Show package selection (initial state)
+        function showPackageSelection() {
+            document.getElementById('downloadSection').style.display = 'block';
+            document.getElementById('progressSection').style.display = 'none';
+            document.getElementById('chatSection').style.display = 'none';
+            document.getElementById('wikiSection').style.display = 'none';
+        }
+
+        // Start download process
+        function startDownloadProcess() {
+            // Set completion flag
+            localStorage.setItem('offlineDownloadComplete', 'true');
+            
+            // Show progress section
+            document.getElementById('downloadSection').style.display = 'none';
+            document.getElementById('progressSection').style.display = 'block';
+            
+            // Simulate download progress
+            simulateDownload();
+        }
+
+        // Simulate download progress
+        function simulateDownload() {
+            const progressBar = document.querySelector('.progress-fill');
+            const progressText = document.querySelector('.progress-section h3');
+            const progressDescription = document.querySelector('.progress-section p');
+            
+            let progress = 0;
+            const interval = setInterval(() => {
+                progress += Math.random() * 15;
+                if (progress > 100) progress = 100;
+                
+                progressBar.style.width = progress + '%';
+                progressText.textContent = `Downloading... ${Math.round(progress)}%`;
+                
+                if (progress >= 100) {
+                    clearInterval(interval);
+                    progressDescription.textContent = 'Download complete! Initializing offline AI...';
+                    
+                    // Initialize offline AI and show chat interface
+                    setTimeout(() => {
+                        initializeOfflineAI();
+                        showChatInterface();
+                    }, 1000);
+                }
+            }, 200);
+        }
+
         // Initialize offline AI
         async function initializeOfflineAI() {
             try {
+                if (!window.OfflineAIChat) {
+                    console.warn('OfflineAIChat not available, using fallback');
+                    return;
+                }
+                
                 offlineAI = new OfflineAIChat();
                 await offlineAI.initialize();
                 console.log('Offline AI initialized successfully');
-                
-                // Show chat interface immediately since we're working offline
-                showChatInterface();
             } catch (error) {
                 console.error('Failed to initialize offline AI:', error);
             }
@@ -926,7 +1008,7 @@
             try {
                 let clearedItems = [];
                 
-                // Clear localStorage
+                // Clear localStorage (including completion flag)
                 if (localStorage.length > 0) {
                     localStorage.clear();
                     clearedItems.push('Local Storage');
@@ -1011,18 +1093,22 @@
                     clearedItems.push('AI Instance');
                 }
                 
+                // Reset page state to initial (package selection)
+                showPackageSelection();
+                clearedItems.push('Page State Reset');
+                
                 // Show success message
                 if (clearedItems.length > 0) {
-                    status.textContent = `✅ Cleared: ${clearedItems.join(', ')}. Refresh the page for a clean start.`;
+                    status.textContent = `✅ Cleared: ${clearedItems.join(', ')}. Page reset to package selection.`;
                     status.className = 'clear-cache-status success';
                 } else {
-                    status.textContent = '✅ No cache data found to clear.';
+                    status.textContent = '✅ No cache data found to clear. Page reset to package selection.';
                     status.className = 'clear-cache-status success';
                 }
                 
-                // Suggest page refresh
+                // Optional page refresh
                 setTimeout(() => {
-                    if (confirm('Cache cleared successfully! Would you like to refresh the page for a clean start?')) {
+                    if (confirm('Cache cleared successfully! The page has been reset to package selection. Would you like to refresh for a completely clean start?')) {
                         window.location.reload();
                     }
                 }, 2000);
