@@ -2623,36 +2623,46 @@ app.get('/api/wikipedia/search', async (req, res) => {
       return res.status(400).json({ error: 'Query parameter is required' });
     }
 
-    // Simulate Wikipedia search results
-    // In a real implementation, this would search the local Wikipedia database
-    const mockResults = [
-      {
-        title: `${query} - Overview`,
-        snippet: `This is a simulated search result for "${query}". In the full offline version, this would search through the local Wikipedia database.`,
-        url: `/wikipedia/article/${encodeURIComponent(query)}`
-      },
-      {
-        title: `History of ${query}`,
-        snippet: `Historical information about ${query} would be available in the offline Wikipedia database.`,
-        url: `/wikipedia/article/History_of_${encodeURIComponent(query)}`
-      },
-      {
-        title: `${query} in popular culture`,
-        snippet: `Cultural references and impact of ${query} in various media and society.`,
-        url: `/wikipedia/article/${encodeURIComponent(query)}_in_popular_culture`
-      }
-    ];
+    // Use Wikipedia's OpenSearch API for real search results
+    const opensearchUrl = `https://en.wikipedia.org/w/api.php?action=opensearch&search=${encodeURIComponent(query)}&limit=${limit}&namespace=0&format=json&origin=*`;
+    
+    const response = await fetch(opensearchUrl);
+    if (!response.ok) {
+      throw new Error('Wikipedia API request failed');
+    }
+    
+    const [searchTerm, titles, descriptions, urls] = await response.json();
+    
+    const results = titles.map((title, index) => ({
+      title: title,
+      snippet: descriptions[index] || 'No description available',
+      url: `/wikipedia/article/${encodeURIComponent(title.replace(/\s+/g, '_'))}`
+    }));
 
     res.json({
       query: query,
-      results: mockResults.slice(0, parseInt(limit)),
-      total: mockResults.length,
-      source: 'offline_simulation'
+      results: results,
+      total: results.length,
+      source: 'wikipedia_api'
     });
 
   } catch (error) {
     console.error('Wikipedia search error:', error);
-    res.status(500).json({ error: 'Failed to search Wikipedia' });
+    // Fallback to simulated results if API fails
+    const fallbackResults = [
+      {
+        title: `${query} - Overview`,
+        snippet: `Search results for "${query}". Wikipedia API temporarily unavailable.`,
+        url: `/wikipedia/article/${encodeURIComponent(query)}`
+      }
+    ];
+    
+    res.json({
+      query: query,
+      results: fallbackResults,
+      total: fallbackResults.length,
+      source: 'fallback'
+    });
   }
 });
 
@@ -2660,41 +2670,70 @@ app.get('/api/wikipedia/search', async (req, res) => {
 app.get('/wikipedia/article/:title', async (req, res) => {
   try {
     const { title } = req.params;
+    const decodedTitle = decodeURIComponent(title).replace(/_/g, ' ');
     
-    // Simulate Wikipedia article content
-    const mockArticle = {
-      title: decodeURIComponent(title),
-      content: `# ${decodeURIComponent(title)}
+    // Get article summary from Wikipedia API
+    const summaryUrl = `https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(decodedTitle)}`;
+    const summaryResponse = await fetch(summaryUrl);
+    
+    if (!summaryResponse.ok) {
+      throw new Error('Article not found');
+    }
+    
+    const summaryData = await summaryResponse.json();
+    
+    // Get full article content
+    const contentUrl = `https://en.wikipedia.org/w/api.php?action=query&format=json&titles=${encodeURIComponent(decodedTitle)}&prop=extracts&exintro=&explaintext=&origin=*`;
+    const contentResponse = await fetch(contentUrl);
+    
+    let fullContent = summaryData.extract || 'Content not available';
+    
+    if (contentResponse.ok) {
+      const contentData = await contentResponse.json();
+      const pages = contentData.query.pages;
+      const pageId = Object.keys(pages)[0];
+      const pageContent = pages[pageId];
+      
+      if (pageContent && pageContent.extract) {
+        fullContent = pageContent.extract;
+      }
+    }
 
-This is a simulated Wikipedia article for "${decodeURIComponent(title)}". 
+    const article = {
+      title: summaryData.title,
+      content: `# ${summaryData.title}
 
-In the full offline version, this content would be retrieved from the local Wikipedia database, providing comprehensive information about the topic.
+${fullContent}
 
-## Overview
-
-The offline Wikipedia database contains thousands of articles that can be searched and browsed without an internet connection. This ensures privacy and allows for research even when offline.
-
-## Features
-
-- **Full-text search**: Search through article titles and content
-- **Cross-references**: Links between related articles
-- **Categories**: Browse articles by topic categories
-- **Random articles**: Discover new topics
-
-## Technical Implementation
-
-The offline Wikipedia functionality uses a local SQLite database containing article content, search indices, and metadata for fast retrieval and searching.
-
-*Note: This is a demonstration. The actual offline version would display real Wikipedia content.*`,
+---
+*Source: Wikipedia*
+*URL: ${summaryData.content_urls?.desktop?.page || `https://en.wikipedia.org/wiki/${encodeURIComponent(decodedTitle)}`}*`,
       lastModified: new Date().toISOString(),
-      source: 'offline_simulation'
+      source: 'wikipedia_api',
+      thumbnail: summaryData.thumbnail?.source || null,
+      description: summaryData.description || null
     };
 
-    res.json(mockArticle);
+    res.json(article);
 
   } catch (error) {
     console.error('Wikipedia article error:', error);
-    res.status(500).json({ error: 'Failed to get Wikipedia article' });
+    
+    // Fallback content if API fails
+    const fallbackArticle = {
+      title: decodeURIComponent(req.params.title).replace(/_/g, ' '),
+      content: `# ${decodeURIComponent(req.params.title).replace(/_/g, ' ')}
+
+Article content temporarily unavailable. Wikipedia API connection failed.
+
+This would normally display the full Wikipedia article content for "${decodeURIComponent(req.params.title).replace(/_/g, ' ')}".
+
+Please try again later or check your internet connection.`,
+      lastModified: new Date().toISOString(),
+      source: 'fallback'
+    };
+    
+    res.json(fallbackArticle);
   }
 });
 
@@ -2702,24 +2741,46 @@ The offline Wikipedia functionality uses a local SQLite database containing arti
 app.get('/api/wikipedia/random', async (req, res) => {
   try {
     const { count = 5 } = req.query;
-    
-    const topics = ['Science', 'History', 'Technology', 'Geography', 'Literature', 'Art', 'Philosophy', 'Mathematics', 'Biology', 'Physics'];
     const randomArticles = [];
     
+    // Get multiple random articles from Wikipedia
     for (let i = 0; i < parseInt(count); i++) {
-      const topic = topics[Math.floor(Math.random() * topics.length)];
-      randomArticles.push({
-        title: `Random ${topic} Article ${i + 1}`,
-        snippet: `This is a random article about ${topic.toLowerCase()}. In the offline version, this would be a real Wikipedia article.`,
-        url: `/wikipedia/article/Random_${topic}_Article_${i + 1}`,
-        category: topic
-      });
+      try {
+        const randomUrl = 'https://en.wikipedia.org/api/rest_v1/page/random/summary';
+        const response = await fetch(randomUrl);
+        
+        if (response.ok) {
+          const data = await response.json();
+          randomArticles.push({
+            title: data.title,
+            snippet: data.extract || 'No description available',
+            url: `/wikipedia/article/${encodeURIComponent(data.title.replace(/\s+/g, '_'))}`,
+            category: data.description || 'General'
+          });
+        }
+      } catch (error) {
+        console.error(`Error fetching random article ${i + 1}:`, error);
+      }
+    }
+    
+    // If no articles were fetched, provide fallback
+    if (randomArticles.length === 0) {
+      const fallbackTopics = ['Science', 'History', 'Technology', 'Geography', 'Literature'];
+      for (let i = 0; i < Math.min(parseInt(count), fallbackTopics.length); i++) {
+        const topic = fallbackTopics[i];
+        randomArticles.push({
+          title: `${topic} Overview`,
+          snippet: `General information about ${topic.toLowerCase()}. Wikipedia API temporarily unavailable.`,
+          url: `/wikipedia/article/${topic}_Overview`,
+          category: topic
+        });
+      }
     }
 
     res.json({
       articles: randomArticles,
       count: randomArticles.length,
-      source: 'offline_simulation'
+      source: randomArticles.length > 0 && randomArticles[0].category !== 'General' ? 'wikipedia_api' : 'fallback'
     });
 
   } catch (error) {
