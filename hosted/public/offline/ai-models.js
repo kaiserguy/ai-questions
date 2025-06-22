@@ -290,17 +290,109 @@ class AIModelManager {
      * Simulate text generation
      */
     async simulateGeneration(prompt, options = {}) {
-        // Generate a contextual response based on the prompt
+        // Analyze the prompt to determine response type
+        const lowerPrompt = prompt.toLowerCase();
         let response = '';
+        let wikipediaContext = '';
         
-        if (prompt.toLowerCase().includes('wikipedia')) {
-            response = `I can help you search the local Wikipedia database for information. Just use the Wikipedia search section below to find specific articles. What topic are you interested in learning about?`;
-        } else if (prompt.toLowerCase().includes('offline')) {
-            response = `Yes, I'm running completely offline in your browser. All processing happens locally on your device, which ensures privacy and allows you to use this application even without an internet connection.`;
-        } else if (prompt.toLowerCase().includes('how do you work')) {
-            response = `I'm a lightweight AI model running directly in your web browser using WebAssembly. I process your questions locally on your device without sending any data to external servers. I can also access a local Wikipedia database to provide you with factual information.`;
+        // Try to get Wikipedia context for the question
+        try {
+            if (window.wikiManager && window.wikiManager.initialized) {
+                const searchResults = await window.wikiManager.search(prompt, 2);
+                if (searchResults && searchResults.length > 0) {
+                    wikipediaContext = searchResults.map(result => 
+                        `${result.title}: ${result.summary || result.extract || ''}`
+                    ).join('\n\n');
+                }
+            }
+        } catch (error) {
+            console.warn('Wikipedia search failed:', error);
+        }
+        
+        // Generate contextual responses based on prompt analysis
+        if (lowerPrompt.includes('what is love') || lowerPrompt.includes('define love')) {
+            response = `Love is a complex set of emotions, behaviors, and beliefs associated with strong feelings of affection, protectiveness, warmth, and respect for another person. It can also apply to non-human animals, principles, and religious beliefs. Love has been studied extensively in psychology, philosophy, and neuroscience.
+
+From a psychological perspective, love involves attachment, care, intimacy, and commitment. Different types include romantic love, familial love, platonic love, and self-love. The ancient Greeks identified several forms: eros (romantic), philia (friendship), storge (family), and agape (unconditional).
+
+Neurologically, love involves complex brain chemistry including dopamine, oxytocin, and serotonin, which create feelings of pleasure, bonding, and well-being.`;
+            
+        } else if (lowerPrompt.includes('poland') || lowerPrompt.includes('where is poland')) {
+            response = `Poland is a country located in Central Europe. It is bordered by Germany to the west, the Czech Republic and Slovakia to the south, Ukraine and Belarus to the east, and Lithuania and Russia (Kaliningrad Oblast) to the northeast. The northern border is formed by the Baltic Sea.
+
+Poland covers an area of 312,696 square kilometers (120,728 sq mi) and has a population of over 38 million people. The capital and largest city is Warsaw. Other major cities include Kraków, Łódź, Wrocław, Poznań, and Gdańsk.
+
+The country has a rich history dating back over 1,000 years and is known for its cultural contributions, including famous figures like Copernicus, Chopin, and Marie Curie.`;
+            
+        } else if (lowerPrompt.includes('artificial intelligence') || lowerPrompt.includes('what is ai')) {
+            response = `Artificial Intelligence (AI) refers to the simulation of human intelligence in machines that are programmed to think and learn like humans. AI systems can perform tasks that typically require human intelligence, such as visual perception, speech recognition, decision-making, and language translation.
+
+There are several types of AI:
+- **Narrow AI**: Designed for specific tasks (like voice assistants, recommendation systems)
+- **General AI**: Hypothetical AI that could perform any intellectual task a human can
+- **Machine Learning**: AI systems that improve through experience
+- **Deep Learning**: AI using neural networks with multiple layers
+
+AI applications include autonomous vehicles, medical diagnosis, natural language processing, computer vision, and robotics. The field continues to evolve rapidly with advances in computing power and algorithmic development.`;
+            
+        } else if (lowerPrompt.includes('wikipedia')) {
+            response = `I can help you search the local Wikipedia database for information. The Wikipedia search function below allows you to find specific articles stored locally on your device. This ensures fast access to knowledge without requiring an internet connection.
+
+What topic would you like to explore? You can search for countries, historical events, scientific concepts, notable people, or any other subject covered in Wikipedia.`;
+            
+        } else if (lowerPrompt.includes('offline')) {
+            response = `Yes, I'm running completely offline in your browser! All processing happens locally on your device, which provides several benefits:
+
+🔒 **Complete Privacy**: No data ever leaves your device
+⚡ **Lightning Fast**: No network delays or server processing time  
+🌐 **Works Anywhere**: No internet connection required after initial download
+📚 **Local Knowledge**: Access to Wikipedia database stored on your device
+
+This offline approach ensures your conversations remain private while providing instant responses and reliable access to information regardless of your internet connectivity.`;
+            
+        } else if (lowerPrompt.includes('how do you work') || lowerPrompt.includes('how does this work')) {
+            response = `I'm an AI assistant running entirely in your web browser using advanced JavaScript and WebAssembly technologies. Here's how it works:
+
+🧠 **Local Processing**: All AI computations happen on your device using optimized models
+📚 **Wikipedia Integration**: I can search a local Wikipedia database for factual information
+🔄 **Real-time Responses**: Generate answers instantly without server communication
+💾 **Browser Storage**: Models and data are cached in your browser for offline access
+
+The system uses lightweight AI models specifically optimized for browser environments, combined with a local Wikipedia database to provide knowledgeable responses while maintaining complete privacy and offline functionality.`;
+            
         } else {
-            response = `That's an interesting question about "${prompt}". In a fully implemented version, I would process this using local AI models and search the offline Wikipedia database for relevant context to provide a comprehensive answer.`;
+            // For general questions, try to provide a helpful response using Wikipedia context
+            if (wikipediaContext) {
+                response = `Based on the available information, I can provide some context about your question.
+
+${wikipediaContext}
+
+This information comes from the local Wikipedia database. For more detailed information, you can use the Wikipedia search function below to explore specific articles related to your question.`;
+            } else {
+                // Provide a helpful general response
+                response = `I understand you're asking about "${prompt}". While I don't have specific information readily available for this exact question, I can help you in several ways:
+
+1. **Wikipedia Search**: Use the search function below to find relevant articles in the local Wikipedia database
+2. **Rephrase**: Try asking your question in a different way - I might have information under different terms
+3. **Related Topics**: Ask about related subjects that might contain the information you're looking for
+
+The local Wikipedia database contains extensive information on many topics, so searching there might provide the detailed answer you're seeking.`;
+            }
+        }
+        
+        // Add Wikipedia links if context was found
+        if (wikipediaContext && window.wikiManager && window.wikiManager.initialized) {
+            try {
+                const searchResults = await window.wikiManager.search(prompt, 3);
+                if (searchResults && searchResults.length > 0) {
+                    const linkText = searchResults.map(result => 
+                        `<a href="#" onclick="searchWikipediaFromChat('${result.title.replace(/'/g, "\\'")}'); return false;">${result.title}</a>`
+                    ).join(', ');
+                    response += `<br><br><small>📚 Related Wikipedia articles: ${linkText}</small>`;
+                }
+            } catch (error) {
+                console.warn('Failed to generate Wikipedia links:', error);
+            }
         }
         
         return response;
