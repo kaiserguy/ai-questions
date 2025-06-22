@@ -429,6 +429,100 @@
             background: #ef4444;
         }
 
+        /* Clear Cache Section Styles */
+        .clear-cache-section {
+            margin: 30px 0;
+        }
+
+        .clear-cache-card {
+            background: white;
+            border-radius: 12px;
+            padding: 30px;
+            text-align: center;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            border: 2px solid #fef3c7;
+            background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%);
+        }
+
+        .clear-cache-icon {
+            font-size: 48px;
+            margin-bottom: 20px;
+        }
+
+        .clear-cache-card h3 {
+            color: #92400e;
+            margin-bottom: 15px;
+            font-size: 24px;
+        }
+
+        .clear-cache-card p {
+            color: #b45309;
+            margin-bottom: 25px;
+            font-size: 16px;
+            line-height: 1.6;
+        }
+
+        .clear-cache-btn {
+            background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            min-width: 160px;
+            justify-content: center;
+        }
+
+        .clear-cache-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(220, 38, 38, 0.3);
+        }
+
+        .clear-cache-btn:disabled {
+            background: #9ca3af;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+
+        .clear-cache-status {
+            margin-top: 15px;
+            font-weight: 500;
+            min-height: 20px;
+        }
+
+        .clear-cache-status.success {
+            color: #059669;
+        }
+
+        .clear-cache-status.error {
+            color: #dc2626;
+        }
+
+        .clear-cache-status.info {
+            color: #2563eb;
+        }
+
+        .spinner {
+            width: 16px;
+            height: 16px;
+            border: 2px solid transparent;
+            border-top: 2px solid currentColor;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
         @media (max-width: 768px) {
             .header h1 {
                 font-size: 2rem;
@@ -565,6 +659,22 @@
                 <div class="feature-icon">📚</div>
                 <h3>Local Wikipedia</h3>
                 <p>Comprehensive knowledge base stored locally for enhanced AI responses.</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Clear Cache Section -->
+    <div class="container">
+        <div class="clear-cache-section">
+            <div class="clear-cache-card">
+                <div class="clear-cache-icon">🗑️</div>
+                <h3>Clear Local Data</h3>
+                <p>Reset all offline data including cached models, Wikipedia content, and conversation history. Use this if you're experiencing issues or want a fresh start.</p>
+                <button id="clearCacheBtn" class="clear-cache-btn" onclick="clearAllCache()">
+                    <span id="clearCacheText">Clear All Cache</span>
+                    <span id="clearCacheSpinner" class="spinner" style="display: none;"></span>
+                </button>
+                <div id="clearCacheStatus" class="clear-cache-status"></div>
             </div>
         </div>
     </div>
@@ -796,6 +906,136 @@
             } catch (error) {
                 console.error('Error searching Wikipedia:', error);
                 resultsContainer.innerHTML = '<p>Error searching local Wikipedia: ' + error.message + '</p>';
+            }
+        }
+        
+        // Clear all cache functionality
+        async function clearAllCache() {
+            const btn = document.getElementById('clearCacheBtn');
+            const text = document.getElementById('clearCacheText');
+            const spinner = document.getElementById('clearCacheSpinner');
+            const status = document.getElementById('clearCacheStatus');
+            
+            // Disable button and show spinner
+            btn.disabled = true;
+            text.style.display = 'none';
+            spinner.style.display = 'inline-block';
+            status.textContent = 'Clearing cache...';
+            status.className = 'clear-cache-status info';
+            
+            try {
+                let clearedItems = [];
+                
+                // Clear localStorage
+                if (localStorage.length > 0) {
+                    localStorage.clear();
+                    clearedItems.push('Local Storage');
+                }
+                
+                // Clear sessionStorage
+                if (sessionStorage.length > 0) {
+                    sessionStorage.clear();
+                    clearedItems.push('Session Storage');
+                }
+                
+                // Clear IndexedDB databases
+                if ('indexedDB' in window) {
+                    try {
+                        // Get list of databases (if supported)
+                        if (indexedDB.databases) {
+                            const databases = await indexedDB.databases();
+                            for (const db of databases) {
+                                if (db.name) {
+                                    const deleteReq = indexedDB.deleteDatabase(db.name);
+                                    await new Promise((resolve, reject) => {
+                                        deleteReq.onsuccess = () => resolve();
+                                        deleteReq.onerror = () => reject(deleteReq.error);
+                                    });
+                                }
+                            }
+                            if (databases.length > 0) {
+                                clearedItems.push('IndexedDB');
+                            }
+                        } else {
+                            // Fallback: try to delete common database names
+                            const commonDbNames = ['ai-questions-offline', 'wikipedia-cache', 'ai-models', 'offline-data'];
+                            for (const dbName of commonDbNames) {
+                                try {
+                                    const deleteReq = indexedDB.deleteDatabase(dbName);
+                                    await new Promise((resolve) => {
+                                        deleteReq.onsuccess = () => resolve();
+                                        deleteReq.onerror = () => resolve(); // Don't fail if DB doesn't exist
+                                        setTimeout(resolve, 1000); // Timeout after 1 second
+                                    });
+                                } catch (e) {
+                                    // Ignore errors for non-existent databases
+                                }
+                            }
+                            clearedItems.push('IndexedDB (attempted)');
+                        }
+                    } catch (e) {
+                        console.warn('Error clearing IndexedDB:', e);
+                        clearedItems.push('IndexedDB (partial)');
+                    }
+                }
+                
+                // Clear Cache API if available
+                if ('caches' in window) {
+                    try {
+                        const cacheNames = await caches.keys();
+                        for (const cacheName of cacheNames) {
+                            await caches.delete(cacheName);
+                        }
+                        if (cacheNames.length > 0) {
+                            clearedItems.push('Cache API');
+                        }
+                    } catch (e) {
+                        console.warn('Error clearing Cache API:', e);
+                        clearedItems.push('Cache API (partial)');
+                    }
+                }
+                
+                // Clear Service Worker cache if possible
+                if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+                    try {
+                        navigator.serviceWorker.controller.postMessage({ action: 'clearCache' });
+                        clearedItems.push('Service Worker Cache');
+                    } catch (e) {
+                        console.warn('Error clearing Service Worker cache:', e);
+                    }
+                }
+                
+                // Reset offline AI instance
+                if (window.offlineAI) {
+                    window.offlineAI = null;
+                    clearedItems.push('AI Instance');
+                }
+                
+                // Show success message
+                if (clearedItems.length > 0) {
+                    status.textContent = `✅ Cleared: ${clearedItems.join(', ')}. Refresh the page for a clean start.`;
+                    status.className = 'clear-cache-status success';
+                } else {
+                    status.textContent = '✅ No cache data found to clear.';
+                    status.className = 'clear-cache-status success';
+                }
+                
+                // Suggest page refresh
+                setTimeout(() => {
+                    if (confirm('Cache cleared successfully! Would you like to refresh the page for a clean start?')) {
+                        window.location.reload();
+                    }
+                }, 2000);
+                
+            } catch (error) {
+                console.error('Error clearing cache:', error);
+                status.textContent = `❌ Error clearing cache: ${error.message}`;
+                status.className = 'clear-cache-status error';
+            } finally {
+                // Re-enable button
+                btn.disabled = false;
+                text.style.display = 'inline';
+                spinner.style.display = 'none';
             }
         }
         
