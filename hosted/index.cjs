@@ -2293,7 +2293,15 @@ app.get('/api/analytics/export-csv/:id', requireAuth, async (req, res) => {
 
 // ===== CHAT API ENDPOINTS =====
 
-// Chat endpoint for offline functionality
+// Import the intelligent query system
+const { WikipediaQueryAnalyzer, WikipediaSearchEngine, ResponseSynthesizer } = require('./intelligent-query-system.js');
+
+// Initialize the intelligent query system
+const queryAnalyzer = new WikipediaQueryAnalyzer();
+const searchEngine = new WikipediaSearchEngine();
+const responseSynthesizer = new ResponseSynthesizer();
+
+// Chat endpoint for offline functionality with intelligent Wikipedia integration
 app.post('/api/chat', async (req, res) => {
   try {
     const { message, model, context = [], includeWikipedia = true } = req.body;
@@ -2305,214 +2313,45 @@ app.post('/api/chat', async (req, res) => {
       });
     }
 
-    // Enhanced response generation with comprehensive knowledge base
+    console.log(`🤖 Processing chat message: "${message}"`);
+
     let response = '';
-    const lowerMessage = message.toLowerCase().trim();
-    
-    // Country information database
-    const countries = {
-      'poland': {
-        name: 'Poland',
-        location: 'Central Europe',
-        capital: 'Warsaw',
-        population: '38 million',
-        area: '312,696 km²',
-        currency: 'Polish złoty (PLN)',
-        languages: 'Polish',
-        government: 'Parliamentary republic',
-        facts: [
-          'Poland is bordered by Germany, Czech Republic, Slovakia, Ukraine, Belarus, Lithuania, and Russia',
-          'It has a coastline along the Baltic Sea',
-          'Poland was partitioned and disappeared from maps for 123 years (1795-1918)',
-          'It joined NATO in 1999 and the European Union in 2004',
-          'The country has a rich cultural heritage with 16 UNESCO World Heritage Sites'
-        ]
-      },
-      'germany': {
-        name: 'Germany',
-        location: 'Central Europe',
-        capital: 'Berlin',
-        population: '83 million',
-        area: '357,022 km²',
-        currency: 'Euro (EUR)',
-        languages: 'German',
-        government: 'Federal parliamentary republic',
-        facts: [
-          'Germany is the most populous member state of the European Union',
-          'It borders nine countries: Denmark, Poland, Czech Republic, Austria, Switzerland, France, Luxembourg, Belgium, and Netherlands',
-          'Germany is a major economic power and the largest economy in Europe',
-          'The country was divided into East and West Germany from 1949-1990',
-          'Germany is known for its contributions to science, technology, philosophy, music, and literature'
-        ]
-      },
-      'france': {
-        name: 'France',
-        location: 'Western Europe',
-        capital: 'Paris',
-        population: '68 million',
-        area: '643,801 km²',
-        currency: 'Euro (EUR)',
-        languages: 'French',
-        government: 'Semi-presidential republic',
-        facts: [
-          'France is the largest country in the European Union by land area',
-          'It borders eight countries and has coastlines on both the Atlantic Ocean and Mediterranean Sea',
-          'France is famous for its cuisine, wine, fashion, and art',
-          'The country is a founding member of the European Union and NATO',
-          'France has the most time zones of any country (12) due to its overseas territories'
-        ]
-      },
-      'united states': {
-        name: 'United States',
-        location: 'North America',
-        capital: 'Washington, D.C.',
-        population: '331 million',
-        area: '9.8 million km²',
-        currency: 'US Dollar (USD)',
-        languages: 'English (de facto)',
-        government: 'Federal presidential republic',
-        facts: [
-          'The US consists of 50 states and various territories',
-          'It borders Canada to the north and Mexico to the south',
-          'The US has the world\'s largest economy by nominal GDP',
-          'It\'s a founding member of the United Nations and NATO',
-          'The country spans six time zones and has diverse geography from deserts to mountains to plains'
-        ]
-      },
-      'japan': {
-        name: 'Japan',
-        location: 'East Asia',
-        capital: 'Tokyo',
-        population: '125 million',
-        area: '377,975 km²',
-        currency: 'Japanese yen (JPY)',
-        languages: 'Japanese',
-        government: 'Constitutional monarchy',
-        facts: [
-          'Japan is an island nation consisting of four main islands: Honshu, Hokkaido, Kyushu, and Shikoku',
-          'It\'s located in the Pacific Ocean, east of the Korean Peninsula and China',
-          'Japan has the world\'s third-largest economy by nominal GDP',
-          'The country is known for its technology, anime, cuisine, and cultural traditions',
-          'Japan experiences frequent earthquakes due to its location on the Pacific Ring of Fire'
-        ]
-      }
-    };
+    let searchResults = null;
+    let confidence = 0.8;
+    let sources = [];
+    let searchTerms = [];
 
-    // Check for country queries
-    let countryFound = null;
-    for (const [key, country] of Object.entries(countries)) {
-      if (lowerMessage.includes(key) || lowerMessage.includes(country.name.toLowerCase())) {
-        countryFound = country;
-        break;
-      }
-    }
-
-    if (countryFound) {
-      if (lowerMessage.includes('what is') || lowerMessage.includes('about') || lowerMessage === countryFound.name.toLowerCase()) {
-        response = `${countryFound.name} is a ${countryFound.government.toLowerCase()} located in ${countryFound.location}. The capital city is ${countryFound.capital}, and it has a population of approximately ${countryFound.population}. The country covers an area of ${countryFound.area} and uses the ${countryFound.currency} as its currency. The primary language is ${countryFound.languages}.
-
-Key facts about ${countryFound.name}:
-• ${countryFound.facts[0]}
-• ${countryFound.facts[1]}
-• ${countryFound.facts[2]}`;
-      } else if (lowerMessage.includes('where is') || lowerMessage.includes('location')) {
-        response = `${countryFound.name} is located in ${countryFound.location}. ${countryFound.facts[0]} The capital and largest city is ${countryFound.capital}.`;
-      } else if (lowerMessage.includes('capital')) {
-        response = `The capital of ${countryFound.name} is ${countryFound.capital}.`;
-      } else if (lowerMessage.includes('population')) {
-        response = `${countryFound.name} has a population of approximately ${countryFound.population}.`;
-      } else if (lowerMessage.includes('currency')) {
-        response = `The currency of ${countryFound.name} is the ${countryFound.currency}.`;
-      } else if (lowerMessage.includes('language')) {
-        response = `The primary language of ${countryFound.name} is ${countryFound.languages}.`;
-      } else {
-        response = `${countryFound.name} is a country in ${countryFound.location} with its capital in ${countryFound.capital}. ${countryFound.facts[0]} Would you like to know more about its history, geography, culture, or economy?`;
-      }
-    }
-    // Greeting responses
-    else if (lowerMessage.includes('hello') || lowerMessage.includes('hi') || lowerMessage.includes('hey')) {
-      response = "Hello! I'm your offline AI assistant. I can help you with information about countries, places, science, history, and many other topics. I also have access to a local Wikipedia database for additional context. What would you like to know about?";
-    }
-    // Weather queries
-    else if (lowerMessage.includes('weather')) {
-      response = "I'm an offline AI, so I don't have access to current weather data. However, I can discuss weather patterns, climate zones, meteorology, or the weather of specific regions in general terms. What aspect of weather would you like to explore?";
-    }
-    // Time and date queries
-    else if (lowerMessage.includes('time') || lowerMessage.includes('date')) {
-      const now = new Date();
-      response = `The current time is ${now.toLocaleString()}. As an offline AI, I can help with time zone conversions, calendar calculations, historical dates, or temporal concepts. What time-related question can I help you with?`;
-    }
-    // Science queries
-    else if (lowerMessage.includes('science') || lowerMessage.includes('physics') || lowerMessage.includes('chemistry') || lowerMessage.includes('biology')) {
-      response = "I'd be happy to discuss science topics! I can explain concepts in physics, chemistry, biology, astronomy, and other scientific fields. What specific scientific topic or question interests you?";
-    }
-    // History queries
-    else if (lowerMessage.includes('history') || lowerMessage.includes('historical')) {
-      response = "History is a fascinating subject! I can discuss historical events, periods, civilizations, wars, discoveries, and historical figures. What historical topic would you like to explore?";
-    }
-    // Technology queries
-    else if (lowerMessage.includes('technology') || lowerMessage.includes('computer') || lowerMessage.includes('internet')) {
-      response = "I can help explain various technology concepts, from basic computer science to modern innovations. What technology topic interests you?";
-    }
-    // Math queries
-    else if (lowerMessage.includes('math') || lowerMessage.includes('mathematics') || lowerMessage.includes('calculate')) {
-      response = "I can help with mathematical concepts, calculations, and explanations. What mathematical topic or problem would you like assistance with?";
-    }
-    // Wikipedia search suggestions
-    else if (lowerMessage.includes('wikipedia') || lowerMessage.includes('search')) {
-      response = "I can help you search through the local Wikipedia database! You can use the Wikipedia search feature on this page, or tell me what topic you'd like to explore and I can provide information along with relevant Wikipedia suggestions.";
-    }
-    // General knowledge queries
-    else if (lowerMessage.includes('what is') || lowerMessage.includes('what are')) {
-      const topic = lowerMessage.replace(/what is|what are/g, '').trim();
-      if (topic.length > 0) {
-        response = `I'd be happy to explain "${topic}"! While I don't have specific information about this topic in my immediate knowledge base, I can provide general guidance and suggest searching the local Wikipedia database for comprehensive information. What specific aspect of "${topic}" would you like to know about?`;
-      } else {
-        response = "I'd be happy to explain something for you! What topic would you like me to explain?";
-      }
-    }
-    // How queries
-    else if (lowerMessage.includes('how to') || lowerMessage.includes('how do')) {
-      response = "I can help explain processes and procedures! What would you like to learn how to do? I can provide step-by-step explanations for many topics.";
-    }
-    // Why queries
-    else if (lowerMessage.includes('why')) {
-      response = "Great question! I enjoy explaining the reasoning behind things. What would you like to understand the 'why' behind?";
-    }
-    // Default response with more helpful guidance
-    else {
-      response = `I understand you're asking about "${message}". I'm an offline AI assistant with knowledge about countries, science, history, technology, and many other topics. 
-
-Here are some ways I can help:
-• Ask about countries: "What is Poland?" or "Where is Germany?"
-• Explore science topics: "Explain photosynthesis" or "How do computers work?"
-• Discuss history: "Tell me about World War II" or "Ancient Rome"
-• Get explanations: "What is quantum physics?" or "How does the internet work?"
-
-You can also use the Wikipedia search feature on this page for detailed articles. What specific topic interests you?`;
-    }
-
-    // Add Wikipedia context if requested and relevant
-    let wikipediaContext = '';
+    // Use intelligent query system for Wikipedia integration
     if (includeWikipedia && message.length > 3) {
-      // Extract meaningful keywords for Wikipedia search
-      const keywords = message.toLowerCase()
-        .replace(/[^\w\s]/g, ' ')
-        .split(' ')
-        .filter(word => 
-          word.length > 3 && 
-          !['what', 'when', 'where', 'why', 'how', 'the', 'and', 'or', 'but', 'with', 'for', 'this', 'that', 'they', 'them', 'their', 'there', 'then', 'than', 'from', 'into', 'about'].includes(word)
-        );
+      console.log('🔍 Analyzing query with intelligent system...');
       
-      if (keywords.length > 0) {
-        // Create clickable Wikipedia links
-        const wikipediaLinks = keywords.slice(0, 3).map(keyword => 
-          `<a href="#" onclick="searchWikipediaFromChat('${keyword}'); return false;" style="color: #0066cc; text-decoration: underline;">${keyword}</a>`
-        ).join(', ');
-        
-        wikipediaContext = `\n\n📚 Related Wikipedia topics: ${wikipediaLinks}`;
-        response += wikipediaContext;
-      }
+      // Step 1: Analyze the user's query
+      const analysis = queryAnalyzer.analyzeQuery(message);
+      console.log('📊 Query analysis:', {
+        intent: analysis.intent,
+        entities: analysis.entities,
+        searchTerms: analysis.searchTerms,
+        confidence: analysis.confidence
+      });
+
+      // Step 2: Execute Wikipedia search
+      searchResults = await searchEngine.executeSearch(analysis);
+      console.log('🔎 Search results:', {
+        articlesFound: searchResults.articles.length,
+        summariesFound: searchResults.summaries.length
+      });
+
+      // Step 3: Synthesize intelligent response
+      const synthesizedResponse = responseSynthesizer.synthesizeResponse(analysis, searchResults);
+      response = synthesizedResponse.response;
+      confidence = synthesizedResponse.confidence;
+      sources = synthesizedResponse.sources;
+      searchTerms = synthesizedResponse.searchTerms;
+
+      console.log('✅ Generated intelligent response with confidence:', confidence);
+    } else {
+      // Fallback for simple responses without Wikipedia
+      response = generateSimpleResponse(message);
     }
 
     res.json({
@@ -2520,6 +2359,9 @@ You can also use the Wikipedia search feature on this page for detailed articles
       response: response,
       model: model,
       timestamp: new Date().toISOString(),
+      confidence: confidence,
+      sources: sources,
+      searchTerms: searchTerms,
       context: context.concat([
         { role: 'user', content: message },
         { role: 'assistant', content: response }
@@ -2527,15 +2369,38 @@ You can also use the Wikipedia search feature on this page for detailed articles
     });
 
   } catch (error) {
-    console.error('Error in chat endpoint:', error);
-    res.status(500).json({ 
-      success: false, 
-      error: 'Internal server error' 
+    console.error('Chat API error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to process chat message',
+      details: error.message
     });
   }
 });
 
-// Streaming chat endpoint for offline functionality
+// Simple response generator for fallback cases
+function generateSimpleResponse(message) {
+  const lowerMessage = message.toLowerCase().trim();
+  
+  // Greetings
+  if (/^(hi|hello|hey|good morning|good afternoon|good evening)/.test(lowerMessage)) {
+    return "Hello! I'm your offline AI assistant. I can help answer questions and search through Wikipedia content. What would you like to know about?";
+  }
+  
+  // Gratitude
+  if (/^(thanks|thank you|thx)/.test(lowerMessage)) {
+    return "You're welcome! I'm here to help with any questions or information you need.";
+  }
+  
+  // AI consciousness questions
+  if (lowerMessage.includes('feelings') || lowerMessage.includes('conscious') || lowerMessage.includes('emotions')) {
+    return "That's a fascinating philosophical question! I don't experience feelings or consciousness the way humans do. I'm designed to process text and provide helpful responses, but I don't have subjective experiences or emotions. I can discuss the topic of AI consciousness if you're interested in the philosophical and technical aspects!";
+  }
+  
+  // Default helpful response
+  return `I'd be happy to help you with "${message}"! I can assist with questions about various topics, perform calculations, and search through Wikipedia content. What specific information are you looking for?`;
+}
+// Chat streaming endpoint (placeholder for future real-time features)
 app.post('/api/chat/stream', async (req, res) => {
   try {
     const { message, model, context = [], includeWikipedia = true } = req.body;
