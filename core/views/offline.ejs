@@ -1543,16 +1543,10 @@
         </div>
     </div>
 
-    <!-- Load required scripts -->
-    <script src="/offline/download-manager.js"></script>
-    <script src="/offline/ai-models.js"></script>
-    <script src="/offline/wikipedia.js"></script>
-    <script src="/offline/integration-manager.js"></script>
-
     <script>
         
-        // Global variables
-        let selectedPackage = 'standard';
+        // Global variables (selectedPackage already declared above)
+        // let selectedPackage = 'standard'; // REMOVED DUPLICATE
         let integrationManager = null;
         let isGenerating = false;
         window.shouldStopGeneration = false;
