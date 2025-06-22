@@ -141,7 +141,7 @@ class OfflineResourceMonitor {
                 this.statusMessages.success.push(`Wikipedia database available with ${articleCount} articles`);
             } else {
                 // Try to initialize
-                const wikiManager = new WikipediaManager();
+                const wikiManager = new WikipediaManager('minimal'); // Default to minimal package
                 const initialized = await wikiManager.initialize();
                 
                 if (initialized) {
