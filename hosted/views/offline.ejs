@@ -573,6 +573,7 @@
     <script src="/offline/download-manager.js"></script>
     <script src="/offline/ai-models.js"></script>
     <script src="/offline/wikipedia.js"></script>
+    <script src="/offline/offline-ai-chat.js"></script>
     <script src="/offline/integration-manager.js"></script>
 
     <script>
@@ -592,11 +593,15 @@
         // Global variables
         let selectedPackage = 'standard';
         let integrationManager = null;
+        let offlineAI = null;
         let isGenerating = false;
         window.shouldStopGeneration = false;
         
         // Initialize when page loads
         document.addEventListener('DOMContentLoaded', () => {
+            // Initialize offline AI immediately
+            initializeOfflineAI();
+            
             // Check browser compatibility
             checkBrowserCompatibility();
             
@@ -610,8 +615,8 @@
                 });
             });
 
-            // Download button
-            document.getElementById('downloadBtn').addEventListener('click', startDownload);
+            // Download button - for now, just show the chat interface
+            document.getElementById('downloadBtn').addEventListener('click', showChatInterface);
             
             // Chat functionality
             document.getElementById('sendBtn').addEventListener('click', sendChatMessage);
@@ -625,10 +630,29 @@
             document.getElementById('wikiSearchInput').addEventListener('keypress', (e) => {
                 if (e.key === 'Enter') searchWikipedia();
             });
-            
-            // Check for existing installation
-            checkExistingInstallation();
         });
+
+        // Initialize offline AI
+        async function initializeOfflineAI() {
+            try {
+                offlineAI = new OfflineAIChat();
+                await offlineAI.initialize();
+                console.log('Offline AI initialized successfully');
+                
+                // Show chat interface immediately since we're working offline
+                showChatInterface();
+            } catch (error) {
+                console.error('Failed to initialize offline AI:', error);
+            }
+        }
+
+        // Show chat interface
+        function showChatInterface() {
+            document.getElementById('downloadSection').style.display = 'none';
+            document.getElementById('progressSection').style.display = 'none';
+            document.getElementById('chatSection').style.display = 'block';
+            document.getElementById('wikiSection').style.display = 'block';
+        }
         
         // Check browser compatibility
         function checkBrowserCompatibility() {
@@ -636,100 +660,41 @@
             const statusText = document.getElementById('statusText');
             const statusDescription = document.getElementById('statusDescription');
             
-            const compatibility = OfflineIntegrationManager.checkBrowserCompatibility();
+            // For offline mode, we just need basic browser features
+            const hasLocalStorage = typeof(Storage) !== "undefined";
+            const hasIndexedDB = 'indexedDB' in window;
             
-            if (compatibility.compatible) {
+            if (hasLocalStorage) {
                 statusDot.classList.add('online');
                 statusText.textContent = 'Browser supports offline mode';
                 statusDescription.textContent = 'Your browser has all the required features for offline operation.';
             } else {
                 statusDot.classList.remove('online');
                 statusText.textContent = 'Browser compatibility issues';
-                
-                const missingFeatures = compatibility.missingFeatures.join(', ');
-                
-                statusDescription.textContent = `Your browser is missing required features: ${missingFeatures}. Some functionality may not work correctly.`;
+                statusDescription.textContent = 'Your browser is missing required features for offline operation.';
             }
         }
         
-        // Check for existing installation
-        async function checkExistingInstallation() {
-            try {
-                const installation = await OfflineIntegrationManager.checkExistingInstallation();
-                
-                if (installation.installed) {
-                    console.log('Found existing installation:', installation);
-                    
-                    // Initialize with existing package
-                    selectedPackage = installation.packageType || 'standard';
-                    
-                    // Skip download and go straight to initialization
-                    document.getElementById('downloadSection').style.display = 'none';
-                    document.getElementById('progressSection').style.display = 'block';
-                    
-                    // Create integration manager
-                    integrationManager = new OfflineIntegrationManager();
-                    integrationManager.setPackageType(selectedPackage);
-                    
-                    // Set up event handlers
-                    setupIntegrationEventHandlers();
-                    
-                    // Initialize components
-                    integrationManager.initializeComponents();
-                }
-            } catch (error) {
-                console.error('Error checking for existing installation:', error);
-            }
-        }
-        
-        // Start download process
-        function startDownload() {
-            document.getElementById('downloadSection').style.display = 'none';
-            document.getElementById('progressSection').style.display = 'block';
-            
-            // Create integration manager
-            integrationManager = new OfflineIntegrationManager();
-            integrationManager.setPackageType(selectedPackage);
-            
-            // Set up event handlers
-            setupIntegrationEventHandlers();
-            
-            // Start download
-            integrationManager.startDownload();
-        }
-        
-        // Set up integration event handlers
-        function setupIntegrationEventHandlers() {
-            integrationManager.setEventHandlers({
-                onStatusUpdate: (message, status) => {
-                    console.log(`Status: ${message} (${status})`);
-                    document.getElementById('progressDetails').textContent = message;
-                }
-            });
-        }
-        
-        // Chat functionality
+        // Chat functionality - completely offline
         async function sendChatMessage() {
             const input = document.getElementById('chatInput');
             const message = input.value.trim();
-            if (!message) return;
+            if (!message || isGenerating) return;
 
             const chatContainer = document.getElementById('chatContainer');
             const sendBtn = document.getElementById('sendBtn');
+            const stopBtn = document.getElementById('stopBtn');
             
-            // Disable input and button
+            // Set generating state
+            isGenerating = true;
             input.disabled = true;
-            sendBtn.disabled = true;
-            sendBtn.textContent = 'Sending...';
+            sendBtn.style.display = 'none';
+            stopBtn.style.display = 'inline-block';
             
             // Add user message to chat
             const userMessageDiv = document.createElement('div');
-            userMessageDiv.className = 'chat-message user-message';
-            userMessageDiv.innerHTML = `
-                <div class="message-content">
-                    <strong>You:</strong> ${message}
-                </div>
-            `;
+            userMessageDiv.className = 'message user';
+            userMessageDiv.innerHTML = `<strong>You:</strong> ${message}`;
             chatContainer.appendChild(userMessageDiv);
             
             // Clear input
@@ -737,38 +702,43 @@
             
             // Add AI response placeholder
             const aiMessageDiv = document.createElement('div');
-            aiMessageDiv.className = 'chat-message ai-message';
-            aiMessageDiv.innerHTML = `
-                <div class="message-content">
-                    <strong>AI:</strong> <span class="typing-indicator">Thinking...</span>
-                </div>
-            `;
+            aiMessageDiv.className = 'message ai';
+            aiMessageDiv.innerHTML = `<strong>AI:</strong> <span class="typing-indicator"><span></span><span></span><span></span></span>`;
             chatContainer.appendChild(aiMessageDiv);
             
             // Scroll to bottom
             chatContainer.scrollTop = chatContainer.scrollHeight;
             
             try {
-                // Use integration manager to send chat message
-                const response = await integrationManager.sendChatMessage(message, 'offline-ai');
+                let fullResponse = '';
                 
-                if (response.success) {
-                    // Update AI message with response
-                    const aiContent = aiMessageDiv.querySelector('.message-content');
-                    aiContent.innerHTML = `<strong>AI:</strong> ${response.response}`;
-                } else {
-                    throw new Error(response.error || 'Unknown error');
+                // Generate response using offline AI
+                const response = await offlineAI.generateResponse(message, (token) => {
+                    if (window.shouldStopGeneration) return;
+                    
+                    fullResponse += token;
+                    const aiContent = aiMessageDiv.querySelector('strong').nextSibling;
+                    aiContent.textContent = ' ' + fullResponse;
+                    chatContainer.scrollTop = chatContainer.scrollHeight;
+                });
+                
+                if (!window.shouldStopGeneration) {
+                    // Update with final response
+                    const aiContent = aiMessageDiv.querySelector('strong').nextSibling;
+                    aiContent.textContent = ' ' + response.response;
                 }
                 
             } catch (error) {
                 console.error('Chat error:', error);
-                const aiContent = aiMessageDiv.querySelector('.message-content');
-                aiContent.innerHTML = `<strong>AI:</strong> <span style="color: red;">Error: ${error.message}</span>`;
+                const aiContent = aiMessageDiv.querySelector('strong').nextSibling;
+                aiContent.textContent = ` Error: ${error.message}`;
             } finally {
-                // Re-enable input and button
+                // Reset state
+                isGenerating = false;
+                window.shouldStopGeneration = false;
                 input.disabled = false;
-                sendBtn.disabled = false;
-                sendBtn.textContent = 'Send';
+                sendBtn.style.display = 'inline-block';
+                stopBtn.style.display = 'none';
                 input.focus();
                 
                 // Scroll to bottom
@@ -778,9 +748,12 @@
         
         function stopGeneration() {
             window.shouldStopGeneration = true;
+            if (offlineAI) {
+                offlineAI.stopGeneration();
+            }
         }
         
-        // Wikipedia search functionality
+        // Wikipedia search functionality - offline
         async function searchWikipedia() {
             const searchInput = document.getElementById('wikiSearchInput');
             const query = searchInput.value.trim();
@@ -789,11 +762,11 @@
             const resultsContainer = document.getElementById('wikiResults');
             
             // Show loading state
-            resultsContainer.innerHTML = '<div><span class="loading"></span> Searching Wikipedia...</div>';
+            resultsContainer.innerHTML = '<div><span class="loading"></span> Searching local Wikipedia...</div>';
             
             try {
-                // Search Wikipedia using integration manager
-                const results = await integrationManager.searchWikipedia(query);
+                // Search using offline AI's Wikipedia data
+                const results = offlineAI.searchWikipediaByText(query);
                 
                 if (results.length === 0) {
                     resultsContainer.innerHTML = '<p>No results found for "' + query + '". Try a different search term.</p>';
@@ -804,8 +777,8 @@
                 results.forEach(result => {
                     html += `
                         <div class="wiki-article">
-                            <h4><a href="#" onclick="showFullArticle('${result.title}'); return false;">${result.title}</a></h4>
-                            <p>${result.snippet}</p>
+                            <h3>${result.title}</h3>
+                            <p>${result.content}</p>
                         </div>
                     `;
                 });
@@ -814,27 +787,7 @@
                 
             } catch (error) {
                 console.error('Error searching Wikipedia:', error);
-                resultsContainer.innerHTML = '<p>Error searching Wikipedia: ' + error.message + '</p>';
-            }
-        }
-        
-        async function showFullArticle(articleTitle) {
-            const resultsContainer = document.getElementById('wikiResults');
-            
-            // Show loading state
-            resultsContainer.innerHTML = '<div><span class="loading"></span> Loading article...</div>';
-            
-            try {
-                const article = await integrationManager.getWikipediaArticle(articleTitle);
-                
-                resultsContainer.innerHTML = `
-                    <h3>${article.title}</h3>
-                    <div style="white-space: pre-wrap; line-height: 1.6;">${article.content}</div>
-                    <p><a href="#" onclick="searchWikipedia(); return false;">← Back to search results</a></p>
-                `;
-            } catch (error) {
-                console.error('Error loading article:', error);
-                resultsContainer.innerHTML = '<p>Error loading article: ' + error.message + '</p>';
+                resultsContainer.innerHTML = '<p>Error searching local Wikipedia: ' + error.message + '</p>';
             }
         }
         
@@ -849,7 +802,7 @@
                 searchWikipedia();
                 
                 // Scroll to Wikipedia section
-                const wikiSection = document.querySelector('.wikipedia-section');
+                const wikiSection = document.getElementById('wikiSection');
                 if (wikiSection) {
                     wikiSection.scrollIntoView({ behavior: 'smooth' });
                 }
@@ -858,7 +811,6 @@
         
         // Make functions available globally
         window.searchWikipedia = searchWikipedia;
-        window.showFullArticle = showFullArticle;
         window.searchWikipediaFromChat = searchWikipediaFromChat;
     </script>
 </body>
