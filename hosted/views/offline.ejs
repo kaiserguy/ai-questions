@@ -798,8 +798,18 @@
         // Simulate download progress
         function simulateDownload() {
             const progressBar = document.querySelector('.progress-fill');
-            const progressText = document.querySelector('.progress-section h3');
-            const progressDescription = document.querySelector('.progress-section p');
+            const progressText = document.getElementById('progressText');
+            const progressDetails = document.getElementById('progressDetails');
+            
+            if (!progressBar || !progressText || !progressDetails) {
+                console.error('Progress elements not found');
+                // Fallback: complete immediately
+                setTimeout(() => {
+                    initializeOfflineAI();
+                    showChatInterface();
+                }, 1000);
+                return;
+            }
             
             let progress = 0;
             const interval = setInterval(() => {
@@ -811,7 +821,7 @@
                 
                 if (progress >= 100) {
                     clearInterval(interval);
-                    progressDescription.textContent = 'Download complete! Initializing offline AI...';
+                    progressDetails.textContent = 'Download complete! Initializing offline AI...';
                     
                     // Initialize offline AI and show chat interface
                     setTimeout(() => {
