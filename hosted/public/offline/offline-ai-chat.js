@@ -36,7 +36,7 @@ class OfflineAIChat {
      */
     async loadWikipediaData() {
         // For now, we'll use a simplified Wikipedia dataset
-        // In a real implementation, this would load from IndexedDB
+        // TODO: Load actual Wikipedia data from IndexedDB
         this.wikipediaData = {
             'United States Air Force': {
                 title: 'United States Air Force',

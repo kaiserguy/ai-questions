@@ -163,7 +163,7 @@
                     updateStatus('searchStatus', '✅ EnhancedWikipediaSearch class available!', 'success');
                     
                     // Test the search functionality (without actual database)
-                    const mockDB = {
+                    const placeholderDB = {
                         db: {
                             prepare: () => ({
                                 bind: () => {},
@@ -174,8 +174,8 @@
                         }
                     };
                     
-                    const enhancedSearch = new EnhancedWikipediaSearch(mockDB);
-                    updateStatus('searchStatus', '✅ Enhanced search initialized with mock database', 'success');
+                    const enhancedSearch = new EnhancedWikipediaSearch(placeholderDB);
+                    updateStatus('searchStatus', '✅ Enhanced search initialized with placeholder database', 'success');
                 } else {
                     updateStatus('searchStatus', '❌ EnhancedWikipediaSearch class not found', 'error');
                 }
@@ -216,7 +216,7 @@ Poland is a country in the eastern region of Central Europe. It is bordered by G
                     updateStatus('routerStatus', '✅ OfflineWikipediaRouter class available!', 'success');
                     
                     // Test router initialization
-                    const mockWikipediaManager = {
+                    const placeholderWikipediaManager = {
                         db: {
                             prepare: () => ({
                                 bind: () => {},
@@ -227,7 +227,7 @@ Poland is a country in the eastern region of Central Europe. It is bordered by G
                         }
                     };
                     
-                    const router = new OfflineWikipediaRouter(mockWikipediaManager);
+                    const router = new OfflineWikipediaRouter(placeholderWikipediaManager);
                     updateStatus('routerStatus', '✅ Wikipedia router initialized successfully', 'success');
                 } else {
                     updateStatus('routerStatus', '❌ OfflineWikipediaRouter class not found', 'error');

@@ -153,9 +153,9 @@ class LocalAIModel {
                 throw new Error(`Failed to load model file: ${response.statusText}`);
             }
             
-            // In a real implementation, we would load the ONNX model here
-            // For now, we'll create a mock model
-            const mockModel = this.createMockModel(modelId);
+            // TODO: Load actual ONNX model here
+            // For now, we'll create a placeholder model
+            const placeholderModel = this.createPlaceholderModel(modelId);
             
             clearInterval(progressInterval);
             
@@ -163,13 +163,13 @@ class LocalAIModel {
             this.emit('loadProgress', { modelId, progress: 100 });
             
             // Store the model
-            this.models.set(modelId, mockModel);
+            this.models.set(modelId, placeholderModel);
             this.currentModel = modelId;
             
             console.log(`Model ${modelId} loaded successfully`);
-            this.emit('loadSuccess', { modelId, model: mockModel });
+            this.emit('loadSuccess', { modelId, model: placeholderModel });
             
-            return mockModel;
+            return placeholderModel;
         } catch (error) {
             console.error(`Failed to load model:`, error);
             this.emit('loadError', { modelId, error });
@@ -179,20 +179,20 @@ class LocalAIModel {
         }
     }
     
-    createMockModel(modelId) {
+    createPlaceholderModel(modelId) {
         // TODO: Create actual model interface
         return {
             id: modelId,
             type: modelId.includes('qa') ? 'question-answering' : 'text-generation',
             
-            // Mock inference function
+            // TODO: Implement actual inference function
             async infer(input, options = {}) {
                 console.log(`Running inference with ${modelId}:`, input);
                 
                 // TODO: Implement actual processing time
                 await new Promise(resolve => setTimeout(resolve, 500 + Math.random() * 1000));
                 
-                // Generate mock response based on model type
+                // Generate placeholder response based on model type
                 if (this.type === 'question-answering') {
                     return this.generateQAResponse(input);
                 } else {
@@ -200,7 +200,7 @@ class LocalAIModel {
                 }
             },
             
-            // Generate mock QA response
+            // TODO: Generate actual QA response
             generateQAResponse(question) {
                 const responses = {
                     'what': `Based on the information available, ${question.replace('what', 'the thing')} is related to several factors including historical context, current research, and practical applications.`,
@@ -222,7 +222,7 @@ class LocalAIModel {
                 return `I've analyzed your question about "${question}" and found that it relates to concepts that would require specific domain knowledge. In a full implementation, I would access relevant information to provide a detailed answer.`;
             },
             
-            // Generate mock text response
+            // TODO: Generate actual text response
             generateTextResponse(prompt) {
                 // TODO: Implement actual AI text generation using loaded language model
                 return `As an AI assistant running in offline mode, I can respond to your prompt: "${prompt}". In a complete implementation, I would generate a coherent and contextually appropriate response using the loaded language model.`;
@@ -237,7 +237,7 @@ class LocalAIModel {
         }
         
         try {
-            // In a real implementation, we would free resources here
+            // TODO: Free actual model resources here
             this.models.delete(modelId);
             
             if (this.currentModel === modelId) {
@@ -276,8 +276,8 @@ class LocalAIModel {
     }
     
     async getAvailableModels() {
-        // In a real implementation, this would scan for available models
-        // For now, return mock data
+        // TODO: Scan for actual available models
+        // For now, return placeholder data
         return [
             {
                 id: 'tinyml-qa',

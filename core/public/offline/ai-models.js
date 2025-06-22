@@ -126,7 +126,6 @@ class AIModelManager {
             
             this.updateStatus('Loading Transformers.js library...');
             
-            // In a real implementation, this would load the actual library
             // TODO: Load actual Transformers.js library
             setTimeout(() => {
                 // TODO: Initialize actual transformers library

@@ -461,7 +461,7 @@
                 setTimeout(() => {
                     const aiMsg = document.createElement('div');
                     aiMsg.className = 'message ai';
-                    aiMsg.innerHTML = `<strong>AI Assistant:</strong> That's an interesting question about "${message}". In a real implementation, I would process this using local AI models and search the offline Wikipedia database for relevant context. This is a demonstration of the offline interface.`;
+                    aiMsg.innerHTML = `<strong>AI Assistant:</strong> That's an interesting question about "${message}". TODO: Process this using actual local AI models and search the offline Wikipedia database for relevant context. This is a demonstration of the offline interface.`;
                     chatContainer.appendChild(aiMsg);
                     chatContainer.scrollTop = chatContainer.scrollHeight;
                 }, 1000);

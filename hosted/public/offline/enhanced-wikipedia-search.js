@@ -322,8 +322,7 @@ class EnhancedWikipediaSearch {
      * Review article relevance (simplified LLM simulation)
      */
     reviewArticleRelevance(question, article) {
-        // This is a simplified version - in a real implementation,
-        // this would use the local LLM to assess relevance
+        // TODO: Use actual local LLM to assess relevance
         return this.calculateRelevance(question, article);
     }
 

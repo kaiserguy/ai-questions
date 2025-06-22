@@ -209,7 +209,7 @@ class EnhancedWikipediaAPI:
             for i, result in enumerate(final_results[:limit]):
                 status_log.append(f"Reviewing article {i+1} of {min(len(final_results), limit)}: '{result.title}'")
                 
-                # Simple relevance check (would be LLM-driven in real implementation)
+                # TODO: Use actual LLM for relevance assessment
                 relevance = self.assess_article_relevance(question, result)
                 
                 if relevance > 0.05:  # Lower threshold for keeping articles
