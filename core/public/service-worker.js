@@ -14,8 +14,7 @@ const PRECACHE_RESOURCES = [
   '/img/icon-192.png',
   '/img/icon-512.png',
   '/offline/ai-models.js',
-  '/offline/wikipedia.js',
-  '/offline/mock-wikipedia-db.js'
+  '/offline/wikipedia.js'
 ];
 
 // Install event - precache resources

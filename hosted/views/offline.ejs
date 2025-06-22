@@ -515,6 +515,17 @@
             <div class="resource-status" id="resourceStatus">
                 <!-- Resource status items will be added here dynamically -->
             </div>
+            
+            <!-- Detailed Log Section -->
+            <div class="log-section" style="margin-top: 20px;">
+                <div class="log-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                    <h3 style="margin: 0; font-size: 1rem; color: #374151;">Download Log</h3>
+                    <button id="toggleLogBtn" style="background: #6b7280; color: white; border: none; padding: 5px 10px; border-radius: 4px; font-size: 0.8rem; cursor: pointer;">Show Details</button>
+                </div>
+                <div id="downloadLog" style="display: none; background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 6px; padding: 15px; max-height: 300px; overflow-y: auto; font-family: 'Courier New', monospace; font-size: 0.85rem;">
+                    <!-- Log entries will be added here -->
+                </div>
+            </div>
         </div>
 
         <!-- Chat Section -->
@@ -574,6 +585,7 @@
     <script src="/offline/ai-models.js"></script>
     <script src="/offline/wikipedia.js"></script>
     <script src="/offline/integration-manager.js"></script>
+    <script src="/offline/offline-ai-chat.js"></script>
 
     <script>
         // Service Worker Registration
@@ -612,6 +624,9 @@
 
             // Download button
             document.getElementById('downloadBtn').addEventListener('click', startDownload);
+            
+            // Log toggle button
+            document.getElementById('toggleLogBtn').addEventListener('click', toggleDownloadLog);
             
             // Chat functionality
             document.getElementById('sendBtn').addEventListener('click', sendChatMessage);
@@ -704,8 +719,74 @@
                 onStatusUpdate: (message, status) => {
                     console.log(`Status: ${message} (${status})`);
                     document.getElementById('progressDetails').textContent = message;
+                },
+                onLogUpdate: (logEntry, allLogs) => {
+                    updateDownloadLog(logEntry, allLogs);
                 }
             });
+        }
+        
+        // Update download log display
+        function updateDownloadLog(logEntry, allLogs) {
+            const logContainer = document.getElementById('downloadLog');
+            
+            if (logEntry) {
+                // Add new log entry
+                const logElement = document.createElement('div');
+                logElement.style.marginBottom = '5px';
+                logElement.style.padding = '3px 0';
+                
+                // Color code by type
+                let color = '#374151'; // default
+                switch (logEntry.type) {
+                    case 'success':
+                        color = '#10b981';
+                        break;
+                    case 'error':
+                        color = '#ef4444';
+                        break;
+                    case 'warning':
+                        color = '#f59e0b';
+                        break;
+                    case 'info':
+                        color = '#6366f1';
+                        break;
+                }
+                
+                const timestamp = new Date(logEntry.timestamp).toLocaleTimeString();
+                logElement.innerHTML = `
+                    <span style="color: #6b7280; font-size: 0.8rem;">[${timestamp}]</span>
+                    <span style="color: ${color}; font-weight: 500;">[${logEntry.type.toUpperCase()}]</span>
+                    <span style="color: #374151;">${logEntry.message}</span>
+                `;
+                
+                logContainer.appendChild(logElement);
+                
+                // Auto-scroll to bottom
+                logContainer.scrollTop = logContainer.scrollHeight;
+                
+                // Auto-show log if there's an error
+                if (logEntry.type === 'error' && logContainer.style.display === 'none') {
+                    toggleDownloadLog();
+                }
+            } else {
+                // Clear logs
+                logContainer.innerHTML = '';
+            }
+        }
+        
+        // Toggle download log visibility
+        function toggleDownloadLog() {
+            const logContainer = document.getElementById('downloadLog');
+            const toggleBtn = document.getElementById('toggleLogBtn');
+            
+            if (logContainer.style.display === 'none') {
+                logContainer.style.display = 'block';
+                toggleBtn.textContent = 'Hide Details';
+            } else {
+                logContainer.style.display = 'none';
+                toggleBtn.textContent = 'Show Details';
+            }
         }
         
         // Chat functionality
@@ -749,16 +830,34 @@
             chatContainer.scrollTop = chatContainer.scrollHeight;
             
             try {
-                // Use integration manager to send chat message
-                const response = await integrationManager.sendChatMessage(message, 'offline-ai');
+                let response;
                 
-                if (response.success) {
-                    // Update AI message with response
-                    const aiContent = aiMessageDiv.querySelector('.message-content');
-                    aiContent.innerHTML = `<strong>AI:</strong> ${response.response}`;
+                // Try using integration manager first
+                if (integrationManager && integrationManager.aiManager && integrationManager.aiManager.initialized) {
+                    const result = await integrationManager.sendChatMessage(message, 'offline-ai');
+                    if (result.success) {
+                        response = result.response;
+                    } else {
+                        throw new Error(result.error || 'Unknown error');
+                    }
                 } else {
-                    throw new Error(response.error || 'Unknown error');
+                    // Fallback to offline AI chat
+                    if (!window.offlineAI) {
+                        window.offlineAI = new OfflineAIChat();
+                        await window.offlineAI.initialize();
+                    }
+                    
+                    const result = await window.offlineAI.generateResponse(message);
+                    if (result.success) {
+                        response = result.response;
+                    } else {
+                        throw new Error(result.error || 'Unknown error');
+                    }
                 }
+                
+                // Update AI message with response
+                const aiContent = aiMessageDiv.querySelector('.message-content');
+                aiContent.innerHTML = `<strong>AI:</strong> ${response}`;
                 
             } catch (error) {
                 console.error('Chat error:', error);
@@ -792,8 +891,23 @@
             resultsContainer.innerHTML = '<div><span class="loading"></span> Searching Wikipedia...</div>';
             
             try {
-                // Search Wikipedia using integration manager
-                const results = await integrationManager.searchWikipedia(query);
+                let results = [];
+                
+                // Try using integration manager first
+                if (integrationManager && integrationManager.wikiManager && integrationManager.wikiManager.initialized) {
+                    results = await integrationManager.searchWikipedia(query);
+                } else {
+                    // Fallback to offline AI chat Wikipedia search
+                    if (window.offlineAI && window.offlineAI.initialized) {
+                        results = window.offlineAI.searchWikipediaByText(query).map(article => ({
+                            title: article.title,
+                            snippet: article.content.substring(0, 200) + '...',
+                            content: article.content
+                        }));
+                    } else {
+                        throw new Error('Wikipedia search not available. Please download an offline package first.');
+                    }
+                }
                 
                 if (results.length === 0) {
                     resultsContainer.innerHTML = '<p>No results found for "' + query + '". Try a different search term.</p>';
@@ -825,7 +939,23 @@
             resultsContainer.innerHTML = '<div><span class="loading"></span> Loading article...</div>';
             
             try {
-                const article = await integrationManager.getWikipediaArticle(articleTitle);
+                let article = null;
+                
+                // Try using integration manager first
+                if (integrationManager && integrationManager.wikiManager && integrationManager.wikiManager.initialized) {
+                    article = await integrationManager.getWikipediaArticle(articleTitle);
+                } else {
+                    // Fallback to offline AI chat Wikipedia data
+                    if (window.offlineAI && window.offlineAI.initialized) {
+                        const searchResults = window.offlineAI.searchWikipediaByText(articleTitle);
+                        article = searchResults.find(a => a.title === articleTitle);
+                        if (!article) {
+                            throw new Error('Article not found');
+                        }
+                    } else {
+                        throw new Error('Wikipedia not available. Please download an offline package first.');
+                    }
+                }
                 
                 resultsContainer.innerHTML = `
                     <h3>${article.title}</h3>
@@ -912,8 +1042,16 @@
                 // Reset AI instances
                 if (window.integrationManager) {
                     window.integrationManager = null;
-                    clearedItems.push('AI Instance');
+                    clearedItems.push('Integration Manager');
                 }
+                
+                if (window.offlineAI) {
+                    window.offlineAI = null;
+                    clearedItems.push('Offline AI');
+                }
+                
+                // Clear the offline download completion flag
+                localStorage.removeItem('offlineDownloadComplete');
                 
                 // Update status
                 status.textContent = clearedItems.length > 0 

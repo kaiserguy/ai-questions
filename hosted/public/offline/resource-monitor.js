@@ -132,13 +132,11 @@ class OfflineResourceMonitor {
                 return;
             }
             
-            // Check if mockWikipediaDB is initialized
-            if (window.mockWikipediaDB && window.mockWikipediaDB.initialized) {
-                const articleCount = window.mockWikipediaDB.articles.size;
-                
+            // Check if Wikipedia database is initialized
+            if (window.wikipediaManager && window.wikipediaManager.initialized) {
+                const articleCount = await window.wikipediaManager.getArticleCount();
                 this.resources.wikipedia.available = true;
                 this.resources.wikipedia.articleCount = articleCount;
-                
                 this.statusMessages.success.push(`Wikipedia database available with ${articleCount} articles`);
             } else {
                 // Try to initialize
@@ -148,8 +146,10 @@ class OfflineResourceMonitor {
                 if (initialized) {
                     // Get article count if possible
                     let articleCount = 0;
-                    if (window.mockWikipediaDB) {
-                        articleCount = window.mockWikipediaDB.articles.size;
+                    try {
+                        articleCount = await wikiManager.getArticleCount();
+                    } catch (error) {
+                        console.warn('Could not get article count:', error);
                     }
                     
                     this.resources.wikipedia.available = true;

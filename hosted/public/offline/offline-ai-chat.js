@@ -270,7 +270,9 @@ class OfflineAIChat {
                 response = `Based on available information: ${article.content}`;
             }
             
-            wikipediaContext = `\n\n📚 Source: ${article.title}`;
+            // Create clickable Wikipedia link
+            const escapedTitle = article.title.replace(/'/g, "\\'");
+            wikipediaContext = `\n\n📚 Source: <a href="#" onclick="searchWikipediaFromChat('${escapedTitle}'); return false;" style="color: #6366f1; text-decoration: none; font-weight: 500;">${article.title}</a>`;
         } else {
             response = "I can provide information on various topics. What specific aspect would you like to know more about?";
         }
@@ -288,7 +290,11 @@ class OfflineAIChat {
             // Add Wikipedia context if available
             const relevantArticles = this.searchWikipedia(['Artificial Intelligence', 'Machine Consciousness']);
             if (relevantArticles.length > 0) {
-                response += `\n\n📚 Related topics: ${relevantArticles.map(a => a.title).join(', ')}`;
+                const links = relevantArticles.map(article => {
+                    const escapedTitle = article.title.replace(/'/g, "\\'");
+                    return `<a href="#" onclick="searchWikipediaFromChat('${escapedTitle}'); return false;" style="color: #6366f1; text-decoration: none; font-weight: 500;">${article.title}</a>`;
+                }).join(', ');
+                response += `\n\n📚 Related topics: ${links}`;
             }
             
             return response;
@@ -315,7 +321,8 @@ class OfflineAIChat {
         const searchResults = this.searchWikipediaByText(topic);
         if (searchResults.length > 0) {
             const article = searchResults[0];
-            return `${article.content}\n\n📚 Source: ${article.title}`;
+            const escapedTitle = article.title.replace(/'/g, "\\'");
+            return `${article.content}\n\n📚 Source: <a href="#" onclick="searchWikipediaFromChat('${escapedTitle}'); return false;" style="color: #6366f1; text-decoration: none; font-weight: 500;">${article.title}</a>`;
         }
         
         return `I'd be happy to explain "${topic}"! While I may not have comprehensive details about every topic, I can often provide basic information and context.`;
@@ -337,7 +344,8 @@ class OfflineAIChat {
         
         if (searchResults.length > 0) {
             const article = searchResults[0];
-            return `Based on my knowledge: ${article.content}\n\n📚 Source: ${article.title}`;
+            const escapedTitle = article.title.replace(/'/g, "\\'");
+            return `Based on my knowledge: ${article.content}\n\n📚 Source: <a href="#" onclick="searchWikipediaFromChat('${escapedTitle}'); return false;" style="color: #6366f1; text-decoration: none; font-weight: 500;">${article.title}</a>`;
         }
         
         return `I understand you're asking about "${message}". I can assist with various topics including calculations, unit conversions, general knowledge, and more. Could you be more specific about what you'd like to know?`;

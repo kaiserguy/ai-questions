@@ -17,6 +17,7 @@ class OfflineIntegrationManager {
      */
     setEventHandlers(handlers) {
         this.onStatusUpdate = handlers.onStatusUpdate || null;
+        this.onLogUpdate = handlers.onLogUpdate || null;
     }
     
     /**
@@ -55,6 +56,11 @@ class OfflineIntegrationManager {
             },
             onError: (error) => {
                 this.updateStatus(`Download error: ${error}`, 'error');
+            },
+            onLogUpdate: (logEntry, allLogs) => {
+                if (this.onLogUpdate) {
+                    this.onLogUpdate(logEntry, allLogs);
+                }
             }
         });
         

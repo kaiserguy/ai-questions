@@ -1,0 +1,25 @@
+{
+  "name": "hosted",
+  "version": "1.0.0",
+  "main": "intelligent-query-system.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "dependencies": {
+    "@huggingface/inference": "^4.0.6",
+    "axios": "^1.10.0",
+    "connect-pg-simple": "^10.0.0",
+    "dotenv": "^16.5.0",
+    "ejs": "^3.1.10",
+    "express": "^5.1.0",
+    "express-session": "^1.18.1",
+    "node-cron": "^4.1.1",
+    "passport": "^0.7.0",
+    "passport-google-oauth20": "^2.0.0",
+    "pg": "^8.16.2"
+  }
+}
