@@ -17,6 +17,7 @@ class OfflineIntegrationManager {
      */
     setEventHandlers(handlers) {
         this.onStatusUpdate = handlers.onStatusUpdate || null;
+        this.onInitializationComplete = handlers.onInitializationComplete || null;
     }
     
     /**
@@ -118,10 +119,19 @@ class OfflineIntegrationManager {
             this.initialized = true;
             this.updateStatus('All components initialized successfully');
             
-            // Show the chat and wiki sections
-            document.getElementById('progressSection').style.display = 'none';
-            document.getElementById('chatSection').style.display = 'block';
-            document.getElementById('wikiSection').style.display = 'block';
+            // Call the initialization complete callback
+            if (this.onInitializationComplete) {
+                this.onInitializationComplete();
+            } else {
+                // Fallback: Show the chat and wiki sections directly
+                const progressSection = document.getElementById('progressSection');
+                const chatSection = document.getElementById('chatSection');
+                const wikiSection = document.getElementById('wikiSection');
+                
+                if (progressSection) progressSection.style.display = 'none';
+                if (chatSection) chatSection.style.display = 'block';
+                if (wikiSection) wikiSection.style.display = 'block';
+            }
         }
     }
     
