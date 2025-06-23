@@ -10,7 +10,7 @@ AI Questions is available in two primary deployment flavors: a publicly-hosted v
 |---------|-------------------------|------------------------|
 | **Deployment** | Cloud-based (Heroku) | Local machine |
 | **Authentication** | Google OAuth | None (single user) |
-| **Database** | PostgreSQL | In-memory mock DB |
+| **Database** | PostgreSQL | In-memory placeholder DB |
 | **AI Models** | External APIs (OpenAI, Anthropic, etc.) | Local Ollama models |
 | **API Keys** | User-provided or system-wide | Not required |
 | **n8n Integration** | No | Yes |

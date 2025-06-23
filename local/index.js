@@ -394,10 +394,10 @@ if (LOCAL_CONFIG.enabled) {
 let pool;
 
 if (LOCAL_CONFIG.enabled) {
-  // Use mock database for local mode to avoid PostgreSQL dependency
-  const MockDatabase = require('./mock-database');
-  pool = new MockDatabase();
-  console.log('Using mock database for local mode');
+  // Use placeholder database for local mode to avoid PostgreSQL dependency
+  const PlaceholderDatabase = require('./placeholder-database');
+  pool = new PlaceholderDatabase();
+  console.log('Using placeholder database for local mode');
 } else {
   // Use PostgreSQL for production
   pool = new Pool({
@@ -411,8 +411,8 @@ if (LOCAL_CONFIG.enabled) {
 // Create tables if they don't exist
 async function initializeDatabase() {
   if (LOCAL_CONFIG.enabled) {
-    // Skip database initialization for mock database
-    console.log('Skipping database initialization for mock database');
+    // Skip database initialization for placeholder database
+    console.log('Skipping database initialization for placeholder database');
     return;
   }
   

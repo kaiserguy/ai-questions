@@ -131,9 +131,9 @@ class OfflineResourceMonitor {
                 return;
             }
             
-            // Check if mockWikipediaDB is initialized
-            if (window.mockWikipediaDB && window.mockWikipediaDB.initialized) {
-                const articleCount = window.mockWikipediaDB.articles.size;
+            // TODO: Check if Wikipedia database is initialized
+            if (window.placeholderWikipediaDB && window.placeholderWikipediaDB.initialized) {
+                const articleCount = window.placeholderWikipediaDB.articles.size;
                 
                 this.resources.wikipedia.available = true;
                 this.resources.wikipedia.articleCount = articleCount;
@@ -147,8 +147,8 @@ class OfflineResourceMonitor {
                 if (initialized) {
                     // Get article count if possible
                     let articleCount = 0;
-                    if (window.mockWikipediaDB) {
-                        articleCount = window.mockWikipediaDB.articles.size;
+                    if (window.placeholderWikipediaDB) {
+                        articleCount = window.placeholderWikipediaDB.articles.size;
                     }
                     
                     this.resources.wikipedia.available = true;

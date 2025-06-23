@@ -1,6 +1,7 @@
 const DatabaseInterface = require("./db-interface");
 
-class MockDatabase extends DatabaseInterface {
+// TODO: Replace with actual database implementation
+class PlaceholderDatabase extends DatabaseInterface {
     constructor() {
         super();
         this.users = [];
@@ -74,18 +75,18 @@ class MockDatabase extends DatabaseInterface {
     }
 
     async initialize() {
-        console.log("Mock database initialized.");
+        console.log("Placeholder database initialized.");
         return { success: true };
     }
 
     async getDailyQuestion(date) {
-        // For mock, just return a random daily question
+        // TODO: Implement actual database query for daily question
         const randomIndex = Math.floor(Math.random() * this.dailyQuestions.length);
         return this.dailyQuestions[randomIndex];
     }
 
     async getAnswer(question, model) {
-        // For mock, find the latest answer for the given question and model
+        // TODO: Implement actual database query for answer
         return this.answers.find(a => a.question === question && a.model === model);
     }
 
@@ -299,6 +300,5 @@ class MockDatabase extends DatabaseInterface {
     }
 }
 
-module.exports = MockDatabase;
-
+module.exports = PlaceholderDatabase;
 

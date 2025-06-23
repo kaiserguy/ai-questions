@@ -2,7 +2,7 @@
  * Local Application Entry Point
  * 
  * This is the entry point for the locally-hosted version of AI Questions.
- * It uses mock database, local Ollama models, and n8n integration.
+ * It uses placeholder database, local Ollama models, and n8n integration.
  */
 
 const express = require("express");
@@ -11,7 +11,7 @@ const fs = require("fs");
 
 // Import core components
 const createApp = require("../core/app");
-const MockDatabase = require("../core/db");
+const PlaceholderDatabase = require("../core/db");
 const OllamaClient = require("../core/ollama-client");
 const WikipediaIntegration = require("../core/wikipedia-integration");
 const commonRoutes = require("../core/routes");
@@ -45,7 +45,7 @@ const LOCAL_CONFIG = {
 };
 
 // Initialize database
-const db = new MockDatabase();
+const db = new PlaceholderDatabase();
 
 // Initialize AI client (using DummyAiClient for testing)
 const ai = new DummyAiClient();

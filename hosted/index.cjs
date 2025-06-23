@@ -968,7 +968,7 @@ function requireAuth(req, res, next) {
   const validDebugToken = process.env.DEBUG_TOKEN || 'debug-test-token-2024';
   
   if (debugToken === validDebugToken) {
-    // Create a mock user for debug mode
+    // TODO: Create a debug user for debug mode
     req.user = {
       id: 999999,
       name: 'Debug User',

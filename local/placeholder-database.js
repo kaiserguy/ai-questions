@@ -1,5 +1,5 @@
-// Mock database for local testing without PostgreSQL
-class MockDatabase {
+// TODO: Replace with actual database implementation for local testing without PostgreSQL
+class PlaceholderDatabase {
   constructor() {
     this.users = new Map();
     this.questions = new Map();
@@ -26,7 +26,7 @@ class MockDatabase {
   }
   
   async query(sql, params = []) {
-    // Mock query responses for testing
+    // TODO: Implement actual database queries
     if (sql.includes('SELECT * FROM users WHERE google_id')) {
       const googleId = params[0];
       const user = Array.from(this.users.values()).find(u => u.google_id === googleId);
@@ -54,9 +54,9 @@ class MockDatabase {
   }
   
   async end() {
-    // Mock cleanup
+    // TODO: Implement actual cleanup
   }
 }
 
-module.exports = MockDatabase;
+module.exports = PlaceholderDatabase;
 

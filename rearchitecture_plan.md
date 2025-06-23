@@ -9,7 +9,7 @@ This document outlines a re-architecture plan for the AI Questions project, aimi
 The existing project structure involves two primary entry points: `index.cjs` for the publicly-hosted version and `local/index.js` for the locally-hosted version. While both share common functionalities such as question retrieval, answer generation, and EJS templating, their implementations are largely duplicated. Key observations include:
 
 *   **Duplicated Server Setup**: Both versions initialize Express applications, set up view engines, and configure middleware independently.
-*   **Divergent Database Handling**: The public version uses PostgreSQL with user authentication and persistent storage, while the local version employs a mock database to avoid external dependencies and simplify local setup.
+*   **Divergent Database Handling**: The public version uses PostgreSQL with user authentication and persistent storage, while the local version employs a placeholder database to avoid external dependencies and simplify local setup.
 *   **Separate AI Model Integrations**: The public version integrates with various external LLMs (e.g., OpenAI, Anthropic, Hugging Face) requiring API keys and user authentication. The local version primarily focuses on Ollama integration for local AI models.
 *   **Redundant Frontend Logic**: EJS templates and associated client-side JavaScript often contain similar logic for displaying questions, answers, and managing UI interactions, leading to repetition.
 *   **Feature Discrepancies**: Features like user login, n8n integration, and offline HTML5 support are tightly coupled within their respective version's codebase, making it difficult to share or selectively enable them.
@@ -33,7 +33,7 @@ The project will adopt a more modular and organized file structure:
 │   ├── app.js                  # Shared Express application setup, middleware, and common configurations
 │   ├── db-interface.js         # Abstract database interface
 │   ├── pg-db.js                # PostgreSQL implementation of db-interface
-│   ├── mock-db.js              # Mock database implementation of db-interface
+│   ├── placeholder-db.js              # Placeholder database implementation of db-interface
 │   ├── ai-interface.js         # Abstract AI model interface
 │   ├── ollama-client.js        # Ollama (local AI) implementation of ai-interface
 │   ├── external-llm-client.js  # External LLM (e.g., OpenAI, Anthropic, Hugging Face) implementation of ai-interface
@@ -63,7 +63,7 @@ To facilitate code reuse and maintain a clear separation of concerns, we will de
 A `db-interface.js` will define the contract for database operations, such as `getDailyQuestion()`, `saveAnswer()`, `getPersonalQuestions()`, etc. Two primary implementations will be provided:
 
 *   `pg-db.js`: This implementation will connect to a PostgreSQL database, suitable for the publicly-hosted version where persistent storage and user management are critical. It will handle all interactions with the PostgreSQL database, including user authentication data, question schedules, and answer history.
-*   `mock-db.js`: This implementation will provide an in-memory, non-persistent database. It will be used by the locally-hosted version to avoid the overhead of setting up and managing a full-fledged database. This is particularly useful for quick local deployments and scenarios where data persistence across sessions is not required.
+*   `placeholder-db.js`: This implementation will provide an in-memory, non-persistent database. It will be used by the locally-hosted version to avoid the overhead of setting up and managing a full-fledged database. This is particularly useful for quick local deployments and scenarios where data persistence across sessions is not required.
 
 This abstraction ensures that the core application logic can interact with the database without needing to know the underlying storage mechanism.
 
