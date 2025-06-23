@@ -28,6 +28,16 @@ module.exports = {
     '/tests/integration/' // Skip integration tests for now
   ],
   
+  // Module path ignore patterns to fix package.json collision
+  modulePathIgnorePatterns: [
+    '<rootDir>/local/package.json'
+  ],
+  
+  // Haste configuration to avoid naming collisions
+  haste: {
+    enableSymlinks: false
+  },
+  
   // Verbose output
   verbose: true,
   

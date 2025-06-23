@@ -4,8 +4,7 @@
  */
 
 // Import the DownloadManager class
-// Note: In a real test environment, we'd need to properly import this
-// For now, we'll include the class definition or mock it
+const DownloadManager = require('../../core/public/offline/download-manager.js');
 
 describe('DownloadManager', () => {
   let downloadManager;

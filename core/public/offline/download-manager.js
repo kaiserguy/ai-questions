@@ -733,5 +733,12 @@ class DownloadManager {
     }
 }
 
-// Make available globally
-window.DownloadManager = DownloadManager;
+// Make available globally for browser
+if (typeof window !== 'undefined') {
+    window.DownloadManager = DownloadManager;
+}
+
+// Make available for Node.js/testing
+if (typeof module !== 'undefined' && module.exports) {
+    module.exports = DownloadManager;
+}

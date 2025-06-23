@@ -20,7 +20,23 @@ global.localStorage = {
 };
 
 global.indexedDB = {
-  open: jest.fn(),
+  open: jest.fn(() => ({
+    onerror: null,
+    onsuccess: null,
+    onupgradeneeded: null,
+    result: {
+      createObjectStore: jest.fn(),
+      transaction: jest.fn(() => ({
+        objectStore: jest.fn(() => ({
+          add: jest.fn(),
+          get: jest.fn(),
+          put: jest.fn(),
+          delete: jest.fn()
+        }))
+      }))
+    },
+    error: null
+  })),
   deleteDatabase: jest.fn()
 };
 
@@ -32,15 +48,34 @@ global.console = {
   error: jest.fn()
 };
 
-// Mock DOM methods
-global.document = {
-  ...document,
-  getElementById: jest.fn(),
-  querySelector: jest.fn(),
-  querySelectorAll: jest.fn(),
-  createElement: jest.fn(),
-  addEventListener: jest.fn()
-};
+// Enhanced DOM mocking for Jest environment
+// Note: jsdom already provides document, but we need to ensure mocking works
+if (typeof document !== 'undefined') {
+  // Enhance existing document with Jest mocks
+  const originalGetElementById = document.getElementById;
+  document.getElementById = jest.fn(originalGetElementById);
+  
+  const originalQuerySelector = document.querySelector;
+  document.querySelector = jest.fn(originalQuerySelector);
+  
+  const originalQuerySelectorAll = document.querySelectorAll;
+  document.querySelectorAll = jest.fn(originalQuerySelectorAll);
+  
+  const originalCreateElement = document.createElement;
+  document.createElement = jest.fn(originalCreateElement);
+  
+  const originalAddEventListener = document.addEventListener;
+  document.addEventListener = jest.fn(originalAddEventListener);
+} else {
+  // Fallback for environments without jsdom
+  global.document = {
+    getElementById: jest.fn(),
+    querySelector: jest.fn(),
+    querySelectorAll: jest.fn(),
+    createElement: jest.fn(),
+    addEventListener: jest.fn()
+  };
+}
 
 // Reset all mocks before each test
 beforeEach(() => {
@@ -57,15 +92,20 @@ global.createMockElement = (id, properties = {}) => {
     classList: {
       add: jest.fn(),
       remove: jest.fn(),
-      contains: jest.fn()
+      contains: jest.fn(),
+      toggle: jest.fn()
     },
     addEventListener: jest.fn(),
     removeEventListener: jest.fn(),
+    click: jest.fn(),
+    focus: jest.fn(),
+    blur: jest.fn(),
     ...properties
   };
   
-  if (global.document.getElementById) {
-    global.document.getElementById.mockImplementation((elementId) => {
+  // Set up getElementById mock to return this element
+  if (document && document.getElementById && document.getElementById.mockImplementation) {
+    document.getElementById.mockImplementation((elementId) => {
       return elementId === id ? element : null;
     });
   }
@@ -88,3 +128,18 @@ global.mockFetchError = (status = 500, message = 'Server Error') => {
   global.fetch.mockRejectedValueOnce(new Error(message));
 };
 
+// Mock package configurations for tests
+global.mockPackageConfigs = {
+  minimal: {
+    aiModel: { name: 'TinyBERT', size: '150MB' },
+    wikipedia: { name: 'Wikipedia Subset', size: '20MB' }
+  },
+  performance: {
+    aiModel: { name: 'Phi-3 Mini', size: '500MB' },
+    wikipedia: { name: 'Simple Wikipedia', size: '50MB' }
+  },
+  comprehensive: {
+    aiModel: { name: 'Llama 3.2', size: '2GB' },
+    wikipedia: { name: 'Full Wikipedia', size: '100GB' }
+  }
+};
