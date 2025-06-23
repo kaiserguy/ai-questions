@@ -54,26 +54,11 @@ class WikipediaManager {
         try {
             this.updateStatus('Initializing Wikipedia database...');
             
-            // For offline mode, we'll use a simplified initialization
-            // that doesn't require actual database files
-            this.loadingProgress = 25;
-            this.updateStatus('Setting up Wikipedia framework...');
+            // Load SQL.js library
+            await this.loadSQLLibrary();
             
-            // TODO: Implement actual loading delay
-            await new Promise(resolve => setTimeout(resolve, 1000));
-            
-            this.loadingProgress = 50;
-            this.updateStatus('Loading Wikipedia database...');
-            
-            // Initialize with fallback database
-            await this.createFallbackDatabase();
-            
-            await new Promise(resolve => setTimeout(resolve, 1000));
-            
-            this.loadingProgress = 75;
-            this.updateStatus('Indexing articles...');
-            
-            await new Promise(resolve => setTimeout(resolve, 500));
+            // Load database based on package type
+            await this.loadDatabase();
             
             this.initialized = true;
             this.isLoading = false;
@@ -105,39 +90,29 @@ class WikipediaManager {
             
             this.updateStatus('Loading SQL.js library...');
             
-            // TODO: Load actual SQL.js library
-            setTimeout(() => {
-                // TODO: Initialize actual SQL library
-                window.SQL = {
-                    Database: class {
-                        constructor(data) {
-                            this.data = data;
-                            this.tables = ['articles', 'categories', 'redirects'];
-                        }
-                        
-                        exec(sql) {
-                            // TODO: Execute actual SQL
-                            console.log(`Executing SQL: ${sql}`);
-                            return [];
-                        }
-                        
-                        prepare(sql) {
-                            // TODO: Create actual prepared statement
-                            return {
-                                bind: (params) => {},
-                                step: () => false,
-                                get: () => ({}),
-                                getAsObject: () => ({}),
-                                getColumnNames: () => [],
-                                free: () => {}
-                            };
-                        }
-                    }
-                };
-                
-                this.updateStatus('SQL.js loaded');
-                resolve();
-            }, 1000);
+            // Load SQL.js from CDN
+            const script = document.createElement('script');
+            script.src = 'https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.8.0/sql-wasm.js';
+            script.onload = async () => {
+                try {
+                    // Initialize SQL.js with WASM
+                    const SQL = await window.initSqlJs({
+                        locateFile: file => `https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.8.0/${file}`
+                    });
+                    window.SQL = SQL;
+                    this.updateStatus('SQL.js library loaded successfully');
+                    resolve();
+                } catch (error) {
+                    this.updateStatus(`Error initializing SQL.js: ${error.message}`, 'error');
+                    reject(error);
+                }
+            };
+            script.onerror = () => {
+                const error = new Error('Failed to load SQL.js library');
+                this.updateStatus(error.message, 'error');
+                reject(error);
+            };
+            document.head.appendChild(script);
         });
     }
     
@@ -154,80 +129,101 @@ class WikipediaManager {
         this.updateStatus(`Loading Wikipedia database (${config.articles})...`);
         
         try {
-            // Try to load the actual database file
+            // Fetch the SQLite database file
             const response = await fetch(config.path);
-            
             if (!response.ok) {
-                throw new Error(`Failed to load database: ${response.status} ${response.statusText}`);
+                throw new Error(`Failed to fetch database: ${response.status} ${response.statusText}`);
             }
             
+            // Get the database as an ArrayBuffer
             const arrayBuffer = await response.arrayBuffer();
             const uint8Array = new Uint8Array(arrayBuffer);
             
-            // Create SQL.js database from the loaded data
+            // Create the SQL.js database instance
             this.db = new window.SQL.Database(uint8Array);
             
-            this.updateStatus(`Wikipedia database loaded successfully (${config.articles})`);
+            // Verify database structure
+            const tables = this.db.exec("SELECT name FROM sqlite_master WHERE type='table'");
+            if (tables.length === 0) {
+                throw new Error('Database appears to be empty or corrupted');
+            }
+            
+            this.updateStatus('Wikipedia database loaded successfully');
             
         } catch (error) {
-            console.warn('Failed to load real Wikipedia database, using fallback:', error);
-            
-            // Fallback to a minimal in-memory database with basic articles
-            this.createFallbackDatabase();
-            
-            this.updateStatus('Using fallback Wikipedia database');
+            // If database file doesn't exist, create a minimal working database
+            if (error.message.includes('404') || error.message.includes('Failed to fetch')) {
+                this.updateStatus('Database file not found, creating minimal database...');
+                await this.createMinimalDatabase();
+            } else {
+                throw error;
+            }
         }
     }
     
     /**
-     * Create a fallback in-memory database with basic articles
+     * Create a minimal Wikipedia database for testing
      */
-    createFallbackDatabase() {
+    async createMinimalDatabase() {
         // Create an empty database
         this.db = new window.SQL.Database();
         
-        // Create articles table
-        this.db.exec(`
+        // Create the articles table
+        this.db.run(`
             CREATE TABLE articles (
                 id INTEGER PRIMARY KEY,
                 title TEXT NOT NULL,
                 content TEXT NOT NULL,
                 summary TEXT,
-                categories TEXT
-            );
+                categories TEXT,
+                links TEXT,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            )
         `);
         
         // Insert some basic articles
         const basicArticles = [
             {
-                title: 'Poland',
-                content: 'Poland, officially the Republic of Poland, is a country in Central Europe. It is divided into 16 administrative provinces called voivodeships, covering an area of 312,696 square kilometres (120,733 sq mi), and has a largely temperate seasonal climate. With a population of nearly 38.5 million people, Poland is the fifth-most populous member state of the European Union.',
-                summary: 'Poland is a country in Central Europe with a population of nearly 38.5 million people.',
-                categories: 'Countries, Europe, Central Europe'
-            },
-            {
                 title: 'Artificial Intelligence',
-                content: 'Artificial intelligence (AI) is intelligence demonstrated by machines, as opposed to natural intelligence displayed by animals including humans. AI research has been defined as the field of study of intelligent agents, which refers to any system that perceives its environment and takes actions that maximize its chance of achieving its goals.',
-                summary: 'Intelligence demonstrated by machines, as opposed to natural intelligence displayed by animals including humans.',
-                categories: 'Computer Science, Technology, Machine Learning'
+                summary: 'Artificial intelligence (AI) is intelligence demonstrated by machines, in contrast to the natural intelligence displayed by humans and animals.',
+                content: 'Artificial intelligence (AI) is intelligence demonstrated by machines, in contrast to the natural intelligence displayed by humans and animals. Leading AI textbooks define the field as the study of "intelligent agents": any device that perceives its environment and takes actions that maximize its chance of successfully achieving its goals. Colloquially, the term "artificial intelligence" is often used to describe machines (or computers) that mimic "cognitive" functions that humans associate with the human mind, such as "learning" and "problem solving".',
+                categories: 'Technology,Computer Science,AI',
+                links: 'Machine Learning,Computer Science,Neural Networks'
             },
             {
-                title: 'Wikipedia',
-                content: 'Wikipedia is a multilingual free online encyclopedia written and maintained by a community of volunteers through open collaboration and a wiki-based editing system. Individual contributors, also called editors, are known as Wikipedians. Wikipedia is the largest and most-read reference work in history.',
-                summary: 'A multilingual free online encyclopedia written and maintained by a community of volunteers.',
-                categories: 'Encyclopedias, Websites, Knowledge'
+                title: 'Machine Learning',
+                summary: 'Machine learning (ML) is a field of inquiry devoted to understanding and building methods that "learn".',
+                content: 'Machine learning (ML) is a field of inquiry devoted to understanding and building methods that "learn", that is, methods that leverage data to improve performance on some set of tasks. It is seen as a part of artificial intelligence. Machine learning algorithms build a model based on training data in order to make predictions or decisions without being explicitly programmed to do so.',
+                categories: 'Technology,Computer Science,AI',
+                links: 'Artificial Intelligence,Neural Networks,Deep Learning'
+            },
+            {
+                title: 'Computer Science',
+                summary: 'Computer science is the study of algorithmic processes, computational systems and the design of computer systems.',
+                content: 'Computer science is the study of algorithmic processes, computational systems and the design of computer systems and their applications. It includes the study of the structure, expression, and algorithms that underlie the acquisition, representation, processing, storage, communication of, and access to information.',
+                categories: 'Technology,Science,Computing',
+                links: 'Programming,Algorithms,Software Engineering'
             }
         ];
         
-        // Insert the articles
-        const stmt = this.db.prepare('INSERT INTO articles (title, content, summary, categories) VALUES (?, ?, ?, ?)');
+        const insertStmt = this.db.prepare(`
+            INSERT INTO articles (title, summary, content, categories, links)
+            VALUES (?, ?, ?, ?, ?)
+        `);
         
         basicArticles.forEach(article => {
-            stmt.bind([article.title, article.content, article.summary, article.categories]);
-            stmt.step();
+            insertStmt.run([
+                article.title,
+                article.summary,
+                article.content,
+                article.categories,
+                article.links
+            ]);
         });
         
-        stmt.free();
+        insertStmt.free();
+        
+        this.updateStatus('Minimal Wikipedia database created with basic articles');
     }
     
     /**
@@ -241,80 +237,169 @@ class WikipediaManager {
         this.updateStatus(`Searching Wikipedia for: "${query}"`);
         
         try {
-            const limit = options.limit || 10;
+            // TODO: Implement actual database search
+            const results = await this.searchDatabase(query, options);
             
-            // Search for articles matching the query
-            const searchSQL = `
-                SELECT title, summary, content, categories
-                FROM articles 
-                WHERE title LIKE ? OR content LIKE ? OR summary LIKE ?
-                LIMIT ?
-            `;
-            
-            const searchTerm = `%${query}%`;
-            const stmt = this.db.prepare(searchSQL);
-            stmt.bind([searchTerm, searchTerm, searchTerm, limit]);
-            
-            const results = [];
-            while (stmt.step()) {
-                const row = stmt.getAsObject();
-                results.push({
-                    title: row.title,
-                    snippet: row.summary || row.content.substring(0, 200) + '...',
-                    extract: row.summary,
-                    content: row.content,
-                    categories: row.categories
-                });
-            }
-            
-            stmt.free();
-            
-            this.updateStatus(`Found ${results.length} Wikipedia articles`);
+            this.updateStatus(`Found ${results.length} results for "${query}"`);
             return results;
-            
         } catch (error) {
-            console.error('Wikipedia search error:', error);
-            this.updateStatus(`Search error: ${error.message}`, 'error');
-            return [];
+            this.updateStatus(`Error searching Wikipedia: ${error.message}`, 'error');
+            throw error;
         }
     }
     
     /**
-     * Get a specific Wikipedia article
+     * Get a Wikipedia article by ID or title
      */
-    async getArticle(titleOrId) {
+    async getArticle(idOrTitle) {
         if (!this.initialized) {
             throw new Error('Wikipedia manager not initialized');
         }
         
+        this.updateStatus(`Getting Wikipedia article: ${idOrTitle}`);
+        
         try {
-            const stmt = this.db.prepare('SELECT * FROM articles WHERE title = ? OR id = ?');
-            stmt.bind([titleOrId, titleOrId]);
+            // TODO: Implement actual article retrieval from local database
+            const article = await this.getArticleFromDatabase(idOrTitle);
             
-            if (stmt.step()) {
-                const article = stmt.getAsObject();
-                stmt.free();
-                return article;
-            }
-            
-            stmt.free();
-            return null;
-            
+            this.updateStatus(`Retrieved article: ${article.title}`);
+            return article;
         } catch (error) {
-            console.error('Error getting Wikipedia article:', error);
-            return null;
+            this.updateStatus(`Error getting article: ${error.message}`, 'error');
+            throw error;
         }
     }
     
     /**
-     * Update status message
+     * Search Wikipedia database
      */
-    updateStatus(message, type = 'info') {
-        console.log(`📚 Wikipedia: ${message}`);
+    async searchDatabase(query, options = {}) {
+        if (!this.db) {
+            throw new Error('Database not loaded');
+        }
+        
+        const limit = options.limit || 10;
+        const results = [];
+        
+        try {
+            // Search for articles matching the query in title or content
+            const searchStmt = this.db.prepare(`
+                SELECT id, title, summary, categories, links,
+                       CASE 
+                           WHEN title LIKE ? THEN 100
+                           WHEN title LIKE ? THEN 90
+                           WHEN summary LIKE ? THEN 70
+                           WHEN content LIKE ? THEN 50
+                           ELSE 0
+                       END as relevance_score
+                FROM articles 
+                WHERE title LIKE ? OR summary LIKE ? OR content LIKE ?
+                ORDER BY relevance_score DESC, title ASC
+                LIMIT ?
+            `);
+            
+            const searchTerm = `%${query}%`;
+            const exactTitle = query;
+            const titleStart = `${query}%`;
+            
+            searchStmt.bind([
+                exactTitle, titleStart, searchTerm, searchTerm,
+                searchTerm, searchTerm, searchTerm, limit
+            ]);
+            
+            while (searchStmt.step()) {
+                const row = searchStmt.getAsObject();
+                results.push({
+                    id: row.id,
+                    title: row.title,
+                    summary: row.summary || 'No summary available',
+                    categories: row.categories ? row.categories.split(',') : [],
+                    links: row.links ? row.links.split(',') : [],
+                    relevance: row.relevance_score / 100
+                });
+            }
+            
+            searchStmt.free();
+            
+        } catch (error) {
+            console.error('Database search error:', error);
+            throw new Error(`Search failed: ${error.message}`);
+        }
+        
+        return results;
+    }
+    
+    /**
+     * Get Wikipedia article from database
+     */
+    async getArticleFromDatabase(idOrTitle) {
+        if (!this.db) {
+            throw new Error('Database not loaded');
+        }
+        
+        try {
+            let stmt;
+            let params;
+            
+            if (typeof idOrTitle === 'number') {
+                stmt = this.db.prepare('SELECT * FROM articles WHERE id = ?');
+                params = [idOrTitle];
+            } else {
+                stmt = this.db.prepare('SELECT * FROM articles WHERE title = ? OR title LIKE ?');
+                params = [idOrTitle, `%${idOrTitle}%`];
+            }
+            
+            stmt.bind(params);
+            
+            if (stmt.step()) {
+                const row = stmt.getAsObject();
+                stmt.free();
+                
+                return {
+                    id: row.id,
+                    title: row.title,
+                    content: row.content,
+                    summary: row.summary,
+                    categories: row.categories ? row.categories.split(',') : [],
+                    links: row.links ? row.links.split(',') : [],
+                    lastModified: row.created_at
+                };
+            } else {
+                stmt.free();
+                throw new Error(`Article not found: ${idOrTitle}`);
+            }
+            
+        } catch (error) {
+            console.error('Database article retrieval error:', error);
+            throw new Error(`Failed to retrieve article: ${error.message}`);
+        }
+    }
+    
+    /**
+     * Update status and notify listeners
+     */
+    updateStatus(message, status = 'info') {
+        console.log(`[WikipediaManager] ${message}`);
         
         if (this.onStatusUpdate) {
-            this.onStatusUpdate(message, type);
+            this.onStatusUpdate(message, status);
         }
+    }
+    
+    /**
+     * Get database info
+     */
+    getDatabaseInfo() {
+        const config = this.dbConfigs[this.packageType];
+        if (!config) {
+            return null;
+        }
+        
+        return {
+            size: config.size,
+            articles: config.articles,
+            packageType: this.packageType
+        };
     }
 }
 
