@@ -194,6 +194,15 @@ async function migrateAnswersTable() {
       console.log('Added is_personal column to answers table');
     }
     
+    // Add prompt_version column if it doesn't exist
+    if (!existingColumns.includes('prompt_version')) {
+      await pool.query(`
+        ALTER TABLE answers 
+        ADD COLUMN prompt_version VARCHAR(10) DEFAULT '1.0'
+      `);
+      console.log('Added prompt_version column to answers table');
+    }
+    
     console.log('Database migration completed successfully');
   } catch (err) {
     console.error('Error during database migration:', err);
@@ -800,7 +809,7 @@ app.get('/api/question', async (req, res) => {
     let errorResponse = { 
       error: 'AI Model Error', 
       message: error.message || 'Unknown error occurred',
-      model: modelId,
+      model: req.query.model || 'unknown',
       timestamp: new Date().toISOString()
     };
     
