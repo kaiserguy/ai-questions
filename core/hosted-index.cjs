@@ -7,7 +7,7 @@ const session = require('express-session');
 const passport = require('passport');
 const GoogleStrategy = require('passport-google-oauth20').Strategy;
 // const { addOfflinePackageRoutes } = require('./offline-package-routes');
-const offlinePackageRoutesNew = require('./offline-package-routes-new');
+const offlinePackageRoutesNew = require('./offline-package-routes-new.js');
 const { InferenceClient } = require("@huggingface/inference");
 // Create Express app
 const app = express();

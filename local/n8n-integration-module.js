@@ -1,5 +1,5 @@
 /**
- * Integration module for index.js
+ * Integration module for local-index.js
  * Connects the main application with n8n workflows
  */
 

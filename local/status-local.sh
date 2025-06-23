@@ -20,7 +20,7 @@ if [ -f .env.local ]; then
 fi
 
 # Check if process is running
-PID=$(pgrep -f "node index.js")
+PID=$(pgrep -f "node local-index.js")
 if [ ! -z "$PID" ]; then
     echo -e "${GREEN}✅ Application Status: Running${NC}"
     echo -e "   PID: $PID"

@@ -292,7 +292,7 @@ User=$USER
 WorkingDirectory=$(pwd)
 Environment=NODE_ENV=local
 EnvironmentFile=$(pwd)/.env.local
-ExecStart=/usr/bin/node index.js
+ExecStart=/usr/bin/node local-index.js
 Restart=always
 RestartSec=10
 

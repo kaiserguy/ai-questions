@@ -12,7 +12,7 @@ NC='\033[0m' # No Color
 echo -e "${BLUE}🛑 Stopping AI Questions Local Instance...${NC}"
 
 # Find the process
-PID=$(pgrep -f "node index.js")
+PID=$(pgrep -f "node local-index.js")
 
 if [ ! -z "$PID" ]; then
     echo -e "${BLUE}📋 Found process with PID: $PID${NC}"

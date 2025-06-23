@@ -81,7 +81,7 @@ echo "--------------------------------"
 
 # Test required files
 run_test "package.json exists" "test -f package.json" "success"
-run_test "index.js exists" "test -f index.js" "success"
+run_test "local-index.js exists" "test -f local-index.js" "success"
 run_test "local-config.js exists" "test -f local-config.js" "success"
 run_test ".env.example exists" "test -f .env.example" "success"
 
@@ -203,12 +203,12 @@ if [ -f .env.local ]; then
     fi
     
     # Test Node.js syntax
-    if node -c index.js > /dev/null 2>&1; then
+    if node -c local-index.js > /dev/null 2>&1; then
         echo -e "JavaScript syntax... ${GREEN}✅ VALID${NC}"
         ((TESTS_PASSED++))
     else
         echo -e "JavaScript syntax... ${RED}❌ INVALID${NC}"
-        echo "Check index.js for syntax errors"
+        echo "Check local-index.js for syntax errors"
         ((TESTS_FAILED++))
     fi
 else

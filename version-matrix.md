@@ -210,7 +210,7 @@ The project has been re-architected to maximize code reuse between versions:
   - `wikipedia-integration.js` - Wikipedia integration
   - `routes.js` - Common API routes
 
-- `public-app.js` - Entry point for publicly-hosted version
+- `hosted-app.js` - Entry point for publicly-hosted version
 - `local-app.js` - Entry point for locally-hosted version
 
 - `local/` - Local-specific components

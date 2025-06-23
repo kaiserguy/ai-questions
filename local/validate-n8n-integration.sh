@@ -23,7 +23,7 @@ server_status=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:3000 || 
 
 if [ "$server_status" = "failed" ] || [ "$server_status" != "200" ]; then
   echo "⚠️ AI Questions server is not running. Please start the server before running this test."
-  echo "You can start the server with: LOCAL_MODE=true node index.js"
+  echo "You can start the server with: LOCAL_MODE=true node local-index.js"
   exit 1
 fi
 

@@ -19,7 +19,7 @@ ai-questions-local/
 ├── local-config.js         # Local mode configuration
 ├── example-questions.json  # Example questions and scenarios
 ├── package.json            # Node.js dependencies
-├── index.js               # Main application file
+├── local-index.js          # Main application file
 ├── views/                 # Web interface templates
 └── logs/                  # Application logs (created at runtime)
 ```

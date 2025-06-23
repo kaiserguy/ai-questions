@@ -1,4 +1,4 @@
-// Update index.js to integrate with n8n workflows
+// Update local-index.js to integrate with n8n workflows
 
 // Import the n8n integration module
 const n8nIntegration = require('./n8n-integration-module');
