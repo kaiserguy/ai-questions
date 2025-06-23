@@ -784,13 +784,51 @@
         // Set up integration event handlers
         function setupIntegrationEventHandlers() {
             downloadManager.setEventHandlers({
-                onProgress: (progress, message) => {
-                    document.getElementById('progressText').textContent = `Downloading... ${progress}%`;
-                    document.getElementById('progressFill').style.width = `${progress}%`;
-                    document.getElementById('progressDetails').textContent = message;
+                onProgressUpdate: (message, totalProgress) => {
+                    if (message) {
+                        document.getElementById('progressDetails').textContent = message;
+                    }
+                    if (totalProgress !== undefined) {
+                        document.getElementById('progressText').textContent = `Downloading... ${totalProgress}%`;
+                        document.getElementById('progressFill').style.width = `${totalProgress}%`;
+                    }
                 },
-                onLogUpdate: (logEntry, allLogs) => {
-                    updateDownloadLog(logEntry, allLogs);
+                onResourceUpdate: (resource, status, progress) => {
+                    // Map resource names to component IDs
+                    const resourceMap = {
+                        'libraries': 'coreLibraries',
+                        'aiModel': 'aiModel',
+                        'wikipedia': 'wikipediaDb'
+                    };
+                    
+                    const componentId = resourceMap[resource];
+                    const componentElement = document.getElementById(componentId);
+                    
+                    if (componentElement) {
+                        const progressSpan = componentElement.querySelector('.component-progress');
+                        if (progressSpan) {
+                            progressSpan.textContent = `${progress}%`;
+                        }
+                        
+                        // Update component status class
+                        if (status === 'loaded') {
+                            componentElement.classList.add('loaded');
+                        }
+                    }
+                },
+                onComplete: () => {
+                    document.getElementById('progressText').textContent = 'Download Complete!';
+                    document.getElementById('progressDetails').textContent = 'Initializing offline mode...';
+                    
+                    // Initialize offline mode after download
+                    setTimeout(() => {
+                        initializeOfflineMode();
+                    }, 1000);
+                },
+                onError: (error) => {
+                    document.getElementById('progressText').textContent = 'Download Failed';
+                    document.getElementById('progressDetails').textContent = `Error: ${error}`;
+                    console.error('Download error:', error);
                 }
             });
         }
