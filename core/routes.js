@@ -77,7 +77,10 @@ module.exports = (db, ai, wikipedia, config) => {
         const todayQuestion = getTodayQuestion();
         let todayAnswer = null;
         let allModels = [];
-
+        let indexFlavor = "hosted-index"
+        if (config.isLocal) {
+            indexFlavor = "local-index"
+        }
         try {
             // Fetch all available models
             const modelsResponse = await ai.listModels(req.user ? req.user.id : null);
@@ -95,25 +98,14 @@ module.exports = (db, ai, wikipedia, config) => {
             console.error("Error fetching data for main page:", error);
         }
 
-        if (config.isLocal) {
-            res.render("local-index", {
-                user: req.user,
-                todayQuestion,
-                todayAnswer,
-                allModels,
-                isLocal: config.isLocal,
-                latestAnswers: [] // Ensure latestAnswers is always defined
-            });
-        } else {
-            res.render("index", {
-                user: req.user,
-                todayQuestion,
-                todayAnswer,
-                allModels,
-                isLocal: config.isLocal,
-                latestAnswers: [] // Ensure latestAnswers is always defined
-            });
-        }
+        res.render(indexFlavor, {
+            user: req.user,
+            todayQuestion,
+            todayAnswer,
+            allModels,
+            isLocal: config.isLocal,
+            latestAnswers: [] // Ensure latestAnswers is always defined
+        });
     });
 
     // API to get daily question and answer
