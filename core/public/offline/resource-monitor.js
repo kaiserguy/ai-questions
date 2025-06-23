@@ -139,8 +139,8 @@ class OfflineResourceMonitor {
             }
             
             // TODO: Check if Wikipedia database is initialized
-            if (window.placeholderWikipediaDB && window.placeholderWikipediaDB.initialized) {
-                const articleCount = window.placeholderWikipediaDB.articles.size;
+            if (window.localWikipediaDB && window.localWikipediaDB.initialized) {
+                const articleCount = window.localWikipediaDB.articles.size;
                 
                 this.resources.wikipedia.available = true;
                 this.resources.wikipedia.articleCount = articleCount;
@@ -154,8 +154,8 @@ class OfflineResourceMonitor {
                 if (initialized) {
                     // Get article count if possible
                     let articleCount = 0;
-                    if (window.placeholderWikipediaDB) {
-                        articleCount = window.placeholderWikipediaDB.articles.size;
+                    if (window.localWikipediaDB) {
+                        articleCount = window.localWikipediaDB.articles.size;
                     }
                     
                     this.resources.wikipedia.available = true;

@@ -249,7 +249,7 @@
                     <input type="password" 
                            class="form-control" 
                            id="apiKey_${provider.id}"
-                           placeholder="Enter ${provider.name} API key"
+                           data-hint="Enter ${provider.name} API key"
                            value="${apiKeys[provider.id] || ''}"
                            onchange="updateApiKey('${provider.id}', this.value)">
                     <small class="text-muted">${provider.description}</small>

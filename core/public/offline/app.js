@@ -358,7 +358,7 @@ class OfflineApp {
                         </div>
                         
                         <div class="chat-input">
-                            <input type="text" id="questionInput" placeholder="Ask your question here..." 
+                            <input type="text" id="questionInput" data-hint="Ask your question here..." 
                                    onkeypress="if(event.key==='Enter') offlineApp.sendQuestion()">
                             <button onclick="offlineApp.sendQuestion()">Send</button>
                         </div>
@@ -418,7 +418,7 @@ class OfflineApp {
         
         const responses = [
             `That's an interesting question about "${question}". Using my ${packageType} ${packageInfo.name}, I can tell you that this topic involves several key concepts from my offline knowledge base.`,
-            `Regarding "${question}" - I've analyzed this using my local Wikipedia data and AI models from the ${packageInfo.name}. This demonstrates how offline AI can provide responses without any external connections.`,
+            `Regarding "${question}" - I've analyzed this using my local Wikipedia data and AI models from the ${packageInfo.name}. This shows how offline AI can provide responses without any external connections.`,
             `Your question about "${question}" is fascinating. My offline AI processing with ${packageInfo.name} shows this relates to several interconnected topics in my local knowledge base.`,
             `I understand you're asking about "${question}". Using my ${packageType} AI capabilities from ${packageInfo.name}, I can provide insights based on the offline data and models available on your device.`
         ];

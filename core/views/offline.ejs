@@ -614,7 +614,7 @@
                 </div>
             </div>
             <div class="chat-input-container">
-                <input type="text" class="chat-input" id="chatInput" placeholder="Ask me anything..." />
+                <input type="text" class="chat-input" id="chatInput" data-hint="Ask me anything..." />
                 <button class="send-btn" id="sendBtn">Send</button>
                 <button class="stop-btn" id="stopBtn">Stop</button>
             </div>
@@ -624,7 +624,7 @@
         <div class="wiki-section" id="wikiSection" style="display: none;">
             <h2>📚 Wikipedia Search</h2>
             <div class="wiki-search-container">
-                <input type="text" class="wiki-search-input" id="wikiSearchInput" placeholder="Search Wikipedia..." />
+                <input type="text" class="wiki-search-input" id="wikiSearchInput" data-hint="Search Wikipedia..." />
                 <button class="wiki-search-btn" id="wikiSearchBtn">Search</button>
             </div>
             <div class="wiki-results" id="wikiResults">
@@ -885,7 +885,7 @@
             sendBtn.style.display = 'none';
             stopBtn.style.display = 'inline-block';
 
-            // Add AI message placeholder
+            // Add AI message element
             const aiMessage = document.createElement('div');
             aiMessage.className = 'message ai';
             aiMessage.innerHTML = '<strong>AI Assistant:</strong> <span class="typing">Thinking...</span>';

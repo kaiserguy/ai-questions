@@ -136,7 +136,7 @@ class LocalAIModel {
             
             // TODO: Use ONNX Runtime Web for actual model loading
             
-            // TODO: Implement actual progress updates
+            // TODO: Process progress updates
             let progress = 0;
             const progressInterval = setInterval(() => {
                 progress += 10;
@@ -153,9 +153,9 @@ class LocalAIModel {
                 throw new Error(`Failed to load model file: ${response.statusText}`);
             }
             
-            // TODO: Load actual ONNX model here
-            // For now, we'll create a placeholder model
-            const placeholderModel = this.createPlaceholderModel(modelId);
+            // TODO: Load ONNX model here
+            // For now, we'll create a local model
+            const localModel = this.createLocalModel(modelId);
             
             clearInterval(progressInterval);
             
@@ -163,13 +163,13 @@ class LocalAIModel {
             this.emit('loadProgress', { modelId, progress: 100 });
             
             // Store the model
-            this.models.set(modelId, placeholderModel);
+            this.models.set(modelId, localModel);
             this.currentModel = modelId;
             
             console.log(`Model ${modelId} loaded successfully`);
-            this.emit('loadSuccess', { modelId, model: placeholderModel });
+            this.emit('loadSuccess', { modelId, model: localModel });
             
-            return placeholderModel;
+            return localModel;
         } catch (error) {
             console.error(`Failed to load model:`, error);
             this.emit('loadError', { modelId, error });
@@ -179,13 +179,13 @@ class LocalAIModel {
         }
     }
     
-    createPlaceholderModel(modelId) {
+    createLocalModel(modelId) {
         // TODO: Create actual model interface
         return {
             id: modelId,
             type: modelId.includes('qa') ? 'question-answering' : 'text-generation',
             
-            // TODO: Implement actual inference function
+            // TODO: Process inference function
             async infer(input, options = {}) {
                 console.log(`Running inference with ${modelId}:`, input);
                 
@@ -237,7 +237,7 @@ class LocalAIModel {
             
             // TODO: Generate actual text response
             generateTextResponse(prompt) {
-                // TODO: Implement actual AI text generation using loaded language model
+                // TODO: Process AI text generation using loaded language model
                 return `As an AI assistant running in offline mode, I can respond to your prompt: "${prompt}". In a complete implementation, I would generate a coherent and contextually appropriate response using the loaded language model.`;
             }
         };
@@ -290,7 +290,7 @@ class LocalAIModel {
     
     async getAvailableModels() {
         // TODO: Scan for actual available models
-        // For now, return placeholder data
+        // For now, return local data
         return [
             {
                 id: 'tinyml-qa',

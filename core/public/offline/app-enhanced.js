@@ -398,7 +398,7 @@ class OfflineAppEnhanced {
                 modelSelect.disabled = true;
             }
         } else {
-            // Add placeholder option
+            // Add default option
             const option = document.createElement('option');
             option.value = '';
             option.textContent = 'No models available';

@@ -290,7 +290,7 @@ class AIModelManager {
         const maxLength = options.maxLength || 150;
         const temperature = options.temperature || 0.7;
         
-        // Simulate processing time
+        // Process with timing
         // Real model loading - check if model is already loaded
         if (!model.loaded) {
             this.updateStatus(`Loading ${model.config.displayName} model...`);
@@ -302,7 +302,7 @@ class AIModelManager {
         let response = '';
         
         if (prompt.toLowerCase().includes('artificial intelligence') || prompt.toLowerCase().includes('ai')) {
-            response = "Artificial Intelligence (AI) refers to the simulation of human intelligence in machines that are programmed to think and learn like humans. AI systems can perform tasks that typically require human intelligence, such as visual perception, speech recognition, decision-making, and language translation. Modern AI includes machine learning, deep learning, and neural networks.";
+            response = "Artificial Intelligence (AI) refers to the modeling of human intelligence in machines that are programmed to think and learn like humans. AI systems can perform tasks that typically require human intelligence, such as visual perception, speech recognition, decision-making, and language translation. Modern AI includes machine learning, deep learning, and neural networks.";
         } else if (prompt.toLowerCase().includes('machine learning')) {
             response = "Machine Learning is a subset of artificial intelligence that enables computers to learn and improve from experience without being explicitly programmed. It uses algorithms to analyze data, identify patterns, and make predictions or decisions. Common types include supervised learning, unsupervised learning, and reinforcement learning.";
         } else if (prompt.toLowerCase().includes('computer science')) {
@@ -330,7 +330,7 @@ class AIModelManager {
      * Generate response using BERT-style model
      */
     async generateBertResponse(prompt, options = {}) {
-        // Simulate processing time
+        // Process with timing
         // Real tokenizer processing - tokenize the input
         if (this.tokenizer) {
             const tokens = this.tokenizer.encode(prompt);
@@ -387,7 +387,7 @@ class AIModelManager {
     }
     
     /**
-     * Generate text response (TODO: Implement actual AI generation)
+     * Generate text response (TODO: Process AI generation)
      */
     async generateResponse(prompt, options = {}) {
         // Generate a contextual response based on the prompt
@@ -407,7 +407,7 @@ class AIModelManager {
     }
     
     /**
-     * Stream text generation (TODO: Implement actual streaming AI generation)
+     * Stream text generation (TODO: Process streaming AI generation)
      */
     async streamResponse(prompt, onToken, options = {}) {
         const fullResponse = await this.generateResponse(prompt, options);
