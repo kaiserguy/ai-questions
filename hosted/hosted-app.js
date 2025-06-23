@@ -53,6 +53,14 @@ const PUBLIC_CONFIG = {
     }
 };
 
+// Initialize database and AI client
+const db = new PostgresDatabase(PUBLIC_CONFIG.database);
+const ai = new ExternalLLMClient();
+
+// Initialize Wikipedia integration
+const WikipediaIntegration = require("../core/wikipedia-integration");
+const wikipedia = new WikipediaIntegration(PUBLIC_CONFIG.wikipedia.dbPath);
+
 // Create Express app with core setup
 const app = createApp(PUBLIC_CONFIG);
 
@@ -110,7 +118,7 @@ const offlineResourceRoutes = require("../core/offline-resource-routes");
 app.use('/offline', offlineResourceRoutes);
 
 // Mount common routes
-app.use("/", commonRoutes(db, ai, PUBLIC_CONFIG));
+app.use("/", commonRoutes(db, ai, wikipedia, PUBLIC_CONFIG));
 
 // Serve offline HTML5 endpoint
 app.get("/offline", (req, res) => {
