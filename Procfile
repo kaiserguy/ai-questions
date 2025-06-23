@@ -1,1 +1,1 @@
-web: node core/index.cjs
+web: node core/hosted-index.cjs
