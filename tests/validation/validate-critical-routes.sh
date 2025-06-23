@@ -63,7 +63,7 @@ export GOOGLE_CLIENT_SECRET=""
 
 echo "Starting hosted server..."
 # Start server in background and capture output
-timeout 45s node index.cjs > route_test_output.log 2>&1 &
+timeout 45s node hosted-app.js > route_test_output.log 2>&1 &
 SERVER_PID=$!
 echo "Hosted server PID: $SERVER_PID"
 
