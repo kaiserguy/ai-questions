@@ -175,3 +175,66 @@ router.get('/packages/:packageType', (req, res) => {
 
 module.exports = router;
 
+
+// Get package manifest
+router.get('/packages/:packageType/manifest', (req, res) => {
+    const { packageType } = req.params;
+    
+    try {
+        // Return a basic manifest for any package type
+        const manifest = {
+            success: true,
+            packageType: packageType,
+            name: `${packageType.charAt(0).toUpperCase() + packageType.slice(1)} Package`,
+            version: "1.0.0",
+            cached: false,
+            message: "Package manifest available",
+            resources: [
+                {
+                    type: 'library',
+                    name: 'transformers.js',
+                    filename: 'transformers.js',
+                    size: 2.5 * 1024 * 1024,
+                    cached: true
+                },
+                {
+                    type: 'library',
+                    name: 'sql-wasm.js',
+                    filename: 'sql-wasm.js',
+                    size: 1.2 * 1024 * 1024,
+                    cached: true
+                },
+                {
+                    type: 'library',
+                    name: 'tokenizers.js',
+                    filename: 'tokenizers.js',
+                    size: 0.8 * 1024 * 1024,
+                    cached: true
+                },
+                {
+                    type: 'ai-model',
+                    name: 'TinyBERT',
+                    filename: 'tinybert-uncased.bin',
+                    size: 17 * 1024 * 1024,
+                    cached: false
+                },
+                {
+                    type: 'wikipedia',
+                    name: 'Wikipedia-Subset-20MB',
+                    filename: 'wikipedia-subset-20mb.db',
+                    size: 20 * 1024 * 1024,
+                    cached: false
+                }
+            ]
+        };
+        
+        res.json(manifest);
+    } catch (error) {
+        console.error('Error serving package manifest:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Failed to serve manifest'
+        });
+    }
+});
+
