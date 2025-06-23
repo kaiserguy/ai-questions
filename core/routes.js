@@ -215,7 +215,17 @@ module.exports = (db, ai, wikipedia, config) => {
     router.get("/api/models/all", ensureAuthenticated, async (req, res) => {
         try {
             const modelsResponse = await ai.listModels(req.user ? req.user.id : null);
-            res.json(modelsResponse.models);
+            
+            // For local version, structure the response as expected by the frontend
+            if (config.isLocal) {
+                res.json({
+                    cloud_models: [],
+                    local_models: modelsResponse.models || []
+                });
+            } else {
+                // For hosted version, return the models directly
+                res.json(modelsResponse.models);
+            }
         } catch (error) {
             console.error("Error listing models:", error);
             res.status(500).json({ error: "Failed to retrieve models." });
