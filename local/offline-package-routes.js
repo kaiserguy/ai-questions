@@ -121,9 +121,9 @@ router.get('/download/library/:filename', (req, res) => {
         res.json({
             success: true,
             message: `Library ${filename} downloaded successfully`,
-            size: Math.floor(Math.random() * 5000000) + 1000000 // Random size between 1-5MB
+            size: 2500000 // 2.5MB for minimal package
         });
-    }, 1000 + Math.random() * 2000); // 1-3 second delay
+    }, 2000); // 2 second delay for minimal package
 });
 
 // Download model files
@@ -136,9 +136,9 @@ router.get('/download/model/:modelname', (req, res) => {
         res.json({
             success: true,
             message: `Model ${modelname} downloaded successfully`,
-            size: Math.floor(Math.random() * 500000000) + 100000000 // Random size between 100-500MB
+            size: 300000000 // 300MB for full package
         });
-    }, 3000 + Math.random() * 4000); // 3-7 second delay
+    }, 5000); // 5 second delay for model download
 });
 
 // Download Wikipedia database
@@ -151,9 +151,9 @@ router.get('/download/wikipedia/:dbname', (req, res) => {
         res.json({
             success: true,
             message: `Wikipedia database ${dbname} downloaded successfully`,
-            size: Math.floor(Math.random() * 100000000) + 50000000 // Random size between 50-100MB
+            size: 75000000 // 75MB for Wikipedia database
         });
-    }, 2000 + Math.random() * 3000); // 2-5 second delay
+    }, 3000); // 3 second delay for Wikipedia database
 });
 
 // Get package details

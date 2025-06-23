@@ -1925,7 +1925,7 @@
                     .then(answers => {
                         if (answers.length > 0) {
                             showAnswerHistory(questionId, answers);
-                            showNotification('History Updated', 'Answer history has been refreshed with the latest response.', 'info', 3000);
+                            showNotification('History Refreshed', `Retrieved ${data.answers.length} recent answers from database.`, 'info', 3000);
                         }
                     })
                     .catch(error => {

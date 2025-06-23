@@ -1,0 +1,434 @@
+﻿2025-06-23T00:48:16.6092061Z ##[group]Run npm test
+2025-06-23T00:48:16.6092748Z [36;1mnpm test[0m
+2025-06-23T00:48:16.6163423Z shell: /usr/bin/bash -e {0}
+2025-06-23T00:48:16.6163822Z ##[endgroup]
+2025-06-23T00:48:16.8158603Z 
+2025-06-23T00:48:16.8160441Z > simple-daily-ai-question@1.0.0 test
+2025-06-23T00:48:16.8162231Z > jest
+2025-06-23T00:48:16.8164019Z 
+2025-06-23T00:48:17.2937376Z jest-haste-map: Haste module naming collision: simple-daily-ai-question
+2025-06-23T00:48:17.2942269Z   The following files share their name; please adjust your hasteImpl:
+2025-06-23T00:48:17.2944801Z     * <rootDir>/package.json
+2025-06-23T00:48:17.3133135Z     * <rootDir>/local/package.json
+2025-06-23T00:48:17.3156789Z 
+2025-06-23T00:48:18.5802446Z FAIL tests/unit/anti-demo-validation.test.js
+2025-06-23T00:48:18.5804808Z   Anti-Demo Validation Tests
+2025-06-23T00:48:18.5823509Z     Production Code Validation
+2025-06-23T00:48:18.5824741Z       ✕ should not contain demo or placeholder functionality (84 ms)
+2025-06-23T00:48:18.5825665Z       ✕ should not contain simulated delays or fake responses (30 ms)
+2025-06-23T00:48:18.5831591Z       ✕ should not contain hardcoded demo data (38 ms)
+2025-06-23T00:48:18.5836693Z     Functionality Validation
+2025-06-23T00:48:18.5842232Z       ✓ should validate Wikipedia manager has real database implementation (2 ms)
+2025-06-23T00:48:18.5848259Z       ✓ should validate AI manager has real model implementation (2 ms)
+2025-06-23T00:48:18.5853188Z     Regression Prevention
+2025-06-23T00:48:18.5857063Z       ✓ should document what this test suite prevents (1 ms)
+2025-06-23T00:48:18.5858670Z 
+2025-06-23T00:48:18.5864288Z   ● Anti-Demo Validation Tests › Production Code Validation › should not contain demo or placeholder functionality
+2025-06-23T00:48:18.5865032Z 
+2025-06-23T00:48:18.5865467Z     🚨 DEMO/PLACEHOLDER CODE DETECTED IN PRODUCTION FILES!
+2025-06-23T00:48:18.5865866Z 
+2025-06-23T00:48:18.5866301Z     The following files contain prohibited demo/placeholder terms:
+2025-06-23T00:48:18.5866741Z 
+2025-06-23T00:48:18.5867384Z     ❌ core/public/offline/ai-models.js:293 - "simulate" in: // Simulate processing time
+2025-06-23T00:48:18.5871320Z     ❌ core/public/offline/ai-models.js:300 - "simulation" in: response = "Artificial Intelligence (AI) refers to the simulation of human intelligence in machines that are programmed to think and learn like humans. AI systems can perform tasks that typically require human intelligence, such as visual perception, speech recognition, decision-making, and language translation. Modern AI includes machine learning, deep learning, and neural networks.";
+2025-06-23T00:48:18.5874715Z     ❌ core/public/offline/ai-models.js:328 - "simulate" in: // Simulate processing time
+2025-06-23T00:48:18.5876199Z     ❌ core/public/offline/ai-models.js:381 - "TODO: Implement actual" in: * Generate text response (TODO: Implement actual AI generation)
+2025-06-23T00:48:18.5878091Z     ❌ core/public/offline/ai-models.js:401 - "TODO: Implement actual" in: * Stream text generation (TODO: Implement actual streaming AI generation)
+2025-06-23T00:48:18.5879726Z     ❌ core/public/offline/ai-models.js:417 - "TODO: Implement actual" in: // TODO: Implement actual streaming delay
+2025-06-23T00:48:18.5881027Z     ❌ core/public/offline/app-enhanced.js:401 - "placeholder" in: // Add placeholder option
+2025-06-23T00:48:18.5919208Z     ❌ core/public/offline/app.js:360 - "placeholder" in: <input type="text" id="questionInput" placeholder="Ask your question here..."
+2025-06-23T00:48:18.5920993Z     ❌ core/public/offline/app.js:382 - "TODO: Implement actual" in: // TODO: Implement actual AI processing
+2025-06-23T00:48:18.5923787Z     ❌ core/public/offline/app.js:419 - "demo" in: `Regarding "${question}" - I've analyzed this using my local Wikipedia data and AI models from the ${packageInfo.name}. This demonstrates how offline AI can provide responses without any external connections.`,
+2025-06-23T00:48:18.5926249Z     ❌ core/public/offline/download-manager-enhanced.js:371 - "TODO: Implement actual" in: // TODO: Implement actual download process
+2025-06-23T00:48:18.5928197Z     ❌ core/public/offline/download-manager-enhanced.js:476 - "dummy" in: // Create dummy files for testing
+2025-06-23T00:48:18.5929687Z     ❌ core/public/offline/download-manager-enhanced.js:477 - "dummy" in: await this.createDummyFiles(cache);
+2025-06-23T00:48:18.5931435Z     ❌ core/public/offline/download-manager-enhanced.js:514 - "demo" in: const downloadTimeMs = Math.min(sizeInMB * 20, 3000); // Faster for demo
+2025-06-23T00:48:18.5933457Z     ❌ core/public/offline/download-manager-enhanced.js:516 - "TODO: Implement actual" in: // TODO: Implement actual progress updates
+2025-06-23T00:48:18.5935129Z     ❌ core/public/offline/download-manager-enhanced.js:605 - "dummy" in: // Create a dummy database file in IndexedDB
+2025-06-23T00:48:18.5936601Z     ❌ core/public/offline/download-manager-enhanced.js:654 - "dummy" in: async createDummyFiles(cache) {
+2025-06-23T00:48:18.5937975Z     ❌ core/public/offline/download-manager-enhanced.js:655 - "dummy" in: // Create dummy icon file
+2025-06-23T00:48:18.5939490Z     ❌ core/public/offline/download-manager-enhanced.js:673 - "dummy" in: console.warn('Failed to create dummy icon:', error);
+2025-06-23T00:48:18.5941139Z     ❌ core/public/offline/download-manager.js:326 - "TODO: Implement actual" in: // TODO: Implement actual download from server
+2025-06-23T00:48:18.5971405Z     ❌ core/public/offline/download-manager.js:336 - "TODO: Replace with actual" in: // TODO: Replace with actual download progress
+2025-06-23T00:48:18.5973851Z     ❌ core/public/offline/download-manager.js:375 - "TODO: Replace with actual" in: // TODO: Replace with actual download progress (faster for cached resources)
+2025-06-23T00:48:18.5975761Z     ❌ core/public/offline/enhanced-wikipedia-search.js:322 - "simulation" in: * Review article relevance (simplified LLM simulation)
+2025-06-23T00:48:18.5977581Z     ❌ core/public/offline/libs/onnxruntime-web.min.js:6 - "placeholder" in: * This is a placeholder implementation for testing purposes.
+2025-06-23T00:48:18.5979526Z     ❌ core/public/offline/libs/onnxruntime-web.min.js:6 - "placeholder implementation" in: * This is a placeholder implementation for testing purposes.
+2025-06-23T00:48:18.5981396Z     ❌ core/public/offline/libs/onnxruntime-web.min.js:16 - "TODO: Implement actual" in: // TODO: Implement actual ONNX Runtime Web
+2025-06-23T00:48:18.5983465Z     ❌ core/public/offline/libs/onnxruntime-web.min.js:25 - "placeholder" in: console.log('Creating placeholder ONNX Runtime session with options:', options);
+2025-06-23T00:48:18.5985332Z     ❌ core/public/offline/libs/onnxruntime-web.min.js:27 - "TODO: Implement actual" in: // TODO: Implement actual loading delay
+2025-06-23T00:48:18.5987336Z     ❌ core/public/offline/libs/onnxruntime-web.min.js:37 - "placeholder" in: console.log(`Placeholder ONNX Runtime session created with backend: ${session.backendType}`);
+2025-06-23T00:48:18.5989405Z     ❌ core/public/offline/libs/onnxruntime-web.min.js:44 - "TODO: Implement actual" in: // TODO: Implement actual inference delay based on backend type
+2025-06-23T00:48:18.5991324Z     ❌ core/public/offline/libs/onnxruntime-web.min.js:51 - "placeholder" in: const placeholderOutput = this.generatePlaceholderOutput(feeds);
+2025-06-23T00:48:18.6013477Z     ❌ core/public/offline/libs/onnxruntime-web.min.js:53 - "placeholder" in: console.log('Inference complete, generated placeholder output');
+2025-06-23T00:48:18.6015451Z     ❌ core/public/offline/libs/onnxruntime-web.min.js:54 - "placeholder" in: return placeholderOutp    generatePlaceholderOutput(feeds) {
+2025-06-23T00:48:18.6017278Z     ❌ core/public/offline/libs/onnxruntime-web.min.js:58 - "TODO: Implement actual" in: // TODO: Implement actual decoding of the input
+2025-06-23T00:48:18.6019097Z     ❌ core/public/offline/libs/onnxruntime-web.min.js:97 - "placeholder" in: console.log('ONNX Runtime Web placeholder loaded successfully');
+2025-06-23T00:48:18.6020783Z     ❌ core/public/offline/local-ai-model.js:139 - "TODO: Implement actual" in: // TODO: Implement actual progress updates
+2025-06-23T00:48:18.6022458Z     ❌ core/public/offline/local-ai-model.js:156 - "TODO: Load actual" in: // TODO: Load actual ONNX model here
+2025-06-23T00:48:18.6024011Z     ❌ core/public/offline/local-ai-model.js:157 - "placeholder" in: // For now, we'll create a placeholder model
+2025-06-23T00:48:18.6025607Z     ❌ core/public/offline/local-ai-model.js:158 - "placeholder" in: const placeholderModel = this.createPlaceholderModel(modelId);
+2025-06-23T00:48:18.6027176Z     ❌ core/public/offline/local-ai-model.js:166 - "placeholder" in: this.models.set(modelId, placeholderModel);
+2025-06-23T00:48:18.6028753Z     ❌ core/public/offline/local-ai-model.js:170 - "placeholder" in: this.emit('loadSuccess', { modelId, model: placeholderModel });
+2025-06-23T00:48:18.6030150Z     ❌ core/public/offline/local-ai-model.js:172 - "placeholder" in: return placeholderModel;
+2025-06-23T00:48:18.6031419Z     ❌ core/public/offline/local-ai-model.js:182 - "placeholder" in: createPlaceholderModel(modelId) {
+2025-06-23T00:48:18.6053094Z     ❌ core/public/offline/local-ai-model.js:188 - "TODO: Implement actual" in: // TODO: Implement actual inference function
+2025-06-23T00:48:18.6054811Z     ❌ core/public/offline/local-ai-model.js:192 - "TODO: Implement actual" in: // TODO: Implement actual processing time
+2025-06-23T00:48:18.6056370Z     ❌ core/public/offline/local-ai-model.js:195 - "placeholder" in: // Generate placeholder response based on model type
+2025-06-23T00:48:18.6058327Z     ❌ core/public/offline/local-ai-model.js:227 - "TODO: Implement actual" in: // TODO: Implement actual AI text generation using loaded language model
+2025-06-23T00:48:18.6059895Z     ❌ core/public/offline/local-ai-model.js:280 - "placeholder" in: // For now, return placeholder data
+2025-06-23T00:48:18.6061356Z     ❌ core/public/offline/offline-ai-chat.js:39 - "TODO: Load actual" in: // TODO: Load actual Wikipedia data from IndexedDB
+2025-06-23T00:48:18.6065192Z     ❌ core/public/offline/offline-ai-chat.js:48 - "demo" in: content: 'Artificial intelligence (AI) is intelligence demonstrated by machines, as opposed to natural intelligence displayed by humans and animals. AI research has been defined as the field of study of intelligent agents, which refers to any system that perceives its environment and takes actions that maximize its chance of achieving its goals.',
+2025-06-23T00:48:18.6068347Z     ❌ core/public/offline/offline-ai-chat.js:402 - "TODO: Implement actual" in: // TODO: Implement actual typing delay
+2025-06-23T00:48:18.6070215Z     ❌ core/public/offline/resource-monitor.js:135 - "placeholder" in: if (window.placeholderWikipediaDB && window.placeholderWikipediaDB.initialized) {
+2025-06-23T00:48:18.6093640Z     ❌ core/public/offline/resource-monitor.js:136 - "placeholder" in: const articleCount = window.placeholderWikipediaDB.articles.size;
+2025-06-23T00:48:18.6095403Z     ❌ core/public/offline/resource-monitor.js:150 - "placeholder" in: if (window.placeholderWikipediaDB) {
+2025-06-23T00:48:18.6097060Z     ❌ core/public/offline/resource-monitor.js:151 - "placeholder" in: articleCount = window.placeholderWikipediaDB.articles.size;
+2025-06-23T00:48:18.6098946Z     ❌ core/public/offline/sw.js:199 - "TODO: Load actual" in: excerpt: `TODO: Load actual Wikipedia excerpt about ${query} from local SQLite database.`,
+2025-06-23T00:48:18.6101318Z     ❌ core/public/offline/wikipedia.js:188 - "demo" in: summary: 'Artificial intelligence (AI) is intelligence demonstrated by machines, in contrast to the natural intelligence displayed by humans and animals.',
+2025-06-23T00:48:18.6107352Z     ❌ core/public/offline/wikipedia.js:189 - "demo" in: content: 'Artificial intelligence (AI) is intelligence demonstrated by machines, in contrast to the natural intelligence displayed by humans and animals. Leading AI textbooks define the field as the study of "intelligent agents": any device that perceives its environment and takes actions that maximize its chance of successfully achieving its goals. Colloquially, the term "artificial intelligence" is often used to describe machines (or computers) that mimic "cognitive" functions that humans associate with the human mind, such as "learning" and "problem solving".',
+2025-06-23T00:48:18.6111917Z     ❌ core/public/offline/wikipedia.js:240 - "TODO: Implement actual" in: // TODO: Implement actual database search
+2025-06-23T00:48:18.6127474Z     ❌ core/public/offline/wikipedia.js:262 - "TODO: Implement actual" in: // TODO: Implement actual article retrieval from local database
+2025-06-23T00:48:18.6128940Z     ❌ hosted/public/offline/ai-models.js:293 - "simulate" in: // Simulate processing time
+2025-06-23T00:48:18.6133005Z     ❌ hosted/public/offline/ai-models.js:300 - "simulation" in: response = "Artificial Intelligence (AI) refers to the simulation of human intelligence in machines that are programmed to think and learn like humans. AI systems can perform tasks that typically require human intelligence, such as visual perception, speech recognition, decision-making, and language translation. Modern AI includes machine learning, deep learning, and neural networks.";
+2025-06-23T00:48:18.6136209Z     ❌ hosted/public/offline/ai-models.js:328 - "simulate" in: // Simulate processing time
+2025-06-23T00:48:18.6137723Z     ❌ hosted/public/offline/ai-models.js:381 - "TODO: Implement actual" in: * Generate text response (TODO: Implement actual AI generation)
+2025-06-23T00:48:18.6139558Z     ❌ hosted/public/offline/ai-models.js:401 - "TODO: Implement actual" in: * Stream text generation (TODO: Implement actual streaming AI generation)
+2025-06-23T00:48:18.6141411Z     ❌ hosted/public/offline/ai-models.js:417 - "TODO: Implement actual" in: // TODO: Implement actual streaming delay
+2025-06-23T00:48:18.6162796Z     ❌ hosted/public/offline/app-enhanced.js:401 - "placeholder" in: // Add placeholder option
+2025-06-23T00:48:18.6164483Z     ❌ hosted/public/offline/app.js:360 - "placeholder" in: <input type="text" id="questionInput" placeholder="Ask your question here..."
+2025-06-23T00:48:18.6166110Z     ❌ hosted/public/offline/app.js:382 - "TODO: Implement actual" in: // TODO: Implement actual AI processing
+2025-06-23T00:48:18.6168793Z     ❌ hosted/public/offline/app.js:419 - "demo" in: `Regarding "${question}" - I've analyzed this using my local Wikipedia data and AI models from the ${packageInfo.name}. This demonstrates how offline AI can provide responses without any external connections.`,
+2025-06-23T00:48:18.6171269Z     ❌ hosted/public/offline/download-manager-enhanced.js:371 - "TODO: Implement actual" in: // TODO: Implement actual download process
+2025-06-23T00:48:18.6173281Z     ❌ hosted/public/offline/download-manager-enhanced.js:476 - "dummy" in: // Create dummy files for testing
+2025-06-23T00:48:18.6174988Z     ❌ hosted/public/offline/download-manager-enhanced.js:477 - "dummy" in: await this.createDummyFiles(cache);
+2025-06-23T00:48:18.6176842Z     ❌ hosted/public/offline/download-manager-enhanced.js:514 - "demo" in: const downloadTimeMs = Math.min(sizeInMB * 20, 3000); // Faster for demo
+2025-06-23T00:48:18.6178931Z     ❌ hosted/public/offline/download-manager-enhanced.js:516 - "TODO: Implement actual" in: // TODO: Implement actual progress updates
+2025-06-23T00:48:18.6180853Z     ❌ hosted/public/offline/download-manager-enhanced.js:605 - "dummy" in: // Create a dummy database file in IndexedDB
+2025-06-23T00:48:18.6202801Z     ❌ hosted/public/offline/download-manager-enhanced.js:654 - "dummy" in: async createDummyFiles(cache) {
+2025-06-23T00:48:18.6204501Z     ❌ hosted/public/offline/download-manager-enhanced.js:655 - "dummy" in: // Create dummy icon file
+2025-06-23T00:48:18.6206276Z     ❌ hosted/public/offline/download-manager-enhanced.js:673 - "dummy" in: console.warn('Failed to create dummy icon:', error);
+2025-06-23T00:48:18.6208211Z     ❌ hosted/public/offline/download-manager.js:378 - "TODO: Implement actual" in: // TODO: Implement actual download from server
+2025-06-23T00:48:18.6210174Z     ❌ hosted/public/offline/download-manager.js:388 - "TODO: Replace with actual" in: // TODO: Replace with actual download progress
+2025-06-23T00:48:18.6212351Z     ❌ hosted/public/offline/download-manager.js:427 - "TODO: Replace with actual" in: // TODO: Replace with actual download progress (faster for cached resources)
+2025-06-23T00:48:18.6214993Z     ❌ hosted/public/offline/enhanced-wikipedia-search.js:322 - "simulation" in: * Review article relevance (simplified LLM simulation)
+2025-06-23T00:48:18.6216975Z     ❌ hosted/public/offline/libs/onnxruntime-web.min.js:6 - "placeholder" in: * This is a placeholder implementation for testing purposes.
+2025-06-23T00:48:18.6219107Z     ❌ hosted/public/offline/libs/onnxruntime-web.min.js:6 - "placeholder implementation" in: * This is a placeholder implementation for testing purposes.
+2025-06-23T00:48:18.6221156Z     ❌ hosted/public/offline/libs/onnxruntime-web.min.js:16 - "TODO: Implement actual" in: // TODO: Implement actual ONNX Runtime Web
+2025-06-23T00:48:18.6243589Z     ❌ hosted/public/offline/libs/onnxruntime-web.min.js:25 - "placeholder" in: console.log('Creating placeholder ONNX Runtime session with options:', options);
+2025-06-23T00:48:18.6245791Z     ❌ hosted/public/offline/libs/onnxruntime-web.min.js:27 - "TODO: Implement actual" in: // TODO: Implement actual loading delay
+2025-06-23T00:48:18.6248058Z     ❌ hosted/public/offline/libs/onnxruntime-web.min.js:37 - "placeholder" in: console.log(`Placeholder ONNX Runtime session created with backend: ${session.backendType}`);
+2025-06-23T00:48:18.6250344Z     ❌ hosted/public/offline/libs/onnxruntime-web.min.js:44 - "TODO: Implement actual" in: // TODO: Implement actual inference delay based on backend type
+2025-06-23T00:48:18.6252905Z     ❌ hosted/public/offline/libs/onnxruntime-web.min.js:51 - "placeholder" in: const placeholderOutput = this.generatePlaceholderOutput(feeds);
+2025-06-23T00:48:18.6255042Z     ❌ hosted/public/offline/libs/onnxruntime-web.min.js:53 - "placeholder" in: console.log('Inference complete, generated placeholder output');
+2025-06-23T00:48:18.6257102Z     ❌ hosted/public/offline/libs/onnxruntime-web.min.js:54 - "placeholder" in: return placeholderOutp    generatePlaceholderOutput(feeds) {
+2025-06-23T00:48:18.6258932Z     ❌ hosted/public/offline/libs/onnxruntime-web.min.js:58 - "TODO: Implement actual" in: // TODO: Implement actual decoding of the input
+2025-06-23T00:48:18.6260759Z     ❌ hosted/public/offline/libs/onnxruntime-web.min.js:97 - "placeholder" in: console.log('ONNX Runtime Web placeholder loaded successfully');
+2025-06-23T00:48:18.6282987Z     ❌ hosted/public/offline/offline-ai-chat.js:39 - "TODO: Load actual" in: // TODO: Load actual Wikipedia data from IndexedDB
+2025-06-23T00:48:18.6287074Z     ❌ hosted/public/offline/offline-ai-chat.js:48 - "demo" in: content: 'Artificial intelligence (AI) is intelligence demonstrated by machines, as opposed to natural intelligence displayed by humans and animals. AI research has been defined as the field of study of intelligent agents, which refers to any system that perceives its environment and takes actions that maximize its chance of achieving its goals.',
+2025-06-23T00:48:18.6290459Z     ❌ hosted/public/offline/offline-ai-chat.js:402 - "TODO: Implement actual" in: // TODO: Implement actual typing delay
+2025-06-23T00:48:18.6292699Z     ❌ hosted/public/offline/sw.js:199 - "TODO: Load actual" in: excerpt: `TODO: Load actual Wikipedia excerpt about ${query} from local SQLite database.`,
+2025-06-23T00:48:18.6295306Z     ❌ hosted/public/offline/wikipedia.js:188 - "demo" in: summary: 'Artificial intelligence (AI) is intelligence demonstrated by machines, in contrast to the natural intelligence displayed by humans and animals.',
+2025-06-23T00:48:18.6301402Z     ❌ hosted/public/offline/wikipedia.js:189 - "demo" in: content: 'Artificial intelligence (AI) is intelligence demonstrated by machines, in contrast to the natural intelligence displayed by humans and animals. Leading AI textbooks define the field as the study of "intelligent agents": any device that perceives its environment and takes actions that maximize its chance of successfully achieving its goals. Colloquially, the term "artificial intelligence" is often used to describe machines (or computers) that mimic "cognitive" functions that humans associate with the human mind, such as "learning" and "problem solving".',
+2025-06-23T00:48:18.6326605Z     ❌ hosted/public/offline/wikipedia.js:240 - "TODO: Implement actual" in: // TODO: Implement actual database search
+2025-06-23T00:48:18.6328516Z     ❌ hosted/public/offline/wikipedia.js:262 - "TODO: Implement actual" in: // TODO: Implement actual article retrieval from local database
+2025-06-23T00:48:18.6330197Z     ❌ core/views/config.ejs:252 - "placeholder" in: placeholder="Enter ${provider.name} API key"
+2025-06-23T00:48:18.6331853Z     ❌ core/views/index.ejs:1207 - "placeholder" in: <input type="text" id="new-question" required placeholder="Enter your question...">
+2025-06-23T00:48:18.6334051Z     ❌ core/views/index.ejs:1211 - "placeholder" in: <textarea id="new-context" required placeholder="Provide context for the question..."></textarea>
+2025-06-23T00:48:18.6336082Z     ❌ core/views/offline.ejs:617 - "placeholder" in: <input type="text" class="chat-input" id="chatInput" placeholder="Ask me anything..." />
+2025-06-23T00:48:18.6338182Z     ❌ core/views/offline.ejs:627 - "placeholder" in: <input type="text" class="wiki-search-input" id="wikiSearchInput" placeholder="Search Wikipedia..." />
+2025-06-23T00:48:18.6339844Z     ❌ core/views/offline.ejs:888 - "placeholder" in: // Add AI message placeholder
+2025-06-23T00:48:18.6341074Z     ❌ hosted/public/offline/ai-models.js:293 - "simulate" in: // Simulate processing time
+2025-06-23T00:48:18.6365850Z     ❌ hosted/public/offline/ai-models.js:300 - "simulation" in: response = "Artificial Intelligence (AI) refers to the simulation of human intelligence in machines that are programmed to think and learn like humans. AI systems can perform tasks that typically require human intelligence, such as visual perception, speech recognition, decision-making, and language translation. Modern AI includes machine learning, deep learning, and neural networks.";
+2025-06-23T00:48:18.6369370Z     ❌ hosted/public/offline/ai-models.js:328 - "simulate" in: // Simulate processing time
+2025-06-23T00:48:18.6371077Z     ❌ hosted/public/offline/ai-models.js:381 - "TODO: Implement actual" in: * Generate text response (TODO: Implement actual AI generation)
+2025-06-23T00:48:18.6373353Z     ❌ hosted/public/offline/ai-models.js:401 - "TODO: Implement actual" in: * Stream text generation (TODO: Implement actual streaming AI generation)
+2025-06-23T00:48:18.6375225Z     ❌ hosted/public/offline/ai-models.js:417 - "TODO: Implement actual" in: // TODO: Implement actual streaming delay
+2025-06-23T00:48:18.6376731Z     ❌ hosted/public/offline/app-enhanced.js:401 - "placeholder" in: // Add placeholder option
+2025-06-23T00:48:18.6378366Z     ❌ hosted/public/offline/app.js:360 - "placeholder" in: <input type="text" id="questionInput" placeholder="Ask your question here..."
+2025-06-23T00:48:18.6380002Z     ❌ hosted/public/offline/app.js:382 - "TODO: Implement actual" in: // TODO: Implement actual AI processing
+2025-06-23T00:48:18.6402941Z     ❌ hosted/public/offline/app.js:419 - "demo" in: `Regarding "${question}" - I've analyzed this using my local Wikipedia data and AI models from the ${packageInfo.name}. This demonstrates how offline AI can provide responses without any external connections.`,
+2025-06-23T00:48:18.6405603Z     ❌ hosted/public/offline/download-manager-enhanced.js:371 - "TODO: Implement actual" in: // TODO: Implement actual download process
+2025-06-23T00:48:18.6407400Z     ❌ hosted/public/offline/download-manager-enhanced.js:476 - "dummy" in: // Create dummy files for testing
+2025-06-23T00:48:18.6409074Z     ❌ hosted/public/offline/download-manager-enhanced.js:477 - "dummy" in: await this.createDummyFiles(cache);
+2025-06-23T00:48:18.6411020Z     ❌ hosted/public/offline/download-manager-enhanced.js:514 - "demo" in: const downloadTimeMs = Math.min(sizeInMB * 20, 3000); // Faster for demo
+2025-06-23T00:48:18.6413338Z     ❌ hosted/public/offline/download-manager-enhanced.js:516 - "TODO: Implement actual" in: // TODO: Implement actual progress updates
+2025-06-23T00:48:18.6415438Z     ❌ hosted/public/offline/download-manager-enhanced.js:605 - "dummy" in: // Create a dummy database file in IndexedDB
+2025-06-23T00:48:18.6417097Z     ❌ hosted/public/offline/download-manager-enhanced.js:654 - "dummy" in: async createDummyFiles(cache) {
+2025-06-23T00:48:18.6418719Z     ❌ hosted/public/offline/download-manager-enhanced.js:655 - "dummy" in: // Create dummy icon file
+2025-06-23T00:48:18.6420474Z     ❌ hosted/public/offline/download-manager-enhanced.js:673 - "dummy" in: console.warn('Failed to create dummy icon:', error);
+2025-06-23T00:48:18.6422357Z     ❌ hosted/public/offline/download-manager.js:378 - "TODO: Implement actual" in: // TODO: Implement actual download from server
+2025-06-23T00:48:18.6462962Z     ❌ hosted/public/offline/download-manager.js:388 - "TODO: Replace with actual" in: // TODO: Replace with actual download progress
+2025-06-23T00:48:18.6465187Z     ❌ hosted/public/offline/download-manager.js:427 - "TODO: Replace with actual" in: // TODO: Replace with actual download progress (faster for cached resources)
+2025-06-23T00:48:18.6467410Z     ❌ hosted/public/offline/enhanced-wikipedia-search.js:322 - "simulation" in: * Review article relevance (simplified LLM simulation)
+2025-06-23T00:48:18.6469444Z     ❌ hosted/public/offline/libs/onnxruntime-web.min.js:6 - "placeholder" in: * This is a placeholder implementation for testing purposes.
+2025-06-23T00:48:18.6471902Z     ❌ hosted/public/offline/libs/onnxruntime-web.min.js:6 - "placeholder implementation" in: * This is a placeholder implementation for testing purposes.
+2025-06-23T00:48:18.6474208Z     ❌ hosted/public/offline/libs/onnxruntime-web.min.js:16 - "TODO: Implement actual" in: // TODO: Implement actual ONNX Runtime Web
+2025-06-23T00:48:18.6476433Z     ❌ hosted/public/offline/libs/onnxruntime-web.min.js:25 - "placeholder" in: console.log('Creating placeholder ONNX Runtime session with options:', options);
+2025-06-23T00:48:18.6478561Z     ❌ hosted/public/offline/libs/onnxruntime-web.min.js:27 - "TODO: Implement actual" in: // TODO: Implement actual loading delay
+2025-06-23T00:48:18.6480812Z     ❌ hosted/public/offline/libs/onnxruntime-web.min.js:37 - "placeholder" in: console.log(`Placeholder ONNX Runtime session created with backend: ${session.backendType}`);
+2025-06-23T00:48:18.6503486Z     ❌ hosted/public/offline/libs/onnxruntime-web.min.js:44 - "TODO: Implement actual" in: // TODO: Implement actual inference delay based on backend type
+2025-06-23T00:48:18.6505771Z     ❌ hosted/public/offline/libs/onnxruntime-web.min.js:51 - "placeholder" in: const placeholderOutput = this.generatePlaceholderOutput(feeds);
+2025-06-23T00:48:18.6507913Z     ❌ hosted/public/offline/libs/onnxruntime-web.min.js:53 - "placeholder" in: console.log('Inference complete, generated placeholder output');
+2025-06-23T00:48:18.6510065Z     ❌ hosted/public/offline/libs/onnxruntime-web.min.js:54 - "placeholder" in: return placeholderOutp    generatePlaceholderOutput(feeds) {
+2025-06-23T00:48:18.6512039Z     ❌ hosted/public/offline/libs/onnxruntime-web.min.js:58 - "TODO: Implement actual" in: // TODO: Implement actual decoding of the input
+2025-06-23T00:48:18.6514388Z     ❌ hosted/public/offline/libs/onnxruntime-web.min.js:97 - "placeholder" in: console.log('ONNX Runtime Web placeholder loaded successfully');
+2025-06-23T00:48:18.6516352Z     ❌ hosted/public/offline/offline-ai-chat.js:39 - "TODO: Load actual" in: // TODO: Load actual Wikipedia data from IndexedDB
+2025-06-23T00:48:18.6520476Z     ❌ hosted/public/offline/offline-ai-chat.js:48 - "demo" in: content: 'Artificial intelligence (AI) is intelligence demonstrated by machines, as opposed to natural intelligence displayed by humans and animals. AI research has been defined as the field of study of intelligent agents, which refers to any system that perceives its environment and takes actions that maximize its chance of achieving its goals.',
+2025-06-23T00:48:18.6537622Z     ❌ hosted/public/offline/offline-ai-chat.js:402 - "TODO: Implement actual" in: // TODO: Implement actual typing delay
+2025-06-23T00:48:18.6539670Z     ❌ hosted/public/offline/sw.js:199 - "TODO: Load actual" in: excerpt: `TODO: Load actual Wikipedia excerpt about ${query} from local SQLite database.`,
+2025-06-23T00:48:18.6542244Z     ❌ hosted/public/offline/wikipedia.js:188 - "demo" in: summary: 'Artificial intelligence (AI) is intelligence demonstrated by machines, in contrast to the natural intelligence displayed by humans and animals.',
+2025-06-23T00:48:18.6548741Z     ❌ hosted/public/offline/wikipedia.js:189 - "demo" in: content: 'Artificial intelligence (AI) is intelligence demonstrated by machines, in contrast to the natural intelligence displayed by humans and animals. Leading AI textbooks define the field as the study of "intelligent agents": any device that perceives its environment and takes actions that maximize its chance of successfully achieving its goals. Colloquially, the term "artificial intelligence" is often used to describe machines (or computers) that mimic "cognitive" functions that humans associate with the human mind, such as "learning" and "problem solving".',
+2025-06-23T00:48:18.6563706Z     ❌ hosted/public/offline/wikipedia.js:240 - "TODO: Implement actual" in: // TODO: Implement actual database search
+2025-06-23T00:48:18.6565501Z     ❌ hosted/public/offline/wikipedia.js:262 - "TODO: Implement actual" in: // TODO: Implement actual article retrieval from local database
+2025-06-23T00:48:18.6567822Z     ❌ hosted/public/offline-demo.html:373 - "placeholder" in: <input type="text" class="chat-input" id="chatInput" placeholder="Ask me anything..." />
+2025-06-23T00:48:18.6569459Z     ❌ hosted/public/offline-demo.html:404 - "demo" in: // Simple demo functionality
+2025-06-23T00:48:18.6570729Z     ❌ hosted/public/offline-demo.html:416 - "simulation" in: // Download simulation
+2025-06-23T00:48:18.6571897Z     ❌ hosted/public/offline-demo.html:439 - "simulation" in: // Chat simulation
+2025-06-23T00:48:18.6575131Z     ❌ hosted/public/offline-demo.html:464 - "demo" in: aiMsg.innerHTML = `<strong>AI Assistant:</strong> That's an interesting question about "${message}". TODO: Process this using actual local AI models and search the offline Wikipedia database for relevant context. This is a demonstration of the offline interface.`;
+2025-06-23T00:48:18.6579565Z     ❌ hosted/public/offline-demo.html:464 - "This is a demo" in: aiMsg.innerHTML = `<strong>AI Assistant:</strong> That's an interesting question about "${message}". TODO: Process this using actual local AI models and search the offline Wikipedia database for relevant context. This is a demonstration of the offline interface.`;
+2025-06-23T00:48:18.6582291Z     ❌ hosted/views/config.ejs:252 - "placeholder" in: placeholder="Enter ${provider.name} API key"
+2025-06-23T00:48:18.6604355Z     ❌ hosted/views/index.ejs:1207 - "placeholder" in: <input type="text" id="new-question" required placeholder="Enter your question...">
+2025-06-23T00:48:18.6606131Z     ❌ hosted/views/index.ejs:1211 - "placeholder" in: <textarea id="new-context" required placeholder="Provide context for the question..."></textarea>
+2025-06-23T00:48:18.6607976Z     ❌ local/index.js:397 - "placeholder" in: // Use placeholder database for local mode to avoid PostgreSQL dependency
+2025-06-23T00:48:18.6609574Z     ❌ local/index.js:398 - "placeholder" in: const PlaceholderDatabase = require('./placeholder-database');
+2025-06-23T00:48:18.6610871Z     ❌ local/index.js:399 - "placeholder" in: pool = new PlaceholderDatabase();
+2025-06-23T00:48:18.6612132Z     ❌ local/index.js:400 - "placeholder" in: console.log('Using placeholder database for local mode');
+2025-06-23T00:48:18.6613830Z     ❌ local/index.js:414 - "placeholder" in: // Skip database initialization for placeholder database
+2025-06-23T00:48:18.6615295Z     ❌ local/index.js:415 - "placeholder" in: console.log('Skipping database initialization for placeholder database');
+2025-06-23T00:48:18.6618630Z     ❌ local/index.js:578 - "demo" in: context: "Newspeak in '1984' is a controlled language created by the Party to limit freedom of thought. It eliminates nuance and restricts the range of ideas that can be expressed. Words like 'doublethink', 'thoughtcrime', and 'unperson' demonstrate how language can be manipulated to control thought."
+2025-06-23T00:48:18.6643902Z     ❌ local/index.js:593 - "demo" in: context: "In '1984', O'Brien first appears as a potential ally to Winston in the resistance, but is later revealed to be a devoted Inner Party member who tortures Winston into submission. Their relationship demonstrates the absolute power the Party holds over individuals and the betrayal inherent in totalitarian systems."
+2025-06-23T00:48:18.6646804Z     ❌ local/index.js:2906 - "placeholder" in: // For now, return a placeholder response
+2025-06-23T00:48:18.6648150Z     ❌ local/local-app.js:5 - "placeholder" in: * It uses placeholder database, local Ollama models, and n8n integration.
+2025-06-23T00:48:18.6649584Z     ❌ local/local-app.js:14 - "placeholder" in: const PlaceholderDatabase = require("../core/db");
+2025-06-23T00:48:18.6650897Z     ❌ local/local-app.js:18 - "dummy" in: const DummyAiClient = require("../core/ai-client");
+2025-06-23T00:48:18.6652162Z     ❌ local/local-app.js:48 - "placeholder" in: const db = new PlaceholderDatabase();
+2025-06-23T00:48:18.6653660Z     ❌ local/local-app.js:50 - "dummy" in: // Initialize AI client (using DummyAiClient for testing)
+2025-06-23T00:48:18.6654850Z     ❌ local/local-app.js:51 - "dummy" in: const ai = new DummyAiClient();
+2025-06-23T00:48:18.6656391Z     ❌ local/local-app.js:56 - "dummy" in: // Initialize n8n integration (using a dummy for testing)
+2025-06-23T00:48:18.6657961Z     ❌ local/offline-package-routes.js:119 - "TODO: Implement actual" in: // TODO: Implement actual download with delay
+2025-06-23T00:48:18.6659781Z     ❌ local/offline-package-routes.js:134 - "TODO: Implement actual" in: // TODO: Implement actual download with longer delay for models
+2025-06-23T00:48:18.6661545Z     ❌ local/offline-package-routes.js:149 - "TODO: Implement actual" in: // TODO: Implement actual download with delay
+2025-06-23T00:48:18.6704822Z     ❌ local/placeholder-database.js:1 - "TODO: Replace with actual" in: // TODO: Replace with actual database implementation for local testing without PostgreSQL
+2025-06-23T00:48:18.6706560Z     ❌ local/placeholder-database.js:2 - "placeholder" in: class PlaceholderDatabase {
+2025-06-23T00:48:18.6707983Z     ❌ local/placeholder-database.js:29 - "TODO: Implement actual" in: // TODO: Implement actual database queries
+2025-06-23T00:48:18.6709474Z     ❌ local/placeholder-database.js:57 - "TODO: Implement actual" in: // TODO: Implement actual cleanup
+2025-06-23T00:48:18.6710854Z     ❌ local/placeholder-database.js:61 - "placeholder" in: module.exports = PlaceholderDatabase;
+2025-06-23T00:48:18.6712476Z     ❌ local/views/index.ejs:832 - "placeholder" in: <input type="text" id="wikipedia-search-input" placeholder="Search Wikipedia..."
+2025-06-23T00:48:18.6714551Z     ❌ local/views/index.ejs:957 - "placeholder" in: <input type="text" id="new-question" required placeholder="Enter your question...">
+2025-06-23T00:48:18.6716542Z     ❌ local/views/index.ejs:961 - "placeholder" in: <textarea id="new-context" required placeholder="Provide context for the question..."></textarea>
+2025-06-23T00:48:18.6718660Z     ❌ local/views/partials/ai-chat-interface.ejs:32 - "placeholder" in: <input type="text" id="chat-input" placeholder="Type your message..." style="
+2025-06-23T00:48:18.6719619Z 
+2025-06-23T00:48:18.6720371Z     🔥 CRITICAL: Remove all demo/placeholder code and implement real functionality!
+2025-06-23T00:48:18.6720952Z 
+2025-06-23T00:48:18.6721151Z     Prohibited terms include:
+2025-06-23T00:48:18.6721598Z       - demo
+2025-06-23T00:48:18.6721982Z       - dummy
+2025-06-23T00:48:18.6722310Z       - simulate
+2025-06-23T00:48:18.6722880Z       - simulated
+2025-06-23T00:48:18.6723255Z       - simulation
+2025-06-23T00:48:18.6723619Z       - placeholder
+2025-06-23T00:48:18.6723972Z       - fake
+2025-06-23T00:48:18.6724287Z       - mock
+2025-06-23T00:48:18.6724688Z       - TODO: Replace with actual
+2025-06-23T00:48:18.6725513Z       - TODO: Load actual
+2025-06-23T00:48:18.6725981Z       - TODO: Implement actual
+2025-06-23T00:48:18.6726418Z       - This is a demo
+2025-06-23T00:48:18.6726794Z       - demo mode
+2025-06-23T00:48:18.6727231Z       - placeholder implementation
+2025-06-23T00:48:18.6727714Z       - simulated response
+2025-06-23T00:48:18.6728132Z       - fake response
+2025-06-23T00:48:18.6728362Z 
+2025-06-23T00:48:18.6728916Z     [0m [90m 138 |[39m                 ][33m.[39mjoin([32m'\n'[39m)[33m;[39m
+2025-06-23T00:48:18.6729679Z      [90m 139 |[39m                 
+2025-06-23T00:48:18.6730779Z     [31m[1m>[22m[39m[90m 140 |[39m                 [36mthrow[39m [36mnew[39m [33mError[39m(errorMessage)[33m;[39m
+2025-06-23T00:48:18.6731852Z      [90m     |[39m                       [31m[1m^[22m[39m
+2025-06-23T00:48:18.6732708Z      [90m 141 |[39m             }
+2025-06-23T00:48:18.6733327Z      [90m 142 |[39m             
+2025-06-23T00:48:18.6734307Z      [90m 143 |[39m             expect(allViolations)[33m.[39mtoHaveLength([35m0[39m)[33m;[39m[0m
+2025-06-23T00:48:18.6734923Z 
+2025-06-23T00:48:18.6735411Z       at Object.<anonymous> (tests/unit/anti-demo-validation.test.js:140:23)
+2025-06-23T00:48:18.6735935Z 
+2025-06-23T00:48:18.6736913Z   ● Anti-Demo Validation Tests › Production Code Validation › should not contain simulated delays or fake responses
+2025-06-23T00:48:18.6737974Z 
+2025-06-23T00:48:18.6738382Z     🚨 SIMULATED FUNCTIONALITY DETECTED!
+2025-06-23T00:48:18.6738727Z 
+2025-06-23T00:48:18.6739130Z     The following files contain simulated delays or fake responses:
+2025-06-23T00:48:18.6739626Z 
+2025-06-23T00:48:18.6740270Z     ❌ core/public/offline/ai-models.js:294 - Pattern: /setTimeout.*resolve/i
+2025-06-23T00:48:18.6741470Z     ❌ core/public/offline/ai-models.js:294 - Pattern: /Math\.random\(\).*\d+/i
+2025-06-23T00:48:18.6763028Z     ❌ core/public/offline/ai-models.js:294 - Pattern: /await new Promise.*setTimeout/i
+2025-06-23T00:48:18.6764360Z     ❌ core/public/offline/ai-models.js:329 - Pattern: /setTimeout.*resolve/i
+2025-06-23T00:48:18.6765443Z     ❌ core/public/offline/ai-models.js:329 - Pattern: /Math\.random\(\).*\d+/i
+2025-06-23T00:48:18.6766682Z     ❌ core/public/offline/ai-models.js:329 - Pattern: /await new Promise.*setTimeout/i
+2025-06-23T00:48:18.6767934Z     ❌ core/public/offline/ai-models.js:418 - Pattern: /setTimeout.*resolve/i
+2025-06-23T00:48:18.6769144Z     ❌ core/public/offline/ai-models.js:418 - Pattern: /Math\.random\(\).*\d+/i
+2025-06-23T00:48:18.6770376Z     ❌ core/public/offline/ai-models.js:418 - Pattern: /await new Promise.*setTimeout/i
+2025-06-23T00:48:18.6771584Z     ❌ core/public/offline/app.js:385 - Pattern: /setTimeout.*resolve/i
+2025-06-23T00:48:18.6772902Z     ❌ core/public/offline/app.js:385 - Pattern: /Math\.random\(\).*\d+/i
+2025-06-23T00:48:18.6774101Z     ❌ core/public/offline/app.js:385 - Pattern: /await new Promise.*setTimeout/i
+2025-06-23T00:48:18.6775441Z     ❌ core/public/offline/download-manager-enhanced.js:521 - Pattern: /setTimeout.*resolve/i
+2025-06-23T00:48:18.6777099Z     ❌ core/public/offline/download-manager-enhanced.js:521 - Pattern: /await new Promise.*setTimeout/i
+2025-06-23T00:48:18.6778589Z     ❌ core/public/offline/download-manager-old.js:292 - Pattern: /setTimeout.*resolve/i
+2025-06-23T00:48:18.6780039Z     ❌ core/public/offline/download-manager-old.js:292 - Pattern: /await new Promise.*setTimeout/i
+2025-06-23T00:48:18.6781471Z     ❌ core/public/offline/download-manager.js:337 - Pattern: /Math\.random\(\).*\d+/i
+2025-06-23T00:48:18.6803054Z     ❌ core/public/offline/download-manager.js:376 - Pattern: /Math\.random\(\).*\d+/i
+2025-06-23T00:48:18.6804500Z     ❌ core/public/offline/libs/onnxruntime-web.min.js:28 - Pattern: /setTimeout.*resolve/i
+2025-06-23T00:48:18.6805952Z     ❌ core/public/offline/libs/onnxruntime-web.min.js:28 - Pattern: /await new Promise.*setTimeout/i
+2025-06-23T00:48:18.6807359Z     ❌ core/public/offline/libs/onnxruntime-web.min.js:48 - Pattern: /setTimeout.*resolve/i
+2025-06-23T00:48:18.6808849Z     ❌ core/public/offline/libs/onnxruntime-web.min.js:48 - Pattern: /await new Promise.*setTimeout/i
+2025-06-23T00:48:18.6810463Z     ❌ core/public/offline/local-ai-model.js:193 - Pattern: /setTimeout.*resolve/i
+2025-06-23T00:48:18.6811644Z     ❌ core/public/offline/local-ai-model.js:193 - Pattern: /Math\.random\(\).*\d+/i
+2025-06-23T00:48:18.6813144Z     ❌ core/public/offline/local-ai-model.js:193 - Pattern: /await new Promise.*setTimeout/i
+2025-06-23T00:48:18.6814262Z     ❌ core/public/offline/offline-ai-chat.js:403 - Pattern: /setTimeout.*resolve/i
+2025-06-23T00:48:18.6815518Z     ❌ core/public/offline/offline-ai-chat.js:403 - Pattern: /await new Promise.*setTimeout/i
+2025-06-23T00:48:18.6816820Z     ❌ core/public/offline/resource-monitor.js:95 - Pattern: /setTimeout.*resolve/i
+2025-06-23T00:48:18.6818049Z     ❌ hosted/public/offline/ai-models.js:294 - Pattern: /setTimeout.*resolve/i
+2025-06-23T00:48:18.6819227Z     ❌ hosted/public/offline/ai-models.js:294 - Pattern: /Math\.random\(\).*\d+/i
+2025-06-23T00:48:18.6820464Z     ❌ hosted/public/offline/ai-models.js:294 - Pattern: /await new Promise.*setTimeout/i
+2025-06-23T00:48:18.6821628Z     ❌ hosted/public/offline/ai-models.js:329 - Pattern: /setTimeout.*resolve/i
+2025-06-23T00:48:18.6843046Z     ❌ hosted/public/offline/ai-models.js:329 - Pattern: /Math\.random\(\).*\d+/i
+2025-06-23T00:48:18.6844445Z     ❌ hosted/public/offline/ai-models.js:329 - Pattern: /await new Promise.*setTimeout/i
+2025-06-23T00:48:18.6845850Z     ❌ hosted/public/offline/ai-models.js:418 - Pattern: /setTimeout.*resolve/i
+2025-06-23T00:48:18.6847074Z     ❌ hosted/public/offline/ai-models.js:418 - Pattern: /Math\.random\(\).*\d+/i
+2025-06-23T00:48:18.6848355Z     ❌ hosted/public/offline/ai-models.js:418 - Pattern: /await new Promise.*setTimeout/i
+2025-06-23T00:48:18.6849569Z     ❌ hosted/public/offline/app.js:385 - Pattern: /setTimeout.*resolve/i
+2025-06-23T00:48:18.6850671Z     ❌ hosted/public/offline/app.js:385 - Pattern: /Math\.random\(\).*\d+/i
+2025-06-23T00:48:18.6851858Z     ❌ hosted/public/offline/app.js:385 - Pattern: /await new Promise.*setTimeout/i
+2025-06-23T00:48:18.6853312Z     ❌ hosted/public/offline/download-manager-enhanced.js:521 - Pattern: /setTimeout.*resolve/i
+2025-06-23T00:48:18.6854647Z     ❌ hosted/public/offline/download-manager-enhanced.js:521 - Pattern: /await new Promise.*setTimeout/i
+2025-06-23T00:48:18.6855985Z     ❌ hosted/public/offline/download-manager-old.js:292 - Pattern: /setTimeout.*resolve/i
+2025-06-23T00:48:18.6857406Z     ❌ hosted/public/offline/download-manager-old.js:292 - Pattern: /await new Promise.*setTimeout/i
+2025-06-23T00:48:18.6858792Z     ❌ hosted/public/offline/download-manager.js:389 - Pattern: /Math\.random\(\).*\d+/i
+2025-06-23T00:48:18.6859980Z     ❌ hosted/public/offline/download-manager.js:428 - Pattern: /Math\.random\(\).*\d+/i
+2025-06-23T00:48:18.6861220Z     ❌ hosted/public/offline/libs/onnxruntime-web.min.js:28 - Pattern: /setTimeout.*resolve/i
+2025-06-23T00:48:18.6893121Z     ❌ hosted/public/offline/libs/onnxruntime-web.min.js:28 - Pattern: /await new Promise.*setTimeout/i
+2025-06-23T00:48:18.6894835Z     ❌ hosted/public/offline/libs/onnxruntime-web.min.js:48 - Pattern: /setTimeout.*resolve/i
+2025-06-23T00:48:18.6896350Z     ❌ hosted/public/offline/libs/onnxruntime-web.min.js:48 - Pattern: /await new Promise.*setTimeout/i
+2025-06-23T00:48:18.6897818Z     ❌ hosted/public/offline/offline-ai-chat.js:403 - Pattern: /setTimeout.*resolve/i
+2025-06-23T00:48:18.6899137Z     ❌ hosted/public/offline/offline-ai-chat.js:403 - Pattern: /await new Promise.*setTimeout/i
+2025-06-23T00:48:18.6900507Z     ❌ hosted/public/offline/resource-monitor.js:96 - Pattern: /setTimeout.*resolve/i
+2025-06-23T00:48:18.6901783Z     ❌ hosted/public/offline/ai-models.js:294 - Pattern: /setTimeout.*resolve/i
+2025-06-23T00:48:18.6903180Z     ❌ hosted/public/offline/ai-models.js:294 - Pattern: /Math\.random\(\).*\d+/i
+2025-06-23T00:48:18.6904440Z     ❌ hosted/public/offline/ai-models.js:294 - Pattern: /await new Promise.*setTimeout/i
+2025-06-23T00:48:18.6905534Z     ❌ hosted/public/offline/ai-models.js:329 - Pattern: /setTimeout.*resolve/i
+2025-06-23T00:48:18.6907098Z     ❌ hosted/public/offline/ai-models.js:329 - Pattern: /Math\.random\(\).*\d+/i
+2025-06-23T00:48:18.6908400Z     ❌ hosted/public/offline/ai-models.js:329 - Pattern: /await new Promise.*setTimeout/i
+2025-06-23T00:48:18.6909695Z     ❌ hosted/public/offline/ai-models.js:418 - Pattern: /setTimeout.*resolve/i
+2025-06-23T00:48:18.6910884Z     ❌ hosted/public/offline/ai-models.js:418 - Pattern: /Math\.random\(\).*\d+/i
+2025-06-23T00:48:18.6912188Z     ❌ hosted/public/offline/ai-models.js:418 - Pattern: /await new Promise.*setTimeout/i
+2025-06-23T00:48:18.6933841Z     ❌ hosted/public/offline/app.js:385 - Pattern: /setTimeout.*resolve/i
+2025-06-23T00:48:18.6934921Z     ❌ hosted/public/offline/app.js:385 - Pattern: /Math\.random\(\).*\d+/i
+2025-06-23T00:48:18.6936037Z     ❌ hosted/public/offline/app.js:385 - Pattern: /await new Promise.*setTimeout/i
+2025-06-23T00:48:18.6937325Z     ❌ hosted/public/offline/download-manager-enhanced.js:521 - Pattern: /setTimeout.*resolve/i
+2025-06-23T00:48:18.6938855Z     ❌ hosted/public/offline/download-manager-enhanced.js:521 - Pattern: /await new Promise.*setTimeout/i
+2025-06-23T00:48:18.6940322Z     ❌ hosted/public/offline/download-manager-old.js:292 - Pattern: /setTimeout.*resolve/i
+2025-06-23T00:48:18.6941713Z     ❌ hosted/public/offline/download-manager-old.js:292 - Pattern: /await new Promise.*setTimeout/i
+2025-06-23T00:48:18.6943548Z     ❌ hosted/public/offline/download-manager.js:389 - Pattern: /Math\.random\(\).*\d+/i
+2025-06-23T00:48:18.6944903Z     ❌ hosted/public/offline/download-manager.js:428 - Pattern: /Math\.random\(\).*\d+/i
+2025-06-23T00:48:18.6946334Z     ❌ hosted/public/offline/libs/onnxruntime-web.min.js:28 - Pattern: /setTimeout.*resolve/i
+2025-06-23T00:48:18.6947869Z     ❌ hosted/public/offline/libs/onnxruntime-web.min.js:28 - Pattern: /await new Promise.*setTimeout/i
+2025-06-23T00:48:18.6949392Z     ❌ hosted/public/offline/libs/onnxruntime-web.min.js:48 - Pattern: /setTimeout.*resolve/i
+2025-06-23T00:48:18.6950851Z     ❌ hosted/public/offline/libs/onnxruntime-web.min.js:48 - Pattern: /await new Promise.*setTimeout/i
+2025-06-23T00:48:18.6952279Z     ❌ hosted/public/offline/offline-ai-chat.js:403 - Pattern: /setTimeout.*resolve/i
+2025-06-23T00:48:18.6973995Z     ❌ hosted/public/offline/offline-ai-chat.js:403 - Pattern: /await new Promise.*setTimeout/i
+2025-06-23T00:48:18.6975408Z     ❌ hosted/public/offline/resource-monitor.js:96 - Pattern: /setTimeout.*resolve/i
+2025-06-23T00:48:18.6976663Z     ❌ hosted/public/offline-demo.html:423 - Pattern: /Math\.random\(\).*\d+/i
+2025-06-23T00:48:18.6977805Z     ❌ local/n8n-agent-integration.js:77 - Pattern: /Math\.random\(\).*\d+/i
+2025-06-23T00:48:18.6978888Z     ❌ local/n8n-agent-integration.js:135 - Pattern: /Math\.random\(\).*\d+/i
+2025-06-23T00:48:18.6979885Z     ❌ local/n8n-query-logging.js:58 - Pattern: /Math\.random\(\).*\d+/i
+2025-06-23T00:48:18.6980911Z     ❌ local/offline-package-routes.js:124 - Pattern: /Math\.random\(\).*\d+/i
+2025-06-23T00:48:18.6982007Z     ❌ local/offline-package-routes.js:126 - Pattern: /Math\.random\(\).*\d+/i
+2025-06-23T00:48:18.6983302Z     ❌ local/offline-package-routes.js:139 - Pattern: /Math\.random\(\).*\d+/i
+2025-06-23T00:48:18.6984372Z     ❌ local/offline-package-routes.js:141 - Pattern: /Math\.random\(\).*\d+/i
+2025-06-23T00:48:18.6985450Z     ❌ local/offline-package-routes.js:154 - Pattern: /Math\.random\(\).*\d+/i
+2025-06-23T00:48:18.6986619Z     ❌ local/offline-package-routes.js:156 - Pattern: /Math\.random\(\).*\d+/i
+2025-06-23T00:48:18.6987766Z     ❌ local/views/index.ejs:2418 - Pattern: /Math\.random\(\).*\d+/i
+2025-06-23T00:48:18.6988246Z 
+2025-06-23T00:48:18.6988587Z     🔥 Replace with real implementation!
+2025-06-23T00:48:18.6988918Z 
+2025-06-23T00:48:18.6989387Z     [0m [90m 187 |[39m                 ][33m.[39mjoin([32m'\n'[39m)[33m;[39m
+2025-06-23T00:48:18.6990082Z      [90m 188 |[39m                 
+2025-06-23T00:48:18.6991064Z     [31m[1m>[22m[39m[90m 189 |[39m                 [36mthrow[39m [36mnew[39m [33mError[39m(errorMessage)[33m;[39m
+2025-06-23T00:48:18.6992286Z      [90m     |[39m                       [31m[1m^[22m[39m
+2025-06-23T00:48:18.7033305Z      [90m 190 |[39m             }
+2025-06-23T00:48:18.7033943Z      [90m 191 |[39m             
+2025-06-23T00:48:18.7034880Z      [90m 192 |[39m             expect(violations)[33m.[39mtoHaveLength([35m0[39m)[33m;[39m[0m
+2025-06-23T00:48:18.7035470Z 
+2025-06-23T00:48:18.7035929Z       at Object.<anonymous> (tests/unit/anti-demo-validation.test.js:189:23)
+2025-06-23T00:48:18.7036462Z 
+2025-06-23T00:48:18.7037311Z   ● Anti-Demo Validation Tests › Production Code Validation › should not contain hardcoded demo data
+2025-06-23T00:48:18.7038025Z 
+2025-06-23T00:48:18.7038409Z     🚨 HARDCODED DEMO DATA DETECTED!
+2025-06-23T00:48:18.7038756Z 
+2025-06-23T00:48:18.7039057Z     The following files contain hardcoded demo data:
+2025-06-23T00:48:18.7039462Z 
+2025-06-23T00:48:18.7040508Z     ❌ core/public/offline/ai-models.js:189 - this.updateStatus(`Generating response using ${model.config.displayName}...`);
+2025-06-23T00:48:18.7042214Z     ❌ core/public/offline/ai-models.js:199 - this.updateStatus('Response generated successfully');
+2025-06-23T00:48:18.7043990Z     ❌ core/public/offline/ai-models.js:202 - this.updateStatus(`Error generating response: ${error.message}`, 'error');
+2025-06-23T00:48:18.7045542Z     ❌ core/public/offline/ai-models.js:263 - this.updateStatus(`Streaming response using ${model.config.displayName}...`);
+2025-06-23T00:48:18.7047631Z     ❌ core/public/offline/ai-models.js:267 - this.updateStatus(`Error streaming response: ${error.message}`, 'error');
+2025-06-23T00:48:18.7049083Z     ❌ core/public/offline/ai-models.js:297 - this.updateStatus('Response generated');
+2025-06-23T00:48:18.7050625Z     ❌ hosted/public/offline/ai-models.js:189 - this.updateStatus(`Generating response using ${model.config.displayName}...`);
+2025-06-23T00:48:18.7052291Z     ❌ hosted/public/offline/ai-models.js:199 - this.updateStatus('Response generated successfully');
+2025-06-23T00:48:18.7074277Z     ❌ hosted/public/offline/ai-models.js:202 - this.updateStatus(`Error generating response: ${error.message}`, 'error');
+2025-06-23T00:48:18.7075996Z     ❌ hosted/public/offline/ai-models.js:263 - this.updateStatus(`Streaming response using ${model.config.displayName}...`);
+2025-06-23T00:48:18.7077631Z     ❌ hosted/public/offline/ai-models.js:267 - this.updateStatus(`Error streaming response: ${error.message}`, 'error');
+2025-06-23T00:48:18.7079113Z     ❌ hosted/public/offline/ai-models.js:297 - this.updateStatus('Response generated');
+2025-06-23T00:48:18.7080821Z     ❌ core/views/index.ejs:1692 - showNotification('History Updated', 'Answer history has been refreshed with the latest response.', 'info', 3000);
+2025-06-23T00:48:18.7082884Z     ❌ hosted/public/offline/ai-models.js:189 - this.updateStatus(`Generating response using ${model.config.displayName}...`);
+2025-06-23T00:48:18.7084479Z     ❌ hosted/public/offline/ai-models.js:199 - this.updateStatus('Response generated successfully');
+2025-06-23T00:48:18.7086154Z     ❌ hosted/public/offline/ai-models.js:202 - this.updateStatus(`Error generating response: ${error.message}`, 'error');
+2025-06-23T00:48:18.7087942Z     ❌ hosted/public/offline/ai-models.js:263 - this.updateStatus(`Streaming response using ${model.config.displayName}...`);
+2025-06-23T00:48:18.7089721Z     ❌ hosted/public/offline/ai-models.js:267 - this.updateStatus(`Error streaming response: ${error.message}`, 'error');
+2025-06-23T00:48:18.7091230Z     ❌ hosted/public/offline/ai-models.js:297 - this.updateStatus('Response generated');
+2025-06-23T00:48:18.7113352Z     ❌ hosted/views/index.ejs:1692 - showNotification('History Updated', 'Answer history has been refreshed with the latest response.', 'info', 3000);
+2025-06-23T00:48:18.7115068Z     ❌ local/index.js:325 - const PlaceholderDatabase = require('./placeholder-database');
+2025-06-23T00:48:18.7116165Z     ❌ local/index.js:326 - pool = new PlaceholderDatabase();
+2025-06-23T00:48:18.7117581Z     ❌ local/index.js:327 - console.log('Using placeholder database for local mode');
+2025-06-23T00:48:18.7118867Z     ❌ local/index.js:338 - console.log('Skipping database initialization for placeholder database');
+2025-06-23T00:48:18.7119968Z     ❌ local/index.js:2180 - test_response: response.answer,
+2025-06-23T00:48:18.7120915Z     ❌ local/local-app.js:5 - const PlaceholderDatabase = require("../core/db");
+2025-06-23T00:48:18.7121985Z     ❌ local/local-app.js:33 - const db = new PlaceholderDatabase();
+2025-06-23T00:48:18.7123264Z     ❌ local/placeholder-database.js:1 - class PlaceholderDatabase {
+2025-06-23T00:48:18.7124402Z     ❌ local/placeholder-database.js:46 - module.exports = PlaceholderDatabase;
+2025-06-23T00:48:18.7126118Z     ❌ local/views/index.ejs:1442 - showNotification('History Updated', 'Answer history has been refreshed with the latest response.', 'info', 3000);
+2025-06-23T00:48:18.7127051Z 
+2025-06-23T00:48:18.7127383Z     🔥 Replace with real data sources!
+2025-06-23T00:48:18.7127753Z 
+2025-06-23T00:48:18.7128261Z     [0m [90m 244 |[39m                 ][33m.[39mjoin([32m'\n'[39m)[33m;[39m
+2025-06-23T00:48:18.7128979Z      [90m 245 |[39m                 
+2025-06-23T00:48:18.7130044Z     [31m[1m>[22m[39m[90m 246 |[39m                 [36mthrow[39m [36mnew[39m [33mError[39m(errorMessage)[33m;[39m
+2025-06-23T00:48:18.7131056Z      [90m     |[39m                       [31m[1m^[22m[39m
+2025-06-23T00:48:18.7132039Z      [90m 247 |[39m             }
+2025-06-23T00:48:18.7152866Z      [90m 248 |[39m             
+2025-06-23T00:48:18.7153907Z      [90m 249 |[39m             expect(violations)[33m.[39mtoHaveLength([35m0[39m)[33m;[39m[0m
+2025-06-23T00:48:18.7154451Z 
+2025-06-23T00:48:18.7154901Z       at Object.<anonymous> (tests/unit/anti-demo-validation.test.js:246:23)
+2025-06-23T00:48:18.7155407Z 
+2025-06-23T00:48:18.8923976Z PASS tests/unit/error-prevention.test.js
+2025-06-23T00:48:18.8924964Z   Error Prevention Tests
+2025-06-23T00:48:18.8925807Z     Constructor Parameter Validation
+2025-06-23T00:48:18.8927099Z       ✓ should demonstrate the DownloadManager constructor error I made (37 ms)
+2025-06-23T00:48:18.8928483Z       ✓ should demonstrate the aiModel access error I made (2 ms)
+2025-06-23T00:48:18.8929286Z     View Path Validation
+2025-06-23T00:48:18.8930282Z       ✓ should demonstrate the view path error I made (1 ms)
+2025-06-23T00:48:18.8931091Z     Package Configuration Validation
+2025-06-23T00:48:18.8932147Z       ✓ should validate all package types have required properties (2 ms)
+2025-06-23T00:48:18.8933784Z       ✓ should validate package type before accessing properties (17 ms)
+2025-06-23T00:48:18.8934705Z     DOM Element Validation
+2025-06-23T00:48:18.8935543Z       ✓ should validate required DOM elements exist (6 ms)
+2025-06-23T00:48:18.8953425Z       ✓ should validate sections are initially hidden (1 ms)
+2025-06-23T00:48:18.8954379Z     API Response Validation
+2025-06-23T00:48:18.8955285Z       ✓ should validate API responses have required structure (5 ms)
+2025-06-23T00:48:18.8956214Z   Integration Validation Tests
+2025-06-23T00:48:18.8957209Z     ✓ should validate complete offline flow requirements (1 ms)
+2025-06-23T00:48:18.8958096Z   Error Prevention Summary
+2025-06-23T00:48:18.8959473Z     ✓ should document the errors these tests would have prevented (1 ms)
+2025-06-23T00:48:18.8972060Z 
+2025-06-23T00:48:18.8972873Z Test Suites: 1 failed, 1 passed, 2 total
+2025-06-23T00:48:18.8973650Z Tests:       3 failed, 13 passed, 16 total
+2025-06-23T00:48:18.8974134Z Snapshots:   0 total
+2025-06-23T00:48:18.8974490Z Time:        1.576 s
+2025-06-23T00:48:18.8974833Z Ran all test suites.
+2025-06-23T00:48:19.0137446Z ##[error]Process completed with exit code 1.

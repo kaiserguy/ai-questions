@@ -1,0 +1,67 @@
+﻿2025-06-23T00:47:58.6292795Z ##[group]Run actions/checkout@v4
+2025-06-23T00:47:58.6293641Z with:
+2025-06-23T00:47:58.6294054Z   repository: kaiserguy/ai-questions
+2025-06-23T00:47:58.6294687Z   token: ***
+2025-06-23T00:47:58.6295059Z   ssh-strict: true
+2025-06-23T00:47:58.6295444Z   ssh-user: git
+2025-06-23T00:47:58.6295829Z   persist-credentials: true
+2025-06-23T00:47:58.6296268Z   clean: true
+2025-06-23T00:47:58.6296653Z   sparse-checkout-cone-mode: true
+2025-06-23T00:47:58.6297118Z   fetch-depth: 1
+2025-06-23T00:47:58.6297486Z   fetch-tags: false
+2025-06-23T00:47:58.6297883Z   show-progress: true
+2025-06-23T00:47:58.6298268Z   lfs: false
+2025-06-23T00:47:58.6298622Z   submodules: false
+2025-06-23T00:47:58.6299515Z   set-safe-directory: true
+2025-06-23T00:47:58.6300830Z ##[endgroup]
+2025-06-23T00:47:58.7447371Z Syncing repository: kaiserguy/ai-questions
+2025-06-23T00:47:58.7456543Z ##[group]Getting Git version info
+2025-06-23T00:47:58.7457916Z Working directory is '/home/runner/work/ai-questions/ai-questions'
+2025-06-23T00:47:58.7460676Z [command]/usr/bin/git version
+2025-06-23T00:47:58.7490505Z git version 2.49.0
+2025-06-23T00:47:58.7518245Z ##[endgroup]
+2025-06-23T00:47:58.7534402Z Temporarily overriding HOME='/home/runner/work/_temp/a1d36350-d7b5-477e-b149-f69fdf5cfe28' before making global git config changes
+2025-06-23T00:47:58.7537766Z Adding repository directory to the temporary git global config as a safe directory
+2025-06-23T00:47:58.7551529Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/ai-questions/ai-questions
+2025-06-23T00:47:58.7587958Z Deleting the contents of '/home/runner/work/ai-questions/ai-questions'
+2025-06-23T00:47:58.7593324Z ##[group]Initializing the repository
+2025-06-23T00:47:58.7598360Z [command]/usr/bin/git init /home/runner/work/ai-questions/ai-questions
+2025-06-23T00:47:58.7666604Z hint: Using 'master' as the name for the initial branch. This default branch name
+2025-06-23T00:47:58.7668388Z hint: is subject to change. To configure the initial branch name to use in all
+2025-06-23T00:47:58.7671559Z hint: of your new repositories, which will suppress this warning, call:
+2025-06-23T00:47:58.7673165Z hint:
+2025-06-23T00:47:58.7674050Z hint: 	git config --global init.defaultBranch <name>
+2025-06-23T00:47:58.7675059Z hint:
+2025-06-23T00:47:58.7676050Z hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+2025-06-23T00:47:58.7677662Z hint: 'development'. The just-created branch can be renamed via this command:
+2025-06-23T00:47:58.7678873Z hint:
+2025-06-23T00:47:58.7679518Z hint: 	git branch -m <name>
+2025-06-23T00:47:58.7680762Z Initialized empty Git repository in /home/runner/work/ai-questions/ai-questions/.git/
+2025-06-23T00:47:58.7686038Z [command]/usr/bin/git remote add origin https://github.com/kaiserguy/ai-questions
+2025-06-23T00:47:58.7721380Z ##[endgroup]
+2025-06-23T00:47:58.7724611Z ##[group]Disabling automatic garbage collection
+2025-06-23T00:47:58.7726097Z [command]/usr/bin/git config --local gc.auto 0
+2025-06-23T00:47:58.7760480Z ##[endgroup]
+2025-06-23T00:47:58.7763486Z ##[group]Setting up auth
+2025-06-23T00:47:58.7766848Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+2025-06-23T00:47:58.7801862Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+2025-06-23T00:47:58.8081498Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+2025-06-23T00:47:58.8116762Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+2025-06-23T00:47:58.8486886Z [command]/usr/bin/git config --local http.https://github.com/.extraheader AUTHORIZATION: basic ***
+2025-06-23T00:47:58.8489439Z ##[endgroup]
+2025-06-23T00:47:58.8490262Z ##[group]Fetching the repository
+2025-06-23T00:47:58.8492454Z [command]/usr/bin/git -c protocol.version=2 fetch --no-tags --prune --no-recurse-submodules --depth=1 origin +8012b04089f1221b1cda31ce17b0babf9830302a:refs/remotes/origin/main
+2025-06-23T00:47:59.2766426Z From https://github.com/kaiserguy/ai-questions
+2025-06-23T00:47:59.3448762Z  * [new ref]         8012b04089f1221b1cda31ce17b0babf9830302a -> origin/main
+2025-06-23T00:47:59.3451904Z ##[endgroup]
+2025-06-23T00:47:59.3461576Z ##[group]Determining the checkout info
+2025-06-23T00:47:59.3463544Z ##[endgroup]
+2025-06-23T00:47:59.3464430Z [command]/usr/bin/git sparse-checkout disable
+2025-06-23T00:47:59.3466835Z [command]/usr/bin/git config --local --unset-all extensions.worktreeConfig
+2025-06-23T00:47:59.3469665Z ##[group]Checking out the ref
+2025-06-23T00:47:59.3471005Z [command]/usr/bin/git checkout --progress --force -B main refs/remotes/origin/main
+2025-06-23T00:47:59.3472438Z Switched to a new branch 'main'
+2025-06-23T00:47:59.3475333Z branch 'main' set up to track 'origin/main'.
+2025-06-23T00:47:59.3478007Z ##[endgroup]
+2025-06-23T00:47:59.3480655Z [command]/usr/bin/git log -1 --format=%H
+2025-06-23T00:47:59.3481774Z 8012b04089f1221b1cda31ce17b0babf9830302a

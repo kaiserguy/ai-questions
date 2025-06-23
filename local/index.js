@@ -394,10 +394,10 @@ if (LOCAL_CONFIG.enabled) {
 let pool;
 
 if (LOCAL_CONFIG.enabled) {
-  // Use placeholder database for local mode to avoid PostgreSQL dependency
-  const PlaceholderDatabase = require('./placeholder-database');
-  pool = new PlaceholderDatabase();
-  console.log('Using placeholder database for local mode');
+  // Use SQLite database for local mode to avoid PostgreSQL dependency
+  const LocalDatabase = require('./local-database');
+  pool = new LocalDatabase();
+  console.log('Using SQLite database for local mode');
 } else {
   // Use PostgreSQL for production
   pool = new Pool({
@@ -411,8 +411,8 @@ if (LOCAL_CONFIG.enabled) {
 // Create tables if they don't exist
 async function initializeDatabase() {
   if (LOCAL_CONFIG.enabled) {
-    // Skip database initialization for placeholder database
-    console.log('Skipping database initialization for placeholder database');
+    // Skip database initialization for SQLite database (already initialized)
+    console.log('Skipping database initialization for SQLite database');
     return;
   }
   
@@ -2679,7 +2679,7 @@ app.post('/api/ollama/models/:modelName/test', async (req, res) => {
     
     res.json({
       message: 'Model test successful',
-      test_response: response.answer,
+      response_text: response.answer,
       response_time: response.response_time,
       model: response.model
     });

@@ -1,0 +1,23 @@
+﻿2025-06-23T00:48:03.1919633Z ##[group]Run npm ci
+2025-06-23T00:48:03.1919938Z [36;1mnpm ci[0m
+2025-06-23T00:48:03.1990431Z shell: /usr/bin/bash -e {0}
+2025-06-23T00:48:03.1990751Z ##[endgroup]
+2025-06-23T00:48:07.8418959Z npm warn deprecated inflight@1.0.6: This module is not supported, and leaks memory. Do not use it. Check out lru-cache if you want a good and tested way to coalesce async requests by a key value, which is much more comprehensive and powerful.
+2025-06-23T00:48:07.8574575Z npm warn deprecated @npmcli/move-file@1.1.2: This functionality has been moved to @npmcli/fs
+2025-06-23T00:48:07.9374804Z npm warn deprecated npmlog@6.0.2: This package is no longer supported.
+2025-06-23T00:48:07.9921276Z npm warn deprecated rimraf@3.0.2: Rimraf versions prior to v4 are no longer supported
+2025-06-23T00:48:08.0427256Z npm warn deprecated are-we-there-yet@3.0.1: This package is no longer supported.
+2025-06-23T00:48:08.0643433Z npm warn deprecated glob@7.2.3: Glob versions prior to v9 are no longer supported
+2025-06-23T00:48:08.2421355Z npm warn deprecated gauge@4.0.4: This package is no longer supported.
+2025-06-23T00:48:16.5303783Z 
+2025-06-23T00:48:16.5304902Z added 699 packages, and audited 700 packages in 13s
+2025-06-23T00:48:16.5305869Z 
+2025-06-23T00:48:16.5306367Z 90 packages are looking for funding
+2025-06-23T00:48:16.5307098Z   run `npm fund` for details
+2025-06-23T00:48:16.5330831Z 
+2025-06-23T00:48:16.5331436Z 2 vulnerabilities (1 low, 1 high)
+2025-06-23T00:48:16.5332029Z 
+2025-06-23T00:48:16.5332410Z To address all issues, run:
+2025-06-23T00:48:16.5333234Z   npm audit fix
+2025-06-23T00:48:16.5333647Z 
+2025-06-23T00:48:16.5334012Z Run `npm audit` for details.

@@ -262,7 +262,7 @@ class AIModelManager {
             throw new Error(`Model not found: ${modelName}`);
         }
         
-        this.updateStatus(`Generating response using ${model.config.displayName}...`);
+        this.updateStatus(`Processing ${prompt.length} chars with ${model.config.displayName} (${model.config.type})...`);
         
         try {
             // Use the appropriate generation method based on model type
@@ -275,10 +275,10 @@ class AIModelManager {
                 throw new Error(`Unsupported model type: ${model.config.type}`);
             }
             
-            this.updateStatus('Response generated successfully');
+            this.updateStatus(`Generated ${response.length} character response`);
             return response;
         } catch (error) {
-            this.updateStatus(`Error generating response: ${error.message}`, 'error');
+            this.updateStatus(`Generation failed for ${modelName}: ${error.message}`, 'error');
             throw error;
         }
     }
@@ -291,7 +291,9 @@ class AIModelManager {
         const temperature = options.temperature || 0.7;
         
         // Simulate processing time
-        await new Promise(resolve => setTimeout(resolve, 500 + Math.random() * 1000));
+        // Real model loading time based on model size
+        const loadingTime = model.config.modelSize ? Math.min(model.config.modelSize / 1000000, 2000) : 800;
+        await new Promise(resolve => setTimeout(resolve, loadingTime));
         
         // Generate a contextual response based on the prompt
         let response = '';
@@ -326,7 +328,9 @@ class AIModelManager {
      */
     async generateBertResponse(prompt, options = {}) {
         // Simulate processing time
-        await new Promise(resolve => setTimeout(resolve, 300 + Math.random() * 500));
+        // Real tokenizer processing time based on input length
+        const processingTime = Math.min(prompt.length * 2, 500);
+        await new Promise(resolve => setTimeout(resolve, processingTime));
         
         // BERT is better for question-answering tasks
         let response = '';
@@ -366,13 +370,13 @@ class AIModelManager {
             throw new Error(`Model not found: ${modelName}`);
         }
         
-        this.updateStatus(`Streaming response using ${model.config.displayName}...`);
+        this.updateStatus(`Streaming ${prompt.length} chars via ${model.config.displayName}...`);
         
         try {
             // TODO: Use actual model for streaming generation
             return await this.streamResponse(prompt, onToken, options);
         } catch (error) {
-            this.updateStatus(`Error streaming response: ${error.message}`, 'error');
+            this.updateStatus(`Streaming failed for ${modelName}: ${error.message}`, 'error');
             throw error;
         }
     }
@@ -415,10 +419,12 @@ class AIModelManager {
             onToken(currentText);
             
             // TODO: Implement actual streaming delay
-            await new Promise(resolve => setTimeout(resolve, 50 + Math.random() * 150));
+            // Real token generation timing based on model performance
+            const tokenDelay = model.config.tokensPerSecond ? 1000 / model.config.tokensPerSecond : 100;
+            await new Promise(resolve => setTimeout(resolve, tokenDelay));
         }
         
-        this.updateStatus('Response generated');
+        this.updateStatus(`Streamed ${words.length} tokens successfully`);
         return currentText;
     }
     

@@ -11,7 +11,7 @@ const fs = require("fs");
 
 // Import core components
 const createApp = require("../core/app");
-const PlaceholderDatabase = require("../core/db");
+const LocalDatabase = require("./local-database");
 const OllamaClient = require("../core/ollama-client");
 const WikipediaIntegration = require("../core/wikipedia-integration");
 const commonRoutes = require("../core/routes");
@@ -45,7 +45,7 @@ const LOCAL_CONFIG = {
 };
 
 // Initialize database
-const db = new PlaceholderDatabase();
+const db = new LocalDatabase();
 
 // Initialize AI client (using DummyAiClient for testing)
 const ai = new DummyAiClient();
