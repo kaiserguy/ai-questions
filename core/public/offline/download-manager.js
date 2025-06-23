@@ -154,11 +154,6 @@ class DownloadManager {
                 name: 'sql-wasm.js', 
                 url: '/offline/libs/sql-wasm.js',
                 fallbackUrl: 'https://cdn.jsdelivr.net/npm/sql.js@1.8.0/dist/sql-wasm.js'
-            },
-            { 
-                name: 'tokenizers.js', 
-                url: '/offline/libs/tokenizers.js',
-                fallbackUrl: 'https://cdn.jsdelivr.net/npm/@xenova/transformers@2.17.2/dist/tokenizers.min.js'
             }
         ];
         
