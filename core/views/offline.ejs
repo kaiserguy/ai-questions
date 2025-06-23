@@ -1009,6 +1009,13 @@
                         });
                     });
                 }
+
+                // Remove service worker
+                navigator.serviceWorker.getRegistrations().then(registrations => {
+                    registrations.forEach(registration => {
+                        registration.unregister();
+                    });
+                }); 
                 
                 alert('Cache cleared successfully. Please refresh the page.');
                 location.reload();
