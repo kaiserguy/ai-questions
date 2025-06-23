@@ -1,6 +1,15 @@
 // Test setup file for Jest
 // This file runs before each test
 
+// Add TextEncoder/TextDecoder polyfills for Node.js environment
+const { TextEncoder, TextDecoder } = require('util');
+global.TextEncoder = TextEncoder;
+global.TextDecoder = TextDecoder;
+
+// Add setImmediate polyfill for Node.js environment
+global.setImmediate = global.setImmediate || ((fn, ...args) => setTimeout(fn, 0, ...args));
+global.clearImmediate = global.clearImmediate || clearTimeout;
+
 // Mock browser APIs that might not be available in test environment
 global.fetch = jest.fn();
 global.localStorage = {
