@@ -95,14 +95,25 @@ module.exports = (db, ai, wikipedia, config) => {
             console.error("Error fetching data for main page:", error);
         }
 
-        res.render("index", {
-            user: req.user,
-            todayQuestion,
-            todayAnswer,
-            allModels,
-            isLocal: config.isLocal,
-            latestAnswers: [] // Ensure latestAnswers is always defined
-        });
+        if (config.isLocal) {
+            res.render("local-index", {
+                user: req.user,
+                todayQuestion,
+                todayAnswer,
+                allModels,
+                isLocal: config.isLocal,
+                latestAnswers: [] // Ensure latestAnswers is always defined
+            });
+        } else {
+            res.render("index", {
+                user: req.user,
+                todayQuestion,
+                todayAnswer,
+                allModels,
+                isLocal: config.isLocal,
+                latestAnswers: [] // Ensure latestAnswers is always defined
+            });
+        }
     });
 
     // API to get daily question and answer
