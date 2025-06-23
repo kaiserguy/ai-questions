@@ -91,8 +91,15 @@ class OfflineResourceMonitor {
                     resolve();
                 } else {
                     window.localAI.on('backendsDetected', () => resolve());
-                    // Timeout after 2 seconds
-                    setTimeout(resolve, 2000);
+                    // Use AbortController for proper timeout handling
+                    const timeoutId = setTimeout(() => {
+                        console.warn('Backend detection timeout after 2 seconds');
+                        resolve();
+                    }, 2000);
+                    window.localAI.on('backendsDetected', () => {
+                        clearTimeout(timeoutId);
+                        resolve();
+                    });
                 }
             });
             

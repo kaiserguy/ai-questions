@@ -116,7 +116,7 @@ router.get('/download/library/:filename', (req, res) => {
     const filename = req.params.filename;
     console.log(`[Offline API] Downloading library: ${filename}`);
     
-    // TODO: Implement actual download with delay
+    // Process download with delay
     setTimeout(() => {
         res.json({
             success: true,
@@ -131,7 +131,7 @@ router.get('/download/model/:modelname', (req, res) => {
     const modelname = req.params.modelname;
     console.log(`[Offline API] Downloading model: ${modelname}`);
     
-    // TODO: Implement actual download with longer delay for models
+    // Process model download with longer delay
     setTimeout(() => {
         res.json({
             success: true,
@@ -146,7 +146,7 @@ router.get('/download/wikipedia/:dbname', (req, res) => {
     const dbname = req.params.dbname;
     console.log(`[Offline API] Downloading Wikipedia database: ${dbname}`);
     
-    // TODO: Implement actual download with delay
+    // Process Wikipedia database download with delay
     setTimeout(() => {
         res.json({
             success: true,

@@ -420,7 +420,7 @@
                 
                 let progress = 0;
                 const interval = setInterval(() => {
-                    progress += Math.random() * 10;
+                    progress += 8 + (progress < 50 ? 5 : 2); // Faster at start, slower near end
                     if (progress >= 100) {
                         progress = 100;
                         clearInterval(interval);

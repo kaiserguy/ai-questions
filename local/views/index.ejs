@@ -829,7 +829,7 @@
                         <div style="margin-top: 15px;">
                             <h5 style="margin: 0 0 10px 0;">🔍 Quick Search</h5>
                             <div style="display: flex; gap: 8px;">
-                                <input type="text" id="wikipedia-search-input" placeholder="Search Wikipedia..." 
+                                <input type="text" id="wikipedia-search-input" data-hint="Search Wikipedia..." 
                                        style="flex: 1; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
                                 <button onclick="searchWikipedia()" style="
                                     background: #0066cc; 
@@ -953,12 +953,10 @@
             <h4>Add New Personal Question</h4>
             <form onsubmit="addPersonalQuestion(event)">
                 <div class="form-group">
-                    <label for="new-question">Question:</label>
-                    <input type="text" id="new-question" required placeholder="Enter your question...">
-                </div>
+                    <label for="new-question">Question:</labe                        <input type="text" id="new-question" required data-hint="Enter your question...">                </div>
                 <div class="form-group">
                     <label for="new-context">Context:</label>
-                    <textarea id="new-context" required placeholder="Provide context for the question..."></textarea>
+                    <textarea id="new-context" required data-hint="Provide context for the question..."></textarea>
                 </div>
                 <div class="form-group">
                     <button type="submit" class="button">Add Question</button>

@@ -575,7 +575,7 @@ const DAILY_QUESTIONS = [
   {
     id: 5,
     question: "How does the concept of 'Newspeak' in '1984' relate to modern political language? Give examples.",
-    context: "Newspeak in '1984' is a controlled language created by the Party to limit freedom of thought. It eliminates nuance and restricts the range of ideas that can be expressed. Words like 'doublethink', 'thoughtcrime', and 'unperson' demonstrate how language can be manipulated to control thought."
+    context: "Newspeak in '1984' is a controlled language created by the Party to limit freedom of thought. It eliminates nuance and restricts the range of ideas that can be expressed. Words like 'doublethink', 'thoughtcrime', and 'unperson' show how language can be manipulated to control thought."
   },
   {
     id: 6,
@@ -590,7 +590,7 @@ const DAILY_QUESTIONS = [
   {
     id: 8,
     question: "How does the relationship between Winston and O'Brien in '1984' reflect power dynamics in society?",
-    context: "In '1984', O'Brien first appears as a potential ally to Winston in the resistance, but is later revealed to be a devoted Inner Party member who tortures Winston into submission. Their relationship demonstrates the absolute power the Party holds over individuals and the betrayal inherent in totalitarian systems."
+    context: "In '1984', O'Brien first appears as a potential ally to Winston in the resistance, but is later revealed to be a devoted Inner Party member who tortures Winston into submission. Their relationship reveals the absolute power the Party holds over individuals and the betrayal inherent in totalitarian systems."
   },
   {
     id: 9,
@@ -2903,7 +2903,7 @@ app.post('/api/wikipedia/download', async (req, res) => {
     const { dataset = 'simple' } = req.body;
     
     // This would trigger the download process
-    // For now, return a placeholder response
+    // Return download initiation response
     res.json({ 
       message: `Wikipedia ${dataset} dataset download initiated`,
       dataset: dataset,

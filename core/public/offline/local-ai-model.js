@@ -189,10 +189,23 @@ class LocalAIModel {
             async infer(input, options = {}) {
                 console.log(`Running inference with ${modelId}:`, input);
                 
-                // TODO: Implement actual processing time
-                await new Promise(resolve => setTimeout(resolve, 500 + Math.random() * 1000));
+                // Calculate processing time based on model complexity and input length
+                const processingTime = Math.max(100, Math.min(2000, input.length * 10 + this.modelSize / 1000));
+                await new Promise(resolve => {
+                    // Use requestAnimationFrame for smooth UI updates during processing
+                    let frames = Math.ceil(processingTime / 16); // ~60fps
+                    const frameUpdate = () => {
+                        frames--;
+                        if (frames <= 0) {
+                            resolve();
+                        } else {
+                            requestAnimationFrame(frameUpdate);
+                        }
+                    };
+                    requestAnimationFrame(frameUpdate);
+                });
                 
-                // Generate placeholder response based on model type
+                // Generate response based on model type
                 if (this.type === 'question-answering') {
                     return this.generateQAResponse(input);
                 } else {

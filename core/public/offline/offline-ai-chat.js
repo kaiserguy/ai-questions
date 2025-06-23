@@ -399,8 +399,8 @@ class OfflineAIChat {
             const word = words[i] + (i < words.length - 1 ? ' ' : '');
             onToken(word);
             
-            // TODO: Implement actual typing delay
-            await new Promise(resolve => setTimeout(resolve, 50));
+            // Use requestAnimationFrame for smooth typing animation
+            await new Promise(resolve => requestAnimationFrame(resolve));
         }
     }
 

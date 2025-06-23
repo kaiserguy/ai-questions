@@ -275,7 +275,7 @@ class AIModelManager {
                 throw new Error(`Unsupported model type: ${model.config.type}`);
             }
             
-            this.updateStatus(`Generated ${response.length} character response`);
+            this.updateStatus(`${modelName}: processing complete`);
             return response;
         } catch (error) {
             this.updateStatus(`Generation failed for ${modelName}: ${error.message}`, 'error');

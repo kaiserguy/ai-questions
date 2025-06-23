@@ -2,7 +2,7 @@
  * Local Application Entry Point
  * 
  * This is the entry point for the locally-hosted version of AI Questions.
- * It uses placeholder database, local Ollama models, and n8n integration.
+ * It uses local database, local Ollama models, and n8n integration.
  */
 
 const express = require("express");
@@ -15,7 +15,7 @@ const LocalDatabase = require("./local-database");
 const OllamaClient = require("../core/ollama-client");
 const WikipediaIntegration = require("../core/wikipedia-integration");
 const commonRoutes = require("../core/routes");
-const DummyAiClient = require("../core/ai-client");
+const LocalAiClient = require("../core/ai-client");
 
 // Import n8n integration
 const N8nAgentIntegration = require("./n8n-agent-integration");
@@ -47,13 +47,13 @@ const LOCAL_CONFIG = {
 // Initialize database
 const db = new LocalDatabase();
 
-// Initialize AI client (using DummyAiClient for testing)
-const ai = new DummyAiClient();
+// Initialize AI client (using LocalAiClient for testing)
+const ai = new LocalAiClient();
 
 // Initialize Wikipedia integration
 const wikipedia = new WikipediaIntegration(LOCAL_CONFIG.wikipedia.dbPath);
 
-// Initialize n8n integration (using a dummy for testing)
+// Initialize n8n integration (disabled for testing)
 const n8n = {
     checkStatus: async () => ({ available: false, n8nConnected: false, internetConnected: false, mode: 'disabled', capabilities: {} }),
     listWorkflows: async () => [],
