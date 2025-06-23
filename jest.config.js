@@ -25,7 +25,6 @@ module.exports = {
   testPathIgnorePatterns: [
     '/node_modules/',
     '/coverage/',
-    '/tests/offline/',  // Skip the complex tests that need actual classes
     '/tests/integration/' // Skip integration tests for now
   ],
   
