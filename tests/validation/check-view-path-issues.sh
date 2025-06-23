@@ -2,11 +2,14 @@
 
 echo "Checking for view path configuration issues..."
 
-# Check that hosted server has correct view configuration
-if grep -q "path.join(__dirname, '../core/views')" hosted/index.cjs; then
-  echo "✅ Hosted server has core views path configured"
+# Check that hosted server uses core app (which has correct views configuration)
+if grep -q "createApp.*require.*core/app" hosted/hosted-app.js; then
+  echo "✅ Hosted server uses core app with correct views configuration"
+elif grep -q "path.join(__dirname, '../core/views')" hosted/hosted-app.js; then
+  echo "✅ Hosted server has explicit core views path configured"
 else
-  echo "❌ Hosted server missing core views path configuration"
+  echo "❌ Hosted server missing core views configuration"
+  echo "Expected: createApp from core/app OR explicit core views path"
   exit 1
 fi
 
