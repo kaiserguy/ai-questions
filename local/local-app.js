@@ -47,18 +47,14 @@ const LOCAL_CONFIG = {
 // Initialize database
 const db = new LocalDatabase();
 
-// Initialize AI client (using LocalAiClient for testing)
-const ai = new LocalAiClient();
+// Initialize AI client (using OllamaClient for local models)
+const ai = new OllamaClient(LOCAL_CONFIG.ollama.url);
 
 // Initialize Wikipedia integration
 const wikipedia = new WikipediaIntegration(LOCAL_CONFIG.wikipedia.dbPath);
 
-// Initialize n8n integration (disabled for testing)
-const n8n = {
-    checkStatus: async () => ({ available: false, n8nConnected: false, internetConnected: false, mode: 'disabled', capabilities: {} }),
-    listWorkflows: async () => [],
-    executeWorkflow: async () => ({ success: false, error: 'n8n integration disabled for testing' })
-};
+// Initialize n8n integration
+const n8n = new N8nAgentIntegration(LOCAL_CONFIG.n8n.url, LOCAL_CONFIG.n8n.apiKey);
 
 // Create Express app with core setup
 const app = createApp(LOCAL_CONFIG);
@@ -74,15 +70,41 @@ app.use('/api/offline', offlinePackageRoutes);
 const offlineResourceRoutes = require('../core/offline-resource-routes');
 app.use('/offline', offlineResourceRoutes);
 
-// Add n8n specific routes (disabled for testing)
-app.get("/n8n-status", (req, res) => res.json({ available: false, n8nConnected: false, internetConnected: false, mode: 'disabled' }));
-app.get("/n8n-workflows", (req, res) => res.json([]));
-app.post("/n8n-execute", (req, res) => res.status(500).json({ error: 'n8n integration disabled for testing' }));
+// Add n8n specific routes
+app.get("/n8n-status", async (req, res) => {
+    try {
+        const status = await n8n.checkStatus();
+        res.json(status);
+    } catch (error) {
+        console.error("Error checking n8n status:", error);
+        res.json({ available: false, n8nConnected: false, internetConnected: false, mode: 'error', error: error.message });
+    }
+});
 
-// Add n8n portal button to the UI (disabled for testing)
+app.get("/n8n-workflows", async (req, res) => {
+    try {
+        const workflows = await n8n.listWorkflows();
+        res.json(workflows);
+    } catch (error) {
+        console.error("Error listing n8n workflows:", error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+app.post("/n8n-execute", async (req, res) => {
+    try {
+        const result = await n8n.executeWorkflow(req.body.workflowId, req.body.data);
+        res.json(result);
+    } catch (error) {
+        console.error("Error executing n8n workflow:", error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Add n8n portal button to the UI
 app.use((req, res, next) => {
-    res.locals.n8nPortalUrl = "#";
-    res.locals.showN8nPortal = false;
+    res.locals.n8nPortalUrl = LOCAL_CONFIG.n8n.url;
+    res.locals.showN8nPortal = true;
     next();
 });
 
