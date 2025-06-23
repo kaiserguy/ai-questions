@@ -140,32 +140,63 @@ class DownloadManager {
         this.updateProgress('Downloading required libraries...');
         this.updateResource('libraries', 'downloading', 0);
         
-        // Libraries to download
+        // Initialize storage first
+        await this.initializeStorage();
+        
+        // Libraries to download with real URLs
         const libraries = [
-            { name: 'transformers.js', size: 2.5 * 1024 * 1024 }, // 2.5MB
-            { name: 'sql-wasm.js', size: 1.2 * 1024 * 1024 },     // 1.2MB
-            { name: 'tokenizers.js', size: 0.8 * 1024 * 1024 }    // 0.8MB
+            { 
+                name: 'transformers.js', 
+                url: '/offline/libs/transformers.js',
+                fallbackUrl: 'https://cdn.jsdelivr.net/npm/@xenova/transformers@2.17.2/dist/transformers.min.js'
+            },
+            { 
+                name: 'sql-wasm.js', 
+                url: '/offline/libs/sql-wasm.js',
+                fallbackUrl: 'https://cdn.jsdelivr.net/npm/sql.js@1.8.0/dist/sql-wasm.js'
+            },
+            { 
+                name: 'tokenizers.js', 
+                url: '/offline/libs/tokenizers.js',
+                fallbackUrl: 'https://cdn.jsdelivr.net/npm/@xenova/transformers@2.17.2/dist/tokenizers.min.js'
+            }
         ];
         
-        const totalSize = libraries.reduce((sum, lib) => sum + lib.size, 0);
-        let downloadedSize = 0;
+        let completedLibraries = 0;
         
         for (const library of libraries) {
             if (this.aborted) return;
             
             try {
-                // Download the library with progress tracking
-                await this.downloadResource(library.name, library.size, (libProgress) => {
-                    // Calculate overall progress for this library
-                    const currentLibSize = downloadedSize + (library.size * libProgress / 100);
-                    const overallProgress = Math.round((currentLibSize / totalSize) * 100);
-                    this.updateResource('libraries', 'downloading', overallProgress);
-                });
+                // Check if already downloaded
+                if (await this.fileExists(library.name)) {
+                    console.log(`${library.name} already exists, skipping download`);
+                    completedLibraries++;
+                    const progress = Math.round((completedLibraries / libraries.length) * 100);
+                    this.updateResource('libraries', 'downloading', progress);
+                    continue;
+                }
                 
-                downloadedSize += library.size;
-                const progress = Math.round((downloadedSize / totalSize) * 100);
+                // Try primary URL first, then fallback
+                let downloadUrl = library.url;
+                try {
+                    await this.downloadResource(library.name, downloadUrl, (libProgress) => {
+                        const overallProgress = Math.round(((completedLibraries + libProgress / 100) / libraries.length) * 100);
+                        this.updateResource('libraries', 'downloading', overallProgress);
+                    });
+                } catch (primaryError) {
+                    console.log(`Primary URL failed for ${library.name}, trying fallback...`);
+                    downloadUrl = library.fallbackUrl;
+                    await this.downloadResource(library.name, downloadUrl, (libProgress) => {
+                        const overallProgress = Math.round(((completedLibraries + libProgress / 100) / libraries.length) * 100);
+                        this.updateResource('libraries', 'downloading', overallProgress);
+                    });
+                }
                 
+                completedLibraries++;
+                const progress = Math.round((completedLibraries / libraries.length) * 100);
                 this.updateResource('libraries', 'downloading', progress);
+                
             } catch (error) {
                 this.updateResource('libraries', 'error', 0);
                 throw new Error(`Failed to download ${library.name}: ${error.message}`);
@@ -186,42 +217,50 @@ class DownloadManager {
         this.updateResource('aiModel', 'downloading', 0);
         
         try {
-            // For minimal package, try to get server-side cached model
-            if (this.packageType === 'minimal') {
-                try {
-                    console.log('[INFO] Checking for cached AI model on server...');
-                    const response = await fetch('/api/offline/packages/minimal/manifest');
-                    
-                    if (response.ok) {
-                        const data = await response.json();
-                        
-                        if (data.success && data.manifest) {
-                            const modelResource = data.manifest.resources.find(r => r.type === 'ai-model');
-                            
-                            if (modelResource && modelResource.cached) {
-                                console.log('[INFO] Using cached AI model from server');
-                                // Download the cached model
-                                await this.downloadCachedResource(modelResource.filename, modelResource.size);
-                                this.updateResource('aiModel', 'loaded', 100);
-                                return;
-                            }
-                        }
-                    } else {
-                        console.log(`[INFO] Manifest request responded with status: ${response.status}`);
-                        console.log('[WARNING] Failed to get manifest or manifest invalid');
-                    }
-                } catch (manifestError) {
-                    console.log('[WARNING] Manifest request failed:', manifestError.message);
-                    console.log('[INFO] Falling back to direct model download');
+            // Model URLs based on package type
+            const modelUrls = {
+                'minimal': {
+                    name: 'TinyBERT',
+                    url: '/offline/models/tinybert-uncased.bin',
+                    fallbackUrl: 'https://huggingface.co/prajjwal1/bert-tiny/resolve/main/pytorch_model.bin'
+                },
+                'standard': {
+                    name: 'Phi-3 Mini',
+                    url: '/offline/models/phi3-mini.bin',
+                    fallbackUrl: 'https://huggingface.co/microsoft/Phi-3-mini-4k-instruct/resolve/main/model.safetensors'
+                },
+                'full': {
+                    name: 'Llama-3.2',
+                    url: '/offline/models/llama-3.2.bin',
+                    fallbackUrl: 'https://huggingface.co/meta-llama/Llama-3.2-1B/resolve/main/model.safetensors'
                 }
+            };
+            
+            const modelConfig = modelUrls[this.packageType];
+            if (!modelConfig) {
+                throw new Error(`Unknown package type: ${this.packageType}`);
             }
             
-            // Fallback: Download the model directly
-            console.log(`[INFO] Downloading AI model (${this.getModelSize() / (1024*1024)} MB)...`);
-            const modelSize = this.getModelSize();
-            await this.downloadResource(modelInfo.name, modelSize, (progress) => {
-                this.updateResource('aiModel', 'downloading', progress);
-            });
+            // Check if model already exists
+            if (await this.fileExists(modelConfig.name)) {
+                console.log(`${modelConfig.name} already exists, skipping download`);
+                this.updateResource('aiModel', 'loaded', 100);
+                return;
+            }
+            
+            // Try to download from primary URL first
+            let downloadUrl = modelConfig.url;
+            try {
+                await this.downloadResource(modelConfig.name, downloadUrl, (progress) => {
+                    this.updateResource('aiModel', 'downloading', progress);
+                });
+            } catch (primaryError) {
+                console.log(`Primary model URL failed, trying fallback...`);
+                downloadUrl = modelConfig.fallbackUrl;
+                await this.downloadResource(modelConfig.name, downloadUrl, (progress) => {
+                    this.updateResource('aiModel', 'downloading', progress);
+                });
+            }
             
             this.updateResource('aiModel', 'loaded', 100);
         } catch (error) {
@@ -241,28 +280,50 @@ class DownloadManager {
         this.updateResource('wikipedia', 'downloading', 0);
         
         try {
-            // For minimal package, we might use server-side cached Wikipedia
-            if (this.packageType === 'minimal') {
-                const response = await fetch('/api/offline/packages/minimal/manifest');
-                const data = await response.json();
-                
-                if (data.success && data.manifest) {
-                    const wikiResource = data.manifest.resources.find(r => r.type === 'wikipedia');
-                    
-                    if (wikiResource && wikiResource.cached) {
-                        // Download the cached Wikipedia
-                        await this.downloadCachedResource(wikiResource.filename, wikiResource.size);
-                        this.updateResource('wikipedia', 'loaded', 100);
-                        return;
-                    }
+            // Wikipedia database URLs based on package type
+            const wikiUrls = {
+                'minimal': {
+                    name: 'Wikipedia-Subset-20MB',
+                    url: '/offline/wikipedia/wikipedia-subset-20mb.db',
+                    fallbackUrl: 'https://dumps.wikimedia.org/other/kiwix/zim/wikipedia/wikipedia_en_top_2023-01.zim'
+                },
+                'standard': {
+                    name: 'Simple-Wikipedia-50MB',
+                    url: '/offline/wikipedia/simple-wikipedia-50mb.db',
+                    fallbackUrl: 'https://dumps.wikimedia.org/other/kiwix/zim/wikipedia/wikipedia_en_simple_all_2023-01.zim'
+                },
+                'full': {
+                    name: 'Extended-Wikipedia',
+                    url: '/offline/wikipedia/extended-wikipedia.db',
+                    fallbackUrl: 'https://dumps.wikimedia.org/other/kiwix/zim/wikipedia/wikipedia_en_all_nopic_2023-01.zim'
                 }
+            };
+            
+            const wikiConfig = wikiUrls[this.packageType];
+            if (!wikiConfig) {
+                throw new Error(`Unknown package type: ${this.packageType}`);
             }
             
-            // TODO: Actually download the Wikipedia database
-            const wikiSize = this.getWikiSize();
-            await this.downloadResource(wikiInfo.name, wikiSize, (progress) => {
-                this.updateResource('wikipedia', 'downloading', progress);
-            });
+            // Check if Wikipedia database already exists
+            if (await this.fileExists(wikiConfig.name)) {
+                console.log(`${wikiConfig.name} already exists, skipping download`);
+                this.updateResource('wikipedia', 'loaded', 100);
+                return;
+            }
+            
+            // Try to download from primary URL first
+            let downloadUrl = wikiConfig.url;
+            try {
+                await this.downloadResource(wikiConfig.name, downloadUrl, (progress) => {
+                    this.updateResource('wikipedia', 'downloading', progress);
+                });
+            } catch (primaryError) {
+                console.log(`Primary Wikipedia URL failed, trying fallback...`);
+                downloadUrl = wikiConfig.fallbackUrl;
+                await this.downloadResource(wikiConfig.name, downloadUrl, (progress) => {
+                    this.updateResource('wikipedia', 'downloading', progress);
+                });
+            }
             
             this.updateResource('wikipedia', 'loaded', 100);
         } catch (error) {
@@ -331,56 +392,190 @@ class DownloadManager {
     }
     
     /**
-     * Download a resource with progress tracking
+     * Download a resource with progress tracking using real HTTP requests
      */
-    async downloadResource(name, size, progressCallback = null) {
-        return new Promise((resolve, reject) => {
+    async downloadResource(name, url, progressCallback = null) {
+        return new Promise(async (resolve, reject) => {
             if (this.aborted) {
                 reject(new Error('Download aborted'));
                 return;
             }
             
-            console.log(`Downloading ${name} (${this.formatBytes(size)})...`);
+            console.log(`Downloading ${name} from ${url}...`);
             
-            // Simulate download progress for now
-            let progress = 0;
-            let bytesDownloaded = 0;
-            const totalBytes = size;
-            const downloadSpeed = totalBytes / 10; // Complete in ~10 intervals
-            
-            const interval = setInterval(() => {
-                if (this.aborted) {
-                    clearInterval(interval);
-                    reject(new Error('Download aborted'));
-                    return;
+            try {
+                const response = await fetch(url);
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
                 }
                 
-                // Simulate bytes being downloaded
-                bytesDownloaded += downloadSpeed;
-                if (bytesDownloaded > totalBytes) {
-                    bytesDownloaded = totalBytes;
+                const contentLength = response.headers.get('content-length');
+                const totalBytes = contentLength ? parseInt(contentLength, 10) : 0;
+                
+                if (!response.body) {
+                    throw new Error('Response body is not available');
                 }
                 
-                // Calculate progress percentage
-                progress = Math.round((bytesDownloaded / totalBytes) * 100);
+                const reader = response.body.getReader();
+                let bytesDownloaded = 0;
+                const chunks = [];
                 
-                if (progress >= 100) {
-                    progress = 100;
-                    clearInterval(interval);
-                    console.log(`Downloaded ${name}`);
-                    resolve();
+                while (true) {
+                    if (this.aborted) {
+                        reader.cancel();
+                        reject(new Error('Download aborted'));
+                        return;
+                    }
+                    
+                    const { done, value } = await reader.read();
+                    
+                    if (done) break;
+                    
+                    chunks.push(value);
+                    bytesDownloaded += value.length;
+                    
+                    if (totalBytes > 0 && progressCallback) {
+                        const progress = Math.round((bytesDownloaded / totalBytes) * 100);
+                        progressCallback(progress);
+                    }
                 }
                 
-                if (progressCallback) {
-                    progressCallback(progress);
+                // Combine all chunks into a single Uint8Array
+                const totalLength = chunks.reduce((sum, chunk) => sum + chunk.length, 0);
+                const result = new Uint8Array(totalLength);
+                let offset = 0;
+                
+                for (const chunk of chunks) {
+                    result.set(chunk, offset);
+                    offset += chunk.length;
                 }
-            }, 200);
+                
+                // Store the downloaded file in IndexedDB
+                await this.storeFile(name, result);
+                
+                console.log(`Downloaded ${name} (${this.formatBytes(bytesDownloaded)})`);
+                resolve(result);
+                
+            } catch (error) {
+                console.error(`Failed to download ${name}:`, error);
+                reject(error);
+            }
         });
     }
     
     /**
-     * Download a cached resource from the server
+     * Initialize IndexedDB for offline storage
      */
+    async initializeStorage() {
+        return new Promise((resolve, reject) => {
+            const request = indexedDB.open('OfflineAI', 1);
+            
+            request.onerror = () => reject(request.error);
+            request.onsuccess = () => {
+                this.db = request.result;
+                resolve();
+            };
+            
+            request.onupgradeneeded = (event) => {
+                const db = event.target.result;
+                
+                // Create object stores for different types of files
+                if (!db.objectStoreNames.contains('libraries')) {
+                    db.createObjectStore('libraries', { keyPath: 'name' });
+                }
+                if (!db.objectStoreNames.contains('models')) {
+                    db.createObjectStore('models', { keyPath: 'name' });
+                }
+                if (!db.objectStoreNames.contains('wikipedia')) {
+                    db.createObjectStore('wikipedia', { keyPath: 'name' });
+                }
+            };
+        });
+    }
+    
+    /**
+     * Store a file in IndexedDB
+     */
+    async storeFile(name, data) {
+        if (!this.db) {
+            await this.initializeStorage();
+        }
+        
+        return new Promise((resolve, reject) => {
+            // Determine which store to use based on file type
+            let storeName = 'libraries';
+            if (name.includes('model') || name.includes('bert') || name.includes('llama')) {
+                storeName = 'models';
+            } else if (name.includes('wikipedia') || name.includes('wiki')) {
+                storeName = 'wikipedia';
+            }
+            
+            const transaction = this.db.transaction([storeName], 'readwrite');
+            const store = transaction.objectStore(storeName);
+            
+            const fileData = {
+                name: name,
+                data: data,
+                timestamp: Date.now(),
+                size: data.length
+            };
+            
+            const request = store.put(fileData);
+            
+            request.onsuccess = () => resolve();
+            request.onerror = () => reject(request.error);
+        });
+    }
+    
+    /**
+     * Retrieve a file from IndexedDB
+     */
+    async getFile(name) {
+        if (!this.db) {
+            await this.initializeStorage();
+        }
+        
+        return new Promise((resolve, reject) => {
+            // Check all stores for the file
+            const stores = ['libraries', 'models', 'wikipedia'];
+            let found = false;
+            
+            const checkStore = (storeIndex) => {
+                if (storeIndex >= stores.length) {
+                    if (!found) resolve(null);
+                    return;
+                }
+                
+                const transaction = this.db.transaction([stores[storeIndex]], 'readonly');
+                const store = transaction.objectStore(stores[storeIndex]);
+                const request = store.get(name);
+                
+                request.onsuccess = () => {
+                    if (request.result && !found) {
+                        found = true;
+                        resolve(request.result);
+                    } else {
+                        checkStore(storeIndex + 1);
+                    }
+                };
+                
+                request.onerror = () => {
+                    if (!found) checkStore(storeIndex + 1);
+                };
+            };
+            
+            checkStore(0);
+        });
+    }
+    
+    /**
+     * Check if a file exists in storage
+     */
+    async fileExists(name) {
+        const file = await this.getFile(name);
+        return file !== null;
+    }
     async downloadCachedResource(filename, size) {
         return new Promise((resolve, reject) => {
             if (this.aborted) {

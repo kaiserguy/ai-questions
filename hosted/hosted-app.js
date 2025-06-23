@@ -105,6 +105,10 @@ const ensureAuthenticated = (req, res, next) => {
 
 app.use("/", offlinePackageRoutes(app));
 
+// Add offline resource routes for serving libraries, models, and Wikipedia
+const offlineResourceRoutes = require("../core/offline-resource-routes");
+app.use('/offline', offlineResourceRoutes);
+
 // Mount common routes
 app.use("/", commonRoutes(db, ai, PUBLIC_CONFIG));
 

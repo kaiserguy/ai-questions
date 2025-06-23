@@ -70,6 +70,10 @@ app.use("/", commonRoutes(db, ai, wikipedia, LOCAL_CONFIG));
 const offlinePackageRoutes = require('./offline-package-routes');
 app.use('/api/offline', offlinePackageRoutes);
 
+// Add offline resource routes for serving libraries, models, and Wikipedia
+const offlineResourceRoutes = require('../core/offline-resource-routes');
+app.use('/offline', offlineResourceRoutes);
+
 // Add n8n specific routes (disabled for testing)
 app.get("/n8n-status", (req, res) => res.json({ available: false, n8nConnected: false, internetConnected: false, mode: 'disabled' }));
 app.get("/n8n-workflows", (req, res) => res.json([]));
