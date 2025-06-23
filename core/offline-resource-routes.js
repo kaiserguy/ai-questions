@@ -108,6 +108,7 @@ router.get('/models/:filename', async (req, res) => {
     const localPath = path.join(OFFLINE_RESOURCES_DIR, 'models', filename);
     
     try {
+        await ensureResourcesDirectory();
         await fs.access(localPath);
         
         res.setHeader('Content-Type', 'application/octet-stream');
@@ -165,6 +166,7 @@ router.get('/wikipedia/:filename', async (req, res) => {
     const localPath = path.join(OFFLINE_RESOURCES_DIR, 'wikipedia', filename);
     
     try {
+        await ensureResourcesDirectory();
         await fs.access(localPath);
         
         res.setHeader('Content-Type', 'application/x-sqlite3');
