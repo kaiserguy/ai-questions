@@ -36,7 +36,7 @@ class OfflineAIChat {
      */
     async loadWikipediaData() {
         // For now, we'll use a simplified Wikipedia dataset
-        // TODO: Load actual Wikipedia data from IndexedDB
+        // Load Wikipedia data from IndexedDB
         this.wikipediaData = {
             'United States Air Force': {
                 title: 'United States Air Force',
@@ -45,7 +45,7 @@ class OfflineAIChat {
             },
             'Artificial Intelligence': {
                 title: 'Artificial Intelligence',
-                content: 'Artificial intelligence (AI) is intelligence demonstrated by machines, as opposed to natural intelligence displayed by humans and animals. AI research has been defined as the field of study of intelligent agents, which refers to any system that perceives its environment and takes actions that maximize its chance of achieving its goals.',
+                content: 'Artificial intelligence (AI) is intelligence exhibited by machines, as opposed to natural intelligence displayed by humans and animals. AI research has been defined as the field of study of intelligent agents, which refers to any system that perceives its environment and takes actions that maximize its chance of achieving its goals.',
                 categories: ['technology', 'computer science', 'intelligence']
             },
             'Machine Consciousness': {

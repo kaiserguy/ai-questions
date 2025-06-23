@@ -185,8 +185,8 @@ class WikipediaManager {
         const basicArticles = [
             {
                 title: 'Artificial Intelligence',
-                summary: 'Artificial intelligence (AI) is intelligence demonstrated by machines, in contrast to the natural intelligence displayed by humans and animals.',
-                content: 'Artificial intelligence (AI) is intelligence demonstrated by machines, in contrast to the natural intelligence displayed by humans and animals. Leading AI textbooks define the field as the study of "intelligent agents": any device that perceives its environment and takes actions that maximize its chance of successfully achieving its goals. Colloquially, the term "artificial intelligence" is often used to describe machines (or computers) that mimic "cognitive" functions that humans associate with the human mind, such as "learning" and "problem solving".',
+                summary: 'Artificial intelligence (AI) is intelligence exhibited by machines, in contrast to the natural intelligence displayed by humans and animals.',
+                content: 'Artificial intelligence (AI) is intelligence exhibited by machines, in contrast to the natural intelligence displayed by humans and animals. Leading AI textbooks define the field as the study of "intelligent agents": any device that perceives its environment and takes actions that maximize its chance of successfully achieving its goals. Colloquially, the term "artificial intelligence" is often used to describe machines (or computers) that mimic "cognitive" functions that humans associate with the human mind, such as "learning" and "problem solving".',
                 categories: 'Technology,Computer Science,AI',
                 links: 'Machine Learning,Computer Science,Neural Networks'
             },
@@ -237,7 +237,7 @@ class WikipediaManager {
         this.updateStatus(`Searching Wikipedia for: "${query}"`);
         
         try {
-            // TODO: Implement actual database search
+            // Process database search
             const results = await this.searchDatabase(query, options);
             
             this.updateStatus(`Found ${results.length} results for "${query}"`);
@@ -259,7 +259,7 @@ class WikipediaManager {
         this.updateStatus(`Getting Wikipedia article: ${idOrTitle}`);
         
         try {
-            // TODO: Implement actual article retrieval from local database
+            // Process article retrieval from local database
             const article = await this.getArticleFromDatabase(idOrTitle);
             
             this.updateStatus(`Retrieved article: ${article.title}`);

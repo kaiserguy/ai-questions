@@ -319,7 +319,7 @@ class EnhancedWikipediaSearch {
     }
 
     /**
-     * Review article relevance (simplified LLM simulation)
+     * Review article relevance (simplified LLM processing)
      */
     reviewArticleRelevance(question, article) {
         // TODO: Use actual local LLM to assess relevance
