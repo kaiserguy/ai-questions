@@ -15,7 +15,7 @@ const fs = require("fs");
 const archiver = require("archiver");
 
 // Import core components
-const offlinePackageRoutes = require("./core/offline-package-routes");
+const offlinePackageRoutes = require("../core/offline-package-routes");
 const createApp = require("../core/app");
 const PostgresDatabase = require("../core/pg-db");
 const ExternalLLMClient = require("../core/external-llm-client");
