@@ -413,10 +413,11 @@ class OfflineIntegrationManager {
      * Check for existing installation in IndexedDB
      */
     static async checkExistingInstallation() {
+        // For now, return false to avoid initialization issues
         // TODO: Check IndexedDB for existing data
         return {
             installed: false,
-            packageType: null
+            packageType: 'standard' // Default package type
         };
     }
 }

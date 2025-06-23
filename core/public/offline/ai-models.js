@@ -157,7 +157,6 @@ class AIModelManager {
             document.head.appendChild(script);
         });
     }
-    }
     
     /**
      * Load the tokenizer
