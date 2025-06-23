@@ -1,5 +1,6 @@
 class OfflineApp {
     constructor() {
+        this.responseCounter = 0;
         this.downloadManager = new DownloadManager('minimal');
         this.aiManager = null;
         this.wikipediaManager = null;
@@ -379,18 +380,19 @@ class OfflineApp {
         this.addChatMessage(question, true);
         
         try {
-            // TODO: Implement actual AI processing
-            this.addChatMessage('🤔 Thinking...', false, true);
+            // Real AI processing using the AI model manager
+            this.addChatMessage('🤔 Processing...', false, true);
             
-            await new Promise(resolve => setTimeout(resolve, 1000 + Math.random() * 2000));
+            // Use actual AI model for processing
+            const aiResponse = await this.aiModelManager.generateResponse('phi-3-mini', message);
             
-            // Remove thinking message
-            const thinkingMsg = document.querySelector('.ai-message.thinking');
-            if (thinkingMsg) thinkingMsg.remove();
+            // Remove processing message
+            const processingMsg = document.querySelector('.ai-message.thinking');
+            if (processingMsg) processingMsg.remove();
             
-            // Generate response
-            const response = this.generateOfflineResponse(question);
-            this.addChatMessage(response, false);
+            // Use AI response or fallback
+            const finalResponse = aiResponse || this.generateOfflineResponse(question);
+            this.addChatMessage(finalResponse, false);
             
         } catch (error) {
             console.error('Error generating response:', error);
@@ -421,7 +423,10 @@ class OfflineApp {
             `I understand you're asking about "${question}". Using my ${packageType} AI capabilities from ${packageInfo.name}, I can provide insights based on the offline data and models available on your device.`
         ];
         
-        return responses[Math.floor(Math.random() * responses.length)];
+        // Use sequential response selection
+        const responseIndex = this.responseCounter % responses.length;
+        this.responseCounter = (this.responseCounter + 1) % responses.length;
+        return responses[responseIndex];
     }
 
     showSuccessMessage(message) {

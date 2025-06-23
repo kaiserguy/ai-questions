@@ -4,6 +4,7 @@ const DatabaseInterface = require("./db-interface");
 class PlaceholderDatabase extends DatabaseInterface {
     constructor() {
         super();
+        this.currentQuestionIndex = 0;
         this.users = [];
         this.personalQuestions = [];
         this.answers = [];
@@ -81,8 +82,10 @@ class PlaceholderDatabase extends DatabaseInterface {
 
     async getDailyQuestion(date) {
         // TODO: Implement actual database query for daily question
-        const randomIndex = Math.floor(Math.random() * this.dailyQuestions.length);
-        return this.dailyQuestions[randomIndex];
+        // Get next question in sequence
+        const questionIndex = this.currentQuestionIndex % this.dailyQuestions.length;
+        this.currentQuestionIndex = (this.currentQuestionIndex + 1) % this.dailyQuestions.length;
+        return this.dailyQuestions[questionIndex];
     }
 
     async getAnswer(question, model) {

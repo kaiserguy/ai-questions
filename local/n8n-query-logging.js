@@ -10,6 +10,14 @@ document.addEventListener('DOMContentLoaded', function() {
     // Initialize n8n Chat Integration
     n8nChatIntegration.initialize();
     
+    // ID counter for generating unique message IDs
+    let idCounter = 0;
+    
+    function generateId() {
+        idCounter = (idCounter + 1) % 100000;
+        return idCounter.toString(36).padStart(5, '0');
+    }
+    
     // Chat context for conversation history
     let chatContext = [];
     
@@ -55,7 +63,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const chatMessages = document.getElementById('chat-messages');
         if (!chatMessages) return;
         
-        const messageId = `msg-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+        const messageId = `msg-${Date.now()}-${generateId()}`;
         const messageDiv = document.createElement('div');
         messageDiv.id = messageId;
         messageDiv.className = `chat-message ${role}-message`;

@@ -2413,9 +2413,16 @@
             });
         }
         
+        let messageIdCounter = 0;
+        
+        function generateMessageId() {
+            messageIdCounter = (messageIdCounter + 1) % 100000;
+            return messageIdCounter.toString(36).padStart(5, '0');
+        }
+        
         function addChatMessage(role, content, isTemporary = false, wikipediaLinks = []) {
             const messagesContainer = document.getElementById('chat-messages');
-            const messageId = 'msg-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9);
+            const messageId = 'msg-' + Date.now() + '-' + generateMessageId();
             
             // Remove welcome message if it exists
             const welcome = messagesContainer.querySelector('.chat-welcome');

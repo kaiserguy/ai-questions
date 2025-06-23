@@ -8,7 +8,8 @@ const WikipediaParserN8n = require('./wikipedia-parser-n8n');
 
 class N8nAgentIntegration {
     constructor() {
-        this.n8nBaseUrl = process.env.N8N_BASE_URL || 'http://localhost:5678';
+        this.idCounter = 0;
+        this.n8nWebhookUrl = process.env.N8N_WEBHOOK_URL || 'http://localhost:5678';
         this.agentEndpoints = {
             offline: '/webhook/process-question',
             online: '/webhook/process-question-online',
@@ -74,7 +75,7 @@ class N8nAgentIntegration {
                 metadata: {
                     timestamp: new Date().toISOString(),
                     mode: isOnline ? 'online' : 'offline',
-                    requestId: `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+                    requestId: `req_${Date.now()}_${this.generateId()}`
                 }
             };
 
@@ -132,7 +133,7 @@ class N8nAgentIntegration {
             priority: priority,
             metadata: {
                 timestamp: new Date().toISOString(),
-                requestId: `task_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+                requestId: `task_${Date.now()}_${this.generateId()}`
             }
         };
 
@@ -265,6 +266,14 @@ class N8nAgentIntegration {
                 error: error.message
             };
         }
+    }
+    
+    /**
+     * Generate sequential ID for requests
+     */
+    generateId() {
+        this.idCounter = (this.idCounter + 1) % 100000;
+        return this.idCounter.toString(36).padStart(5, '0');
     }
 }
 
