@@ -208,6 +208,34 @@ module.exports = (db, ai, wikipedia, config) => {
         }
     });
 
+    // API route for /api/models/all (alias for /api/models)
+    router.get("/api/models/all", ensureAuthenticated, async (req, res) => {
+        try {
+            const modelsResponse = await ai.listModels(req.user ? req.user.id : null);
+            res.json(modelsResponse.models);
+        } catch (error) {
+            console.error("Error listing models:", error);
+            res.status(500).json({ error: "Failed to retrieve models." });
+        }
+    });
+
+    // API route for Ollama models (local models)
+    router.get("/api/ollama/models", ensureAuthenticated, async (req, res) => {
+        try {
+            // For local version, try to get Ollama models
+            if (config.isLocal && ai.listOllamaModels) {
+                const ollamaModels = await ai.listOllamaModels();
+                res.json(ollamaModels);
+            } else {
+                // Return empty array if not local or no Ollama support
+                res.json([]);
+            }
+        } catch (error) {
+            console.error("Error listing Ollama models:", error);
+            res.json([]); // Return empty array instead of error for Ollama
+        }
+    });
+
     // API to save user model preferences
     router.post("/api/user/model-preferences", ensureAuthenticated, async (req, res) => {
         const { modelId, isEnabled, displayOrder } = req.body;

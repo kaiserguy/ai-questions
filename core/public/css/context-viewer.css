@@ -1,0 +1,54 @@
+/* Context Viewer Styles */
+.context-viewer {
+    background: #f8f9fa;
+    border: 1px solid #e9ecef;
+    border-radius: 8px;
+    padding: 16px;
+    margin: 16px 0;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+.context-viewer h3 {
+    margin: 0 0 12px 0;
+    color: #495057;
+    font-size: 16px;
+    font-weight: 600;
+}
+
+.context-viewer p {
+    margin: 0;
+    color: #6c757d;
+    line-height: 1.5;
+    font-size: 14px;
+}
+
+.context-viewer.expanded {
+    background: #fff;
+    border-color: #007bff;
+}
+
+.context-toggle {
+    background: none;
+    border: none;
+    color: #007bff;
+    cursor: pointer;
+    font-size: 12px;
+    text-decoration: underline;
+    padding: 0;
+    margin-top: 8px;
+}
+
+.context-toggle:hover {
+    color: #0056b3;
+}
+
+.context-content {
+    max-height: 100px;
+    overflow: hidden;
+    transition: max-height 0.3s ease;
+}
+
+.context-content.expanded {
+    max-height: none;
+}
+
