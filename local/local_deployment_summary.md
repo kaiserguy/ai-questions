@@ -18,7 +18,6 @@ I've created a comprehensive local deployment package for the AI Questions appli
 - `stop-local.sh` - Gracefully stop the application
 - `status-local.sh` - Detailed status and system information
 - `test-installation.sh` - Comprehensive installation testing
-- `demo-setup.sh` - Quick demo with example questions
 
 ### **Documentation**
 - `README.md` - Quick start guide
@@ -128,15 +127,6 @@ The test installation script validates:
 - ✅ Configuration validity
 - ✅ Network setup
 - ✅ Application startup readiness
-
-## 🎬 **Demo Capabilities**
-
-The demo setup includes:
-- 5 example questions across different categories
-- Suggested scheduling frequencies
-- Multiple AI model configurations
-- Real-world usage scenarios
-- Performance expectations
 
 ## 🔒 **Security & Privacy**
 
