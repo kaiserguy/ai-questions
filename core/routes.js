@@ -535,6 +535,23 @@ module.exports = (db, ai, wikipedia, config) => {
         }
     });
 
+    router.get("/api/wikipedia/status", ensureAuthenticated, async (req, res) => {
+        try {
+            const stats = await wikipedia.getWikipediaStats();
+            res.json({
+                available: true,
+                articleCount: stats.totalArticles || 0,
+                databaseSize: stats.databaseSize || 'Unknown'
+            });
+        } catch (error) {
+            console.error("Wikipedia status error:", error);
+            res.json({
+                available: false,
+                error: error.message
+            });
+        }
+    });
+
     router.get("/api/wikipedia/article", ensureAuthenticated, async (req, res) => {
         const { title } = req.query;
         try {

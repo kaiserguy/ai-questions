@@ -88,7 +88,7 @@ class LocalDatabase {
         return result.rows.length > 0 ? result.rows[0] : null;
     }
 
-    async saveAnswer(questionText, answer, modelId, userId = 1) {
+    async saveAnswer(questionText, context, answer, model, modelName, confidence, createdAt, userId = 1, personalQuestionId = null, isPersonal = false, promptVersion = "2.0") {
         // First, ensure the question exists
         let questionResult = await this.query(
             'SELECT id FROM questions WHERE question = ?',
@@ -99,8 +99,8 @@ class LocalDatabase {
         if (questionResult.rows.length === 0) {
             // Create the question
             const insertResult = await this.query(
-                'INSERT INTO questions (question) VALUES (?)',
-                [questionText]
+                'INSERT INTO questions (question, context) VALUES (?, ?)',
+                [questionText, context]
             );
             questionId = insertResult.lastID;
         } else {
@@ -110,10 +110,10 @@ class LocalDatabase {
         // Save the answer
         const result = await this.query(
             'INSERT INTO answers (question_id, answer, model, user_id) VALUES (?, ?, ?, ?)',
-            [questionId, answer, modelId, userId]
+            [questionId, answer, model, userId]
         );
         
-        return { id: result.lastID, question_id: questionId, answer, model: modelId, user_id: userId };
+        return { id: result.lastID, question_id: questionId, answer, model, user_id: userId };
     }
 
     async getHistory(questionText) {

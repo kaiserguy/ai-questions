@@ -88,7 +88,7 @@
             </div>
         </div>
     </div>
-    <div id="personal-questions-section" class="personal-questions-section hidden">
+    <div id="personal-questions-section" class="personal-questions-section">
         <h3>📝 Your Personal Questions</h3>
         <p>Create and track your own custom questions to monitor AI responses over time.</p>
         
@@ -317,6 +317,12 @@
             setTimeout(() => {
                 loadLocalModels();
             }, 1000);
+            
+            // Initialize Wikipedia status
+            checkWikipediaStatus();
+            
+            // Initialize AI chat status
+            updateAIChatStatus();
         });
         
         // Load all models (cloud + local)
@@ -1789,6 +1795,55 @@
                 .catch(error => {
                     console.error('Error loading chat models:', error);
                     select.innerHTML = '<option value="">Error loading models</option>';
+                });
+        }
+        
+        // Check Wikipedia database status
+        function checkWikipediaStatus() {
+            const statusElement = document.getElementById('wikipedia-status');
+            
+            fetch('/api/wikipedia/status')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.available) {
+                        statusElement.innerHTML = '<span class="status-indicator" style="color: #28a745;">✅ Wikipedia database available (' + data.articleCount + ' articles)</span>';
+                        document.getElementById('wikipedia-content').style.display = 'block';
+                    } else {
+                        statusElement.innerHTML = '<span class="status-indicator" style="color: #dc3545;">❌ Wikipedia database not found</span>';
+                    }
+                })
+                .catch(error => {
+                    console.error('Error checking Wikipedia status:', error);
+                    statusElement.innerHTML = '<span class="status-indicator" style="color: #dc3545;">❌ Error checking Wikipedia status</span>';
+                });
+        }
+        
+        // Update AI chat status
+        function updateAIChatStatus() {
+            fetch('/api/models/all')
+                .then(response => response.json())
+                .then(data => {
+                    const totalModels = (data.cloud_models || []).length + (data.local_models || []).length;
+                    const localModels = data.local_models || [];
+                    
+                    // Update chat section header with status
+                    const chatSection = document.getElementById('chat-section');
+                    if (chatSection) {
+                        const header = chatSection.querySelector('h4');
+                        if (localModels.length > 0) {
+                            header.innerHTML = '💬 Chat with Local AI <span style="color: #28a745; font-size: 0.8em;">✅ ' + localModels.length + ' model(s) available</span>';
+                        } else {
+                            header.innerHTML = '💬 Chat with Local AI <span style="color: #dc3545; font-size: 0.8em;">❌ No models available</span>';
+                        }
+                    }
+                })
+                .catch(error => {
+                    console.error('Error updating AI chat status:', error);
+                    const chatSection = document.getElementById('chat-section');
+                    if (chatSection) {
+                        const header = chatSection.querySelector('h4');
+                        header.innerHTML = '💬 Chat with Local AI <span style="color: #dc3545; font-size: 0.8em;">❌ Error loading models</span>';
+                    }
                 });
         }
         
