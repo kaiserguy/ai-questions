@@ -78,6 +78,8 @@ module.exports = (db, ai, wikipedia, config) => {
         let todayAnswer = null;
         let allModels = [];
         let indexFlavor = "hosted-index"
+        console.log(`[DEBUG] Config object:`, config);
+        console.log(`[DEBUG] config.isLocal:`, config.isLocal);
         if (config.isLocal) {
             indexFlavor = "local-index"
         }
@@ -98,6 +100,7 @@ module.exports = (db, ai, wikipedia, config) => {
             console.error("Error fetching data for main page:", error);
         }
 
+        console.log(`[DEBUG] Rendering view: ${indexFlavor}, isLocal: ${config.isLocal}`);
         res.render(indexFlavor, {
             user: req.user,
             todayQuestion,

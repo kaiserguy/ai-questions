@@ -79,6 +79,146 @@ class LocalDatabase {
         });
     }
 
+    // Database methods expected by routes.js
+    async getAnswer(question, modelId) {
+        const result = await this.query(
+            'SELECT * FROM answers WHERE question_id = (SELECT id FROM questions WHERE question = ?) AND model = ? ORDER BY created_at DESC LIMIT 1',
+            [question, modelId]
+        );
+        return result.rows.length > 0 ? result.rows[0] : null;
+    }
+
+    async saveAnswer(questionText, answer, modelId, userId = 1) {
+        // First, ensure the question exists
+        let questionResult = await this.query(
+            'SELECT id FROM questions WHERE question = ?',
+            [questionText]
+        );
+        
+        let questionId;
+        if (questionResult.rows.length === 0) {
+            // Create the question
+            const insertResult = await this.query(
+                'INSERT INTO questions (question) VALUES (?)',
+                [questionText]
+            );
+            questionId = insertResult.lastID;
+        } else {
+            questionId = questionResult.rows[0].id;
+        }
+
+        // Save the answer
+        const result = await this.query(
+            'INSERT INTO answers (question_id, answer, model, user_id) VALUES (?, ?, ?, ?)',
+            [questionId, answer, modelId, userId]
+        );
+        
+        return { id: result.lastID, question_id: questionId, answer, model: modelId, user_id: userId };
+    }
+
+    async getHistory(questionText) {
+        const result = await this.query(`
+            SELECT a.*, q.question, q.context 
+            FROM answers a 
+            JOIN questions q ON a.question_id = q.id 
+            WHERE q.question = ? 
+            ORDER BY a.created_at DESC
+        `, [questionText]);
+        return result.rows;
+    }
+
+    async deleteAnswer(id) {
+        const result = await this.query('DELETE FROM answers WHERE id = ?', [id]);
+        return result.rowCount > 0;
+    }
+
+    // User preference methods (simplified for local use)
+    async saveUserModelPreference(userId, modelId, isEnabled, displayOrder) {
+        // For local use, just return a mock response
+        return { id: 1, user_id: userId, model_id: modelId, is_enabled: isEnabled, display_order: displayOrder };
+    }
+
+    async getUserModelPreferences(userId) {
+        // For local use, return empty array
+        return [];
+    }
+
+    async saveUserApiKey(userId, provider, apiKey) {
+        // For local use, just return a mock response
+        return { id: 1, user_id: userId, provider, api_key: apiKey };
+    }
+
+    // Personal questions methods
+    async getPersonalQuestions(userId) {
+        const result = await this.query(
+            'SELECT * FROM personal_questions WHERE user_id = ? ORDER BY created_at DESC',
+            [userId]
+        );
+        return result.rows;
+    }
+
+    async createPersonalQuestion(userId, question, context) {
+        const result = await this.query(
+            'INSERT INTO personal_questions (user_id, question) VALUES (?, ?)',
+            [userId, question]
+        );
+        return { id: result.lastID, user_id: userId, question, context };
+    }
+
+    async updatePersonalQuestion(id, userId, question, context) {
+        const result = await this.query(
+            'UPDATE personal_questions SET question = ? WHERE id = ? AND user_id = ?',
+            [question, id, userId]
+        );
+        return result.rowCount > 0;
+    }
+
+    async deletePersonalQuestion(id, userId) {
+        const result = await this.query(
+            'DELETE FROM personal_questions WHERE id = ? AND user_id = ?',
+            [id, userId]
+        );
+        return result.rowCount > 0;
+    }
+
+    async getPersonalQuestionById(id, userId) {
+        const result = await this.query(
+            'SELECT * FROM personal_questions WHERE id = ? AND user_id = ?',
+            [id, userId]
+        );
+        return result.rows.length > 0 ? result.rows[0] : null;
+    }
+
+    async getPersonalQuestionAnswers(questionId, userId) {
+        // For local use, return empty array (no separate answers table for personal questions)
+        return [];
+    }
+
+    // Schedule methods (simplified for local use)
+    async getQuestionSchedules(userId) {
+        return [];
+    }
+
+    async createQuestionSchedule(scheduleData) {
+        return { id: 1, ...scheduleData };
+    }
+
+    async updateQuestionSchedule(id, userId, scheduleData) {
+        return true;
+    }
+
+    async deleteQuestionSchedule(id, userId) {
+        return true;
+    }
+
+    async getQuestionScheduleById(id, userId) {
+        return null;
+    }
+
+    async getScheduledExecutions(scheduleId, userId) {
+        return [];
+    }
+
     async end() {
         return new Promise((resolve) => {
             this.db.close((err) => {
