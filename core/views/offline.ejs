@@ -1599,12 +1599,7 @@
                     setupIntegrationEventHandlers();
                     
                     // Initialize components
-                    const initResult = await integrationManager.initializeComponents();
-                    
-                    // If initialization is successful, show sections immediately
-                    if (initResult && integrationManager.initialized) {
-                        showOfflineSections();
-                    }
+                    integrationManager.initializeComponents();
                 }
             } catch (error) {
                 console.error('Error checking for existing installation:', error);
@@ -1633,41 +1628,8 @@
                 onStatusUpdate: (message, status) => {
                     console.log(`Status: ${message} (${status})`);
                     document.getElementById('progressDetails').textContent = message;
-                },
-                onInitializationComplete: () => {
-                    console.log('Initialization complete - showing chat and wiki sections');
-                    showOfflineSections();
                 }
             });
-        }
-        
-        // Show chat and Wikipedia sections when offline functionality is ready
-        function showOfflineSections() {
-            // Hide progress section
-            document.getElementById('progressSection').style.display = 'none';
-            
-            // Show chat and Wikipedia sections
-            document.getElementById('chatSection').style.display = 'block';
-            document.getElementById('wikiSection').style.display = 'block';
-            
-            // Add a success message
-            const successMessage = document.createElement('div');
-            successMessage.className = 'status-card';
-            successMessage.style.background = '#dcfce7';
-            successMessage.style.border = '1px solid #16a34a';
-            successMessage.innerHTML = `
-                <div style="display: flex; align-items: center; gap: 10px;">
-                    <div style="color: #16a34a; font-size: 1.5rem;">✅</div>
-                    <div>
-                        <strong style="color: #16a34a;">Offline Mode Ready!</strong>
-                        <p style="margin: 5px 0 0 0; color: #15803d;">AI chat and Wikipedia search are now available offline.</p>
-                    </div>
-                </div>
-            `;
-            
-            // Insert success message before chat section
-            const chatSection = document.getElementById('chatSection');
-            chatSection.parentNode.insertBefore(successMessage, chatSection);
         }
         
         // Chat functionality

@@ -221,71 +221,31 @@ class WikipediaManager {
         // TODO: Generate actual results from local database
         const results = [];
         
-        // Provide better demo content based on common search terms
-        const demoArticles = this.getDemoArticles(query);
-        
-        // Add relevant results
-        demoArticles.forEach((article, index) => {
-            if (article.title.toLowerCase().includes(query.toLowerCase()) || 
-                article.summary.toLowerCase().includes(query.toLowerCase())) {
-                results.push({
-                    ...article,
-                    relevance: 0.9 - (index * 0.1)
-                });
-            }
+        // Add a result that matches the query
+        results.push({
+            id: 'article1',
+            title: query.charAt(0).toUpperCase() + query.slice(1),
+            summary: `TODO: Load actual Wikipedia article content about "${query}" from locally stored Wikipedia database.`,
+            relevance: 0.95
         });
         
-        // If no matches found, add a general result
-        if (results.length === 0) {
-            results.push({
-                id: `demo_${query.replace(/\s+/g, '_')}`,
-                title: query.charAt(0).toUpperCase() + query.slice(1),
-                summary: `This is a demo article about "${query}". In the full offline version, this would contain actual Wikipedia content from the locally stored database.`,
-                relevance: 0.8
-            });
-        }
+        // Add a disambiguation result
+        results.push({
+            id: 'article2',
+            title: query.charAt(0).toUpperCase() + query.slice(1) + ' (disambiguation)',
+            summary: `TODO: Load disambiguation page for "${query}" with various meanings and related articles.`,
+            relevance: 0.8
+        });
         
-        return results.slice(0, options.limit || 10);
-    }
-    
-    /**
-     * Get demo articles for testing
-     */
-    getDemoArticles(query) {
-        const articles = [
-            {
-                id: 'artificial_intelligence',
-                title: 'Artificial Intelligence',
-                summary: 'Artificial intelligence (AI) is intelligence demonstrated by machines, in contrast to the natural intelligence displayed by humans and animals. Leading AI textbooks define the field as the study of "intelligent agents".'
-            },
-            {
-                id: 'machine_learning',
-                title: 'Machine Learning',
-                summary: 'Machine learning (ML) is a field of inquiry devoted to understanding and building methods that "learn", that is, methods that leverage data to improve performance on some set of tasks.'
-            },
-            {
-                id: 'computer_science',
-                title: 'Computer Science',
-                summary: 'Computer science is the study of algorithmic processes, computational systems and the design of computer systems and their applications.'
-            },
-            {
-                id: 'wikipedia',
-                title: 'Wikipedia',
-                summary: 'Wikipedia is a multilingual free online encyclopedia written and maintained by a community of volunteers through open collaboration and a wiki-based editing system.'
-            },
-            {
-                id: 'internet',
-                title: 'Internet',
-                summary: 'The Internet is the global system of interconnected computer networks that uses the Internet protocol suite (TCP/IP) to communicate between networks and devices.'
-            },
-            {
-                id: 'programming',
-                title: 'Computer Programming',
-                summary: 'Computer programming is the process of creating a set of instructions that tell a computer how to perform a task. Programming can be done using a variety of computer programming languages.'
-            }
-        ];
+        // Add a history result
+        results.push({
+            id: 'article3',
+            title: 'History of ' + query.charAt(0).toUpperCase() + query.slice(1),
+            summary: `TODO: Load article about the history and development of "${query}" throughout different time periods and contexts.`,
+            relevance: 0.7
+        });
         
-        return articles;
+        return results;
     }
     
     /**
@@ -295,32 +255,21 @@ class WikipediaManager {
         // TODO: Implement actual article retrieval from local database
         await new Promise(resolve => setTimeout(resolve, 200 + Math.random() * 500));
         
-        // Check if it's one of our demo articles
-        const demoArticles = this.getDemoArticles('');
-        const foundArticle = demoArticles.find(article => 
-            article.id === idOrTitle || 
-            article.title.toLowerCase() === idOrTitle.toLowerCase()
-        );
-        
-        if (foundArticle) {
-            return {
-                ...foundArticle,
-                content: foundArticle.summary + '\n\n[Demo Mode] This is a demonstration of the offline Wikipedia functionality. In the full version, this would contain the complete Wikipedia article content loaded from the local database.',
-                sections: ['Introduction', 'Overview', 'History', 'See also'],
-                categories: ['Technology', 'Science'],
-                lastModified: new Date().toISOString()
-            };
-        }
-        
-        // Return a generic demo article
+        // TODO: Return actual article from database
         return {
-            id: typeof idOrTitle === 'number' ? idOrTitle : 'demo_article',
-            title: typeof idOrTitle === 'string' ? idOrTitle : 'Demo Article',
-            content: `[Demo Mode] This is a demonstration article about "${idOrTitle}". In the full offline version, this would contain actual Wikipedia content loaded from the locally stored database.\n\nThe offline Wikipedia functionality is designed to provide comprehensive articles with full text search capabilities, but currently operates in demo mode.`,
-            summary: `Demo article about ${idOrTitle}`,
-            sections: ['Introduction', 'Demo Content'],
-            categories: ['Demo'],
-            lastModified: new Date().toISOString()
+            id: typeof idOrTitle === 'number' ? idOrTitle : 'article1',
+            title: typeof idOrTitle === 'string' ? idOrTitle : 'Wikipedia Article',
+            content: `
+                <h2>Introduction</h2>
+                <p>TODO: Load actual Wikipedia article content from local database. The article would contain comprehensive information about the topic, with proper formatting, references, and links to related articles.</p>
+                
+                <h2>Content</h2>
+                <p>TODO: Load the actual content of the Wikipedia article from local database that was downloaded as part of the offline package.</p>
+                
+                <h2>References</h2>
+                <p>TODO: Load references and citations for the information presented in the article.</p>
+            `,
+            lastUpdated: new Date().toISOString()
         };
     }
     
