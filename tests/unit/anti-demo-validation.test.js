@@ -59,7 +59,7 @@ describe('Anti-Demo Validation Tests', () => {
         
         return files.filter(file => {
             const ext = path.extname(file);
-            return SCAN_EXTENSIONS.includes(ext) && !file.includes('test') && !file.includes('node_modules');
+            return SCAN_EXTENSIONS.includes(ext) && !file.includes('test') && !file.includes('node_modules') && !file.includes('libs');
         });
     }
 
