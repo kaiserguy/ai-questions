@@ -4,12 +4,8 @@ const OfflineResourceCache = require('./offline-resource-cache');
 function addOfflinePackageRoutes(app) {
     const cache = new OfflineResourceCache();
     
-    // Initialize cache
-    cache.init().then(() => {
-        console.log('✅ Offline resource cache initialized');
-    }).catch(err => {
-        console.error('❌ Failed to initialize offline resource cache:', err);
-    });
+    // Cache is initialized in constructor, no need to call init()
+    console.log('✅ Offline resource cache ready');
 
     // Check package availability
     app.get('/api/offline/packages/availability', async (req, res) => {

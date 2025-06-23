@@ -15,7 +15,7 @@ const fs = require("fs");
 const archiver = require("archiver");
 
 // Import core components
-const offlinePackageRoutes = require("../core/offline-package-routes");
+const { addOfflinePackageRoutes } = require("../core/offline-package-routes");
 const createApp = require("../core/app");
 const PostgresDatabase = require("../core/pg-db");
 const ExternalLLMClient = require("../core/external-llm-client");
@@ -111,7 +111,8 @@ const ensureAuthenticated = (req, res, next) => {
     res.redirect("/login");
 };
 
-app.use("/", offlinePackageRoutes(app));
+// Add offline package routes
+addOfflinePackageRoutes(app);
 
 // Add offline resource routes for serving libraries, models, and Wikipedia
 const offlineResourceRoutes = require("../core/offline-resource-routes");
