@@ -1,5 +1,0 @@
-2025-06-23T00:47:54.1962033Z Requested labels: ubuntu-latest
-2025-06-23T00:47:54.1962033Z Job defined at: kaiserguy/ai-questions/.github/workflows/deploy.yml@refs/heads/main
-2025-06-23T00:47:54.1962033Z Waiting for a runner to pick up this job...
-2025-06-23T00:47:54.4893717Z Job is waiting for a hosted runner to come online.
-2025-06-23T00:47:54.4893765Z Job is about to start running on the hosted runner: GitHub Actions 1000000143
