@@ -115,7 +115,20 @@ jobs:
     - name: Verify deployment
       run: |
         echo "Deployment completed successfully!"
-        echo "App should be available at: https://${{ secrets.HEROKU_APP_NAME }}.herokuapp.com"
+        APP_URL="https://${{ secrets.HEROKU_APP_NAME }}.herokuapp.com"
+        echo "App should be available at: $APP_URL"
+        
+        # Wait for app to be ready
+        echo "Waiting for app to be ready..."
+        sleep 30
+        
+        # Test basic connectivity
+        echo "Testing basic connectivity..."
+        if curl -f -s --max-time 30 "$APP_URL" > /dev/null; then
+          echo "✅ App is responding to requests"
+        else
+          echo "⚠️ App may not be fully ready yet (this can happen with cold starts)"
+        fi
         
   validate-production:
     runs-on: ubuntu-latest
