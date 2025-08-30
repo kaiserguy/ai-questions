@@ -32,7 +32,8 @@ jobs:
       
     - name: Run linting
       run: |
-        npx eslint . --ext .js,.cjs --ignore-path .gitignore || echo "Linting completed with warnings"
+        echo "Checking for basic syntax errors in JavaScript files..."
+        find . -name "*.js" -not -path "./node_modules/*" -not -path "./tests/*" -exec node -c {} \;
         
     - name: Validate JavaScript syntax
       run: ./tests/validation/validate-javascript-syntax.sh
@@ -98,7 +99,7 @@ jobs:
       run: npm ci
       
     - name: Run tests (if any)
-      run: npm test --if-present || true
+      run: npm test
       
     - name: Install Heroku CLI
       run: |

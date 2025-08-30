@@ -2,9 +2,9 @@
   "name": "simple-daily-ai-question",
   "version": "1.0.0",
   "description": "A simple website that asks a public free AI the same question every day via an API call and shows the answer",
-  "main": "index.cjs",
+  "main": "hosted/hosted-app.js",
   "scripts": {
-    "start": "node index.cjs",
+    "start": "node hosted/hosted-app.js",
     "dev": "nodemon index.js",
     "test": "jest",
     "test:watch": "jest --watch",
@@ -28,8 +28,10 @@
     "passport": "^0.7.0",
     "passport-google-oauth20": "^2.0.0",
     "pg": "^8.14.1",
-    "puppeteer": "^24.10.2",
     "sqlite3": "^5.1.7"
+  },
+  "optionalDependencies": {
+    "puppeteer": "^24.10.2"
   },
   "devDependencies": {
     "@jest/globals": "^30.0.2",
@@ -38,5 +40,11 @@
     "jsdom": "^26.1.0",
     "nodemon": "^3.1.9",
     "supertest": "^7.1.1"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "config": {
+    "puppeteer_skip_chromium_download": true
   }
 }

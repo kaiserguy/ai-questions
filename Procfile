@@ -1,1 +1,1 @@
-web: node core/hosted-index.cjs
+web: node hosted/hosted-app.js
