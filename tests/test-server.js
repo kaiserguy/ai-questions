@@ -21,18 +21,22 @@ app.set('views', path.join(__dirname, '../core/views'));
 app.use(express.static(path.join(__dirname, '../core/public')));
 app.use(express.json());
 
-// Basic route that doesn't require database
+// Basic route that matches production behavior - redirects to login for unauthenticated users
 app.get('/', (req, res) => {
+    // In production, unauthenticated users are redirected to /login
+    // Simulate this behavior in test mode
+    res.redirect('/login');
+});
+
+// Login route to match production
+app.get('/login', (req, res) => {
     try {
-        res.render('index', { 
-            title: 'AI Questions - Test Mode',
-            user: null,
-            questions: [],
-            isLocal: false
+        res.render('login', { 
+            title: 'Login - AI Questions - Test Mode'
         });
     } catch (error) {
-        console.error('Error rendering index:', error);
-        res.status(500).send('Server Error - Test Mode');
+        console.error('Error rendering login:', error);
+        res.status(500).send('Login Error - Test Mode');
     }
 });
 

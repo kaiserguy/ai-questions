@@ -136,7 +136,7 @@ if (PUBLIC_CONFIG.auth.google.clientID && PUBLIC_CONFIG.auth.google.clientSecret
     
     console.log("OAuth routes configured successfully");
 } else {
-    // Provide dummy auth routes for development
+    // Provide fallback auth routes for development/environments without OAuth configured
     app.get("/auth/google", (req, res) => {
         res.redirect("/?error=oauth_not_configured");
     });

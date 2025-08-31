@@ -134,7 +134,7 @@ class LocalDatabase {
 
     // User preference methods (simplified for local use)
     async saveUserModelPreference(userId, modelId, isEnabled, displayOrder) {
-        // For local use, just return a mock response
+        // For local use, just return a simple response since user prefs aren't persisted
         return { id: 1, user_id: userId, model_id: modelId, is_enabled: isEnabled, display_order: displayOrder };
     }
 
@@ -144,7 +144,7 @@ class LocalDatabase {
     }
 
     async saveUserApiKey(userId, provider, apiKey) {
-        // For local use, just return a mock response
+        // For local use, just return a simple response since keys aren't persisted
         return { id: 1, user_id: userId, provider, api_key: apiKey };
     }
 
