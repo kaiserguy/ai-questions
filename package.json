@@ -8,7 +8,10 @@
     "dev": "nodemon index.js",
     "test": "jest",
     "test:watch": "jest --watch",
-    "test:coverage": "jest --coverage"
+    "test:coverage": "jest --coverage",
+    "audit": "npm audit --audit-level=moderate",
+    "audit:fix": "npm audit fix",
+    "security": "npm audit && npm outdated"
   },
   "keywords": [
     "ai",
@@ -43,7 +46,7 @@
     "sqlite3": "^5.1.7"
   },
   "optionalDependencies": {
-    "puppeteer": "^24.10.2"
+    "puppeteer": "^24.34.0"
   },
   "devDependencies": {
     "@jest/globals": "^30.0.2",

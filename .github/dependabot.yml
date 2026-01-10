@@ -1,0 +1,65 @@
+version: 2
+updates:
+  # Enable version updates for npm
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+    # Allow up to 10 open pull requests for npm dependencies
+    open-pull-requests-limit: 10
+    # Automatically merge minor and patch updates
+    labels:
+      - "dependencies"
+      - "automated"
+    # Group updates by type
+    groups:
+      production-dependencies:
+        dependency-type: "production"
+        update-types:
+          - "minor"
+          - "patch"
+      development-dependencies:
+        dependency-type: "development"
+        update-types:
+          - "minor"
+          - "patch"
+    # Security updates always get their own PR
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
+    # Commit message prefix
+    commit-message:
+      prefix: "deps"
+      prefix-development: "deps-dev"
+      include: "scope"
+    # Reviewers and assignees
+    reviewers:
+      - "kaiserguy"
+    assignees:
+      - "kaiserguy"
+    # Pull request branch name prefix
+    pull-request-branch-name:
+      separator: "/"
+    # Rebase strategy for updates
+    rebase-strategy: "auto"
+    
+  # Enable version updates for GitHub Actions
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+    labels:
+      - "dependencies"
+      - "github-actions"
+      - "automated"
+    commit-message:
+      prefix: "ci"
+      include: "scope"
+    reviewers:
+      - "kaiserguy"
+    assignees:
+      - "kaiserguy"
