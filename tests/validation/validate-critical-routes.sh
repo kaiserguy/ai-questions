@@ -20,11 +20,21 @@ if kill -0 $TEST_SERVER_PID 2>/dev/null && netstat -tlnp 2>/dev/null | grep -q "
     echo "✅ Test server is running and listening on port 3000"
     
     # Test routes with test server
-    routes=("/" "/offline" "/health" "/test/css")
     success_count=0
-    total_routes=${#routes[@]}
+    total_routes=4
     
-    for route in "${routes[@]}"; do
+    # Test root route (expects redirect to login)
+    echo "Testing route: /"
+    http_code=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 "http://localhost:3000/")
+    if [ "$http_code" = "302" ] || [ "$http_code" = "301" ]; then
+        echo "✅ Route / accessible (redirect to login as expected)"
+        ((success_count++))
+    else
+        echo "❌ Route / failed (expected redirect, got $http_code)"
+    fi
+    
+    # Test other routes (expect 200)
+    for route in "/offline" "/health" "/test/css"; do
         echo "Testing route: $route"
         if curl -f -s --max-time 10 "http://localhost:3000$route" > /dev/null 2>&1; then
             echo "✅ Route $route accessible"
@@ -94,44 +104,77 @@ fi
 echo "✅ Hosted server is listening on port 3000"
 
 # Test critical routes with retry logic
-routes=("/" "/offline")
 success_count=0
-total_routes=${#routes[@]}
+total_routes=2
 
-for route in "${routes[@]}"; do
-  echo "Testing route: $route"
-  success=false
-  
-  # Try up to 3 times with delays
-  for attempt in 1 2 3; do
-    echo "  Attempt $attempt..."
-    if curl -f -s --max-time 10 "http://localhost:3000$route" > /dev/null 2>&1; then
-      echo "✅ Route $route accessible (attempt $attempt)"
-      success=true
-      ((success_count++))
-      break
-    else
-      echo "  ⚠️  Route $route failed attempt $attempt"
-      if [ $attempt -lt 3 ]; then
-        sleep 2
-      fi
-    fi
-  done
-  
-  if [ "$success" = false ]; then
-    echo "❌ Route $route failed all attempts"
-    # Check for specific error patterns
-    if grep -q "ECONNREFUSED.*5432" route_test_output.log; then
-      echo "   → Database connection error detected (expected in CI)"
-    fi
-    # Test if it's a connection issue vs HTTP error
-    if curl -s --max-time 5 "http://localhost:3000$route" > /dev/null 2>&1; then
-      echo "   → Route responds but returns HTTP error (likely database issue)"
-    else
-      echo "   → Route completely unreachable"
+# Test root route (expects redirect to login in hosted app)
+echo "Testing route: /"
+success=false
+
+# Try up to 3 times with delays
+for attempt in 1 2 3; do
+  echo "  Attempt $attempt..."
+  http_code=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 "http://localhost:3000/")
+  if [ "$http_code" = "302" ] || [ "$http_code" = "301" ] || [ "$http_code" = "200" ]; then
+    echo "✅ Route / accessible (attempt $attempt, status: $http_code)"
+    success=true
+    ((success_count++))
+    break
+  else
+    echo "  ⚠️  Route / failed attempt $attempt (status: $http_code)"
+    if [ $attempt -lt 3 ]; then
+      sleep 2
     fi
   fi
 done
+
+if [ "$success" = false ]; then
+  echo "❌ Route / failed all attempts"
+  # Check for specific error patterns
+  if grep -q "ECONNREFUSED.*5432" route_test_output.log; then
+    echo "   → Database connection error detected (expected in CI)"
+  fi
+  # Test if it's a connection issue vs HTTP error
+  if curl -s --max-time 5 "http://localhost:3000/" > /dev/null 2>&1; then
+    echo "   → Route responds but returns HTTP error (likely database issue)"
+  else
+    echo "   → Route completely unreachable"
+  fi
+fi
+
+# Test offline route
+echo "Testing route: /offline"
+success=false
+
+# Try up to 3 times with delays
+for attempt in 1 2 3; do
+  echo "  Attempt $attempt..."
+  if curl -f -s --max-time 10 "http://localhost:3000/offline" > /dev/null 2>&1; then
+    echo "✅ Route /offline accessible (attempt $attempt)"
+    success=true
+    ((success_count++))
+    break
+  else
+    echo "  ⚠️  Route /offline failed attempt $attempt"
+    if [ $attempt -lt 3 ]; then
+      sleep 2
+    fi
+  fi
+done
+
+if [ "$success" = false ]; then
+  echo "❌ Route /offline failed all attempts"
+  # Check for specific error patterns
+  if grep -q "ECONNREFUSED.*5432" route_test_output.log; then
+    echo "   → Database connection error detected (expected in CI)"
+  fi
+  # Test if it's a connection issue vs HTTP error
+  if curl -s --max-time 5 "http://localhost:3000/offline" > /dev/null 2>&1; then
+    echo "   → Route responds but returns HTTP error (likely database issue)"
+  else
+    echo "   → Route completely unreachable"
+  fi
+fi
 
 echo ""
 echo "Hosted server results: $success_count/$total_routes routes accessible"

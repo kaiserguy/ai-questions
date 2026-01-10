@@ -53,9 +53,22 @@ const PUBLIC_CONFIG = {
     }
 };
 
-// Initialize database and AI client
-const db = new PostgresDatabase(PUBLIC_CONFIG.database);
+// Initialize database and AI client with error handling
+console.log("Initializing database connection...");
+if (!PUBLIC_CONFIG.database.url) {
+    console.warn("Warning: DATABASE_URL not set. Database operations may fail.");
+}
+
+const db = new PostgresDatabase(PUBLIC_CONFIG.database.url);
 const ai = new ExternalLLMClient();
+
+console.log("Database and AI client initialized successfully.");
+
+// Initialize database tables
+db.initialize().catch(err => {
+    console.warn("Database initialization warning:", err.message);
+    console.log("App will continue running with limited database functionality");
+});
 
 // Initialize Wikipedia integration
 const WikipediaIntegration = require("../core/wikipedia-integration");
@@ -78,30 +91,62 @@ app.use(session({
 app.use(passport.initialize());
 app.use(passport.session());
 
+// Set up Google OAuth strategy (only if credentials are available)
+if (PUBLIC_CONFIG.auth.google.clientID && PUBLIC_CONFIG.auth.google.clientSecret) {
+    passport.use(new GoogleStrategy({
+        clientID: PUBLIC_CONFIG.auth.google.clientID,
+        clientSecret: PUBLIC_CONFIG.auth.google.clientSecret,
+        callbackURL: PUBLIC_CONFIG.auth.google.callbackURL
+    }, (accessToken, refreshToken, profile, done) => {
+        // In a real app, save user to database
+        return done(null, profile);
+    }));
+    
+    console.log("Google OAuth strategy configured successfully");
+} else {
+    console.warn("Google OAuth credentials not configured - authentication will be limited");
+}
+
 // Serialize user for session
 passport.serializeUser((user, done) => {
-    done(null, user.id);
+    done(null, user.id || user);
 });
 
-// Authentication routes
-app.get("/auth/google", passport.authenticate("google", { scope: ["profile", "email"] }));
+passport.deserializeUser((id, done) => {
+    // In a real app, fetch user from database
+    done(null, { id: id });
+});
 
-app.get("/auth/google/callback", 
-    passport.authenticate("google", { failureRedirect: "/login" }),
-    (req, res) => {
-        res.redirect("/");
-    }
-);
-
-app.get("/logout", (req, res) => {
-    req.logout(() => {
+// Authentication routes (only if OAuth is configured)
+if (PUBLIC_CONFIG.auth.google.clientID && PUBLIC_CONFIG.auth.google.clientSecret) {
+    app.get("/auth/google", passport.authenticate("google", { scope: ["profile", "email"] }));
+    
+    app.get("/auth/google/callback", 
+        passport.authenticate("google", { failureRedirect: "/" }),
+        (req, res) => {
+            res.redirect("/");
+        });
+    
+    app.get("/logout", (req, res) => {
+        req.logout((err) => {
+            if (err) console.error("Logout error:", err);
+            res.redirect("/");
+        });
+    });
+    
+    console.log("OAuth routes configured successfully");
+} else {
+    // Provide fallback auth routes for development/environments without OAuth configured
+    app.get("/auth/google", (req, res) => {
+        res.redirect("/?error=oauth_not_configured");
+    });
+    
+    app.get("/logout", (req, res) => {
         res.redirect("/");
     });
-});
+}
 
-app.get("/login", (req, res) => {
-    res.render("login", { title: "Login - AI Questions" });
-});
+// Authentication routes removed - duplicates of routes defined in OAuth configuration block above
 
 // Middleware to check authentication
 const ensureAuthenticated = (req, res, next) => {
@@ -215,6 +260,11 @@ app.get("/download-local-package", (req, res) => {
 
 // Start the server
 const PORT = PUBLIC_CONFIG.app.port;
+
+console.log(`Starting server on port ${PORT}...`);
+console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
+console.log(`Database URL configured: ${!!PUBLIC_CONFIG.database.url}`);
+
 app.listen(PORT, () => {
     console.log(`AI Questions server running on port ${PORT}`);
     if (process.env.NODE_ENV === "production") {

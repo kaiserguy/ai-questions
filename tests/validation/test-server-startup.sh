@@ -13,7 +13,7 @@ export GOOGLE_CLIENT_ID=""
 export GOOGLE_CLIENT_SECRET=""
 
 # Start server in background and capture output
-timeout 30s node index.cjs > server_output.log 2>&1 &
+timeout 30s node hosted-app.js > server_output.log 2>&1 &
 HOSTED_PID=$!
 sleep 15  # Give more time for server to start despite DB errors
 
