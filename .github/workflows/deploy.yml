@@ -33,7 +33,7 @@ jobs:
       run: ./tests/validation/validate-javascript-syntax.sh
         
     - name: Check for common errors
-      run: ./tests/validation/check-common-errors.sh
+      run: ./tests/validation/check-for-common-errors.sh
         
     - name: Validate package configurations
       run: ./tests/validation/validate-package-configurations.sh
