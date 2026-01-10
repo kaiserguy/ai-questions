@@ -1,7 +1,7 @@
 {
   "name": "simple-daily-ai-question",
   "version": "1.0.0",
-  "description": "A simple website that asks a public free AI the same question every day via an API call and shows the answer",
+  "description": "A comprehensive web application for tracking AI responses to questions over time. Features multiple AI model support, automated scheduling, analytics dashboard, and both cloud (Heroku) and local deployment options with offline capabilities.",
   "main": "hosted/hosted-app.js",
   "scripts": {
     "start": "node hosted/hosted-app.js",
