@@ -146,22 +146,7 @@ if (PUBLIC_CONFIG.auth.google.clientID && PUBLIC_CONFIG.auth.google.clientSecret
     });
 }
 
-app.get("/auth/google/callback", 
-    passport.authenticate("google", { failureRedirect: "/login" }),
-    (req, res) => {
-        res.redirect("/");
-    }
-);
-
-app.get("/logout", (req, res) => {
-    req.logout(() => {
-        res.redirect("/");
-    });
-});
-
-app.get("/login", (req, res) => {
-    res.render("login", { title: "Login - AI Questions" });
-});
+// Authentication routes removed - duplicates of routes defined in OAuth configuration block above
 
 // Middleware to check authentication
 const ensureAuthenticated = (req, res, next) => {
