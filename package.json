@@ -2,7 +2,7 @@
   "name": "simple-daily-ai-question",
   "version": "1.0.0",
   "description": "A comprehensive web application for tracking AI responses to questions over time. Features multiple AI model support, automated scheduling, analytics dashboard, and both cloud (Heroku) and local deployment options with offline capabilities.",
-  "main": "hosted/hosted-app.js",
+  "main": "index.cjs",
   "scripts": {
     "start": "node hosted/hosted-app.js",
     "dev": "nodemon index.js",
@@ -12,11 +12,23 @@
   },
   "keywords": [
     "ai",
-    "question",
-    "daily"
+    "artificial-intelligence",
+    "question-tracking",
+    "analytics",
+    "chatgpt",
+    "hugging-face",
+    "scheduling",
+    "heroku",
+    "postgresql",
+    "offline-ai"
   ],
-  "author": "",
+  "author": "Kaiser Guy",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/kaiserguy/ai-questions.git"
+  },
+  "homepage": "https://peaceful-sierra-40313-4a09d237c70e.herokuapp.com/",
   "dependencies": {
     "@huggingface/inference": "^4.0.4",
     "archiver": "^7.0.1",
