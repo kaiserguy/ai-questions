@@ -4,6 +4,20 @@
  */
 class DownloadManager {
     constructor(packageType) {
+        // Validate packageType parameter
+        if (!packageType) {
+            throw new Error('packageType is required');
+        }
+        if (typeof packageType !== 'string') {
+            throw new Error('packageType must be a string');
+        }
+        
+        // Define valid package types
+        const validPackageTypes = ['minimal', 'standard', 'full'];
+        if (!validPackageTypes.includes(packageType)) {
+            throw new Error(`Invalid packageType: ${packageType}. Must be one of: ${validPackageTypes.join(', ')}`);
+        }
+        
         this.packageType = packageType;
         this.progress = 0;
         this.resources = {
@@ -62,6 +76,14 @@ class DownloadManager {
      * Set event handlers for download progress
      */
     setEventHandlers(handlers) {
+        // Allow empty/null handlers - just set everything to null
+        if (!handlers || typeof handlers !== 'object') {
+            this.onProgressUpdate = null;
+            this.onResourceUpdate = null;
+            this.onComplete = null;
+            this.onError = null;
+            return;
+        }
         this.onProgressUpdate = handlers.onProgressUpdate || null;
         this.onResourceUpdate = handlers.onResourceUpdate || null;
         this.onComplete = handlers.onComplete || null;
@@ -632,6 +654,20 @@ class DownloadManager {
      * Update resource status
      */
     updateResource(resource, status, progress) {
+        // Validate status
+        const validStatuses = ['pending', 'downloading', 'loaded', 'error'];
+        if (!validStatuses.includes(status)) {
+            throw new Error(`Invalid status: ${status}. Must be one of: ${validStatuses.join(', ')}`);
+        }
+        
+        // Validate progress
+        if (typeof progress !== 'number') {
+            throw new Error('Progress must be a number');
+        }
+        if (progress < 0 || progress > 100) {
+            throw new Error('Progress must be between 0 and 100');
+        }
+        
         this.resources[resource].status = status;
         this.resources[resource].progress = progress;
         
@@ -709,9 +745,24 @@ class DownloadManager {
     }
     
     /**
+     * Calculate overall progress based on individual resource progress
+     */
+    calculateOverallProgress() {
+        // Calculate weighted average of all resources
+        const resources = ['libraries', 'aiModel', 'wikipedia'];
+        const totalProgress = resources.reduce((sum, resource) => {
+            return sum + (this.resources[resource]?.progress || 0);
+        }, 0);
+        return Math.round(totalProgress / resources.length);
+    }
+    
+    /**
      * Get resource name for display
      */
     getResourceName(resource) {
+        if (!resource || typeof resource !== 'string') {
+            return 'Unknown Resource';
+        }
         switch (resource) {
             case 'aiModel':
                 return this.packages[this.packageType].aiModel.name;
@@ -720,7 +771,7 @@ class DownloadManager {
             case 'libraries':
                 return 'Core Libraries';
             default:
-                return resource;
+                return 'Unknown Resource';
         }
     }
     

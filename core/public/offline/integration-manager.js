@@ -258,5 +258,11 @@ class OfflineIntegrationManager {
     }
 }
 
-// Make available globally
-window.OfflineIntegrationManager = OfflineIntegrationManager;
+// Make available globally for browser
+if (typeof window !== 'undefined') {
+    window.OfflineIntegrationManager = OfflineIntegrationManager;
+}
+// Make available for Node.js/testing
+if (typeof module !== 'undefined' && module.exports) {
+    module.exports = OfflineIntegrationManager;
+}
