@@ -1,5 +1,12 @@
 #!/bin/bash
 
+# Validate required environment variables
+if [ -z "$DEPLOYMENT_URL" ]; then
+    echo "❌ ERROR: DEPLOYMENT_URL environment variable not set"
+    echo "This script requires DEPLOYMENT_URL to be set to the production URL"
+    exit 1
+fi
+
 echo "🏥 Performing health check on $DEPLOYMENT_URL"
 
 # Basic connectivity test - allow redirects as they're expected for root route

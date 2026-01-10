@@ -1,5 +1,12 @@
 #!/bin/bash
 
+# Validate required environment variables
+if [ -z "$DEPLOYMENT_URL" ]; then
+    echo "❌ ERROR: DEPLOYMENT_URL environment variable not set"
+    echo "This script requires DEPLOYMENT_URL to be set to the production URL"
+    exit 1
+fi
+
 echo "🛤️ Validating critical user paths"
 
 # Test homepage (expect redirect to login)
