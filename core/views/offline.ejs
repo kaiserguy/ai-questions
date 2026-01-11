@@ -112,8 +112,8 @@
             </div>
             <div class="chat-input-container">
                 <input type="text" class="chat-input" id="chatInput" data-hint="Ask me anything..." />
-                <button class="send-btn" id="sendBtn">Send</button>
-                <button class="stop-btn" id="stopBtn">Stop</button>
+                <button class="send-btn" id="sendBtn" aria-label="Send message to AI">Send</button>
+                <button class="stop-btn" id="stopBtn" aria-label="Stop AI response generation">Stop</button>
             </div>
         </div>
         
@@ -122,7 +122,7 @@
             <h2>📚 Wikipedia Search</h2>
             <div class="wiki-search-container">
                 <input type="text" class="wiki-search-input" id="wikiSearchInput" data-hint="Search Wikipedia..." />
-                <button class="wiki-search-btn" id="wikiSearchBtn">Search</button>
+                <button class="wiki-search-btn" id="wikiSearchBtn" aria-label="Search Wikipedia">Search</button>
             </div>
             <div class="wiki-results" id="wikiResults">
                 <div style="padding: 20px; text-align: center; color: #6b7280;">
@@ -162,7 +162,7 @@
         <div class="clear-cache-section">
             <h3>🗑️ Clear Local Data</h3>
             <p>Remove all cached data, AI models, and Wikipedia databases from your browser.</p>
-            <button class="clear-cache-btn" id="clearCacheBtn">🗑️ Clear All Cache</button>
+            <button class="clear-cache-btn" id="clearCacheBtn" aria-label="Clear all cached data including AI models and Wikipedia databases">🗑️ Clear All Cache</button>
         </div>
     </div>
 

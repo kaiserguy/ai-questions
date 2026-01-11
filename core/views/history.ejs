@@ -174,7 +174,7 @@
     <div class="compare-section">
         <div class="compare-header">
             <h3 class="compare-title">📊 Compare Answers</h3>
-            <button class="compare-button" onclick="toggleCompareMode()" id="compareToggle">
+            <button class="compare-button" onclick="toggleCompareMode()" id="compareToggle" aria-label="Enable answer comparison mode">
                 Enable Comparison
             </button>
         </div>
@@ -185,7 +185,7 @@
         <div class="comparison-view" id="comparisonView">
             <div class="comparison-controls">
                 <span style="font-weight: bold; color: #1976d2;">Select 2 answers to compare:</span>
-                <button class="clear-comparison" onclick="clearComparison()">Clear Selection</button>
+                <button class="clear-comparison" onclick="clearComparison()" aria-label="Clear comparison selection">Clear Selection</button>
             </div>
             <div class="comparison-grid" id="comparisonGrid">
                 <!-- Comparison items will be populated here -->
@@ -205,7 +205,7 @@
                     </span>
                     <span>Confidence: <%= (item.confidence * 100).toFixed(2) %>%</span>
                     <span>Date: <%= new Date(item.date).toLocaleString() %></span>
-                    <button class="trash-button" onclick="deleteAnswer(<%= item.id %>)">🗑️</button>
+                    <button class="trash-button" onclick="deleteAnswer(<%= item.id %>)" aria-label="Delete this answer">🗑️</button>
                 </div>
             </div>
         <% }); %>

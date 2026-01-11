@@ -14,12 +14,12 @@
                 <p>Tracking AI responses to questions over time</p>
             </div>
             <div class="header-nav">
-                <a href="/offline" class="nav-link download-link">
-                    <span class="nav-icon">📱</span>
+                <a href="/offline" class="nav-link download-link" aria-label="Switch to offline mode">
+                    <span class="nav-icon" aria-hidden="true">📱</span>
                     <span class="nav-text">Offline Mode</span>
                 </a>
-                <a href="/config" class="nav-link config-link" id="config-nav-link" style="display: none;">
-                    <span class="nav-icon">⚙️</span>
+                <a href="/config" class="nav-link config-link" id="config-nav-link" style="display: none;" aria-label="Configure AI models">
+                    <span class="nav-icon" aria-hidden="true">⚙️</span>
                     <span class="nav-text">AI Models</span>
                 </a>
                 <div class="auth-section">
@@ -77,9 +77,9 @@
             </div>
             
             <div class="schedule-modal-actions">
-                <button class="schedule-btn schedule-btn-secondary" onclick="closeScheduleModal()">Cancel</button>
-                <button id="delete-schedule-btn" class="schedule-btn schedule-btn-danger" onclick="deleteSchedule()" style="display: none;">Delete Schedule</button>
-                <button class="schedule-btn schedule-btn-primary" onclick="saveSchedule()">Save Schedule</button>
+                <button class="schedule-btn schedule-btn-secondary" onclick="closeScheduleModal()" aria-label="Close schedule modal">Cancel</button>
+                <button id="delete-schedule-btn" class="schedule-btn schedule-btn-danger" onclick="deleteSchedule()" style="display: none;" aria-label="Delete schedule">Delete Schedule</button>
+                <button class="schedule-btn schedule-btn-primary" onclick="saveSchedule()" aria-label="Save schedule">Save Schedule</button>
             </div>
         </div>
     </div>
@@ -108,7 +108,7 @@
                         </select>
                     </div>
                     <div>
-                        <button id="export-csv-btn" onclick="exportToCSV()" style="
+                        <button id="export-csv-btn" onclick="exportToCSV()" aria-label="Export data to CSV file" style="
                             background: #28a745; 
                             color: white; 
                             border: none; 
@@ -117,7 +117,7 @@
                             cursor: pointer;
                             font-weight: 500;
                             white-space: nowrap;
-                        ">📥 Export CSV</button>
+                        "><span aria-hidden="true">📥</span> Export CSV</button>
                     </div>
                 </div>
                 <div style="margin-top: 10px;">
@@ -133,7 +133,7 @@
             </div>
             
             <div class="schedule-modal-actions">
-                <button class="schedule-btn schedule-btn-secondary" onclick="closeAnalyticsModal()">Close</button>
+                <button class="schedule-btn schedule-btn-secondary" onclick="closeAnalyticsModal()" aria-label="Close analytics modal">Close</button>
             </div>
         </div>
     </div>
@@ -171,7 +171,7 @@
         </div>
         
         <div style="display: flex; gap: 12px; align-items: center; flex-wrap: wrap;">
-            <button onclick="startTour()" style="
+            <button onclick="startTour()" aria-label="Start guided tour of the application" style="
                 background: white; 
                 color: #4CAF50; 
                 border: none;
@@ -184,10 +184,10 @@
                 gap: 8px;
                 transition: transform 0.2s;
             " onmouseover="this.style.transform='translateY(-2px)'" onmouseout="this.style.transform='translateY(0)'">
-                <span style="font-size: 16px;">🚀</span>
+                <span style="font-size: 16px;" aria-hidden="true">🚀</span>
                 Start Tour
             </button>
-            <button onclick="dismissWelcome()" style="
+            <button onclick="dismissWelcome()" aria-label="Dismiss welcome message" style="
                 background: rgba(255,255,255,0.2); 
                 color: white; 
                 border: 1px solid rgba(255,255,255,0.3);
@@ -227,7 +227,7 @@
                     ✓ Cached for offline use<br>
                     ✓ AI chat + Wikipedia search
                 </div>
-                <a href="/offline" style="
+                <a href="/offline" aria-label="Go to offline mode" style="
                     background: white; 
                     color: #667eea; 
                     text-decoration: none; 
@@ -240,7 +240,7 @@
                     font-size: 14px;
                     transition: transform 0.2s;
                 " onmouseover="this.style.transform='translateY(-2px)'" onmouseout="this.style.transform='translateY(0)'">
-                    <span>📱</span>
+                    <span aria-hidden="true">📱</span>
                     Go to Offline Mode
                 </a>
             </div>
@@ -259,7 +259,7 @@
                     ✓ Persistent storage
                 </div>
                 <div style="display: flex; gap: 8px; flex-wrap: wrap;">
-                    <a href="https://github.com/kaiserguy/ai-questions" target="_blank" rel="noopener noreferrer" style="
+                    <a href="https://github.com/kaiserguy/ai-questions" target="_blank" rel="noopener noreferrer" aria-label="View project on GitHub" style="
                         background: white; 
                         color: #667eea; 
                         text-decoration: none; 
@@ -272,10 +272,10 @@
                         font-size: 14px;
                         transition: transform 0.2s;
                     " onmouseover="this.style.transform='translateY(-2px)'" onmouseout="this.style.transform='translateY(0)'">
-                        <span>📥</span>
+                        <span aria-hidden="true">📥</span>
                         View on GitHub
                     </a>
-                    <button onclick="showInstallInstructions()" style="
+                    <button onclick="showInstallInstructions()" aria-label="Show installation guide" style="
                         background: rgba(255,255,255,0.2); 
                         color: white; 
                         border: 1px solid rgba(255,255,255,0.3); 
@@ -288,7 +288,7 @@
                         gap: 8px;
                         font-size: 14px;
                     ">
-                        <span>📋</span>
+                        <span aria-hidden="true">📋</span>
                         Guide
                     </button>
                 </div>
@@ -364,9 +364,9 @@
             </div>
             
             <div class="schedule-modal-actions">
-                <button class="schedule-btn schedule-btn-secondary" onclick="closeInstallInstructions()">Close</button>
-                <a href="https://github.com/kaiserguy/ai-questions" target="_blank" class="schedule-btn schedule-btn-primary" style="text-decoration: none; display: inline-block;">
-                    📥 Download Now
+                <button class="schedule-btn schedule-btn-secondary" onclick="closeInstallInstructions()" aria-label="Close installation instructions">Close</button>
+                <a href="https://github.com/kaiserguy/ai-questions" target="_blank" class="schedule-btn schedule-btn-primary" style="text-decoration: none; display: inline-block;" aria-label="Download from GitHub">
+                    <span aria-hidden="true">📥</span> Download Now
                 </a>
             </div>
         </div>
@@ -388,7 +388,7 @@
             <!-- Personal questions will be loaded here -->
         </div>
         
-        <button id="add-question-btn" class="auth-button" onclick="toggleAddQuestionForm()">+ Add New Question</button>
+        <button id="add-question-btn" class="auth-button" onclick="toggleAddQuestionForm()" aria-label="Add new personal question">+ Add New Question</button>
         
         <div id="add-question-form" class="add-question-form hidden">
             <h4>Add New Personal Question</h4>
@@ -402,8 +402,8 @@
                     <textarea id="new-context" required data-hint="Provide context for the question..."></textarea>
                 </div>
                 <div class="form-group">
-                    <button type="submit" class="auth-button">Add Question</button>
-                    <button type="button" class="auth-button logout-button" onclick="toggleAddQuestionForm()">Cancel</button>
+                    <button type="submit" class="auth-button" aria-label="Submit new question">Add Question</button>
+                    <button type="button" class="auth-button logout-button" onclick="toggleAddQuestionForm()" aria-label="Cancel adding question">Cancel</button>
                 </div>
             </form>
         </div>
@@ -454,8 +454,8 @@
                 </div>
                 
                 <div class="schedule-modal-actions">
-                    <button class="schedule-btn schedule-btn-secondary" onclick="closeConfigPage()">Close</button>
-                    <button class="schedule-btn schedule-btn-primary" onclick="saveModelConfig()">Save Configuration</button>
+                    <button class="schedule-btn schedule-btn-secondary" onclick="closeConfigPage()" aria-label="Close configuration page">Close</button>
+                    <button class="schedule-btn schedule-btn-primary" onclick="saveModelConfig()" aria-label="Save model configuration">Save Configuration</button>
                 </div>
             </div>
         </div>
@@ -473,7 +473,7 @@
                 <span>Model: <%= todayAnswer.model %></span>
                 <span>Confidence: <%= (todayAnswer.confidence * 100).toFixed(2) %>%</span>
                 <span>Date: <%= new Date(todayAnswer.date).toLocaleDateString() %></span>
-                <button class="trash-button" onclick="deleteAnswer(<%= todayAnswer.id %>)">🗑️</button>
+                <button class="trash-button" onclick="deleteAnswer(<%= todayAnswer.id %>)" aria-label="Delete this answer">🗑️</button>
             </div>
             <a href="/history?question=<%= encodeURIComponent(todayQuestion.question) %>" class="history-link">
                 View answer history for this question
@@ -488,7 +488,7 @@
                   <!-- Will be populated via JavaScript -->
                 </select>
               </div>
-            <button onclick="askAINow()" class="ask-button">Ask AI Now</button>
+            <button onclick="askAINow()" class="ask-button" aria-label="Ask AI the question now">Ask AI Now</button>
             <div id="loading-indicator" style="display: none; text-align: center; margin-top: 10px;">
                 <p>Asking AI... This may take a few moments.</p>
             </div>
@@ -507,7 +507,7 @@
                         <div class="answer"><%= answer.answer %></div>
                         <div class="meta">
                             <span>Date: <%= new Date(answer.date).toLocaleDateString() %></span>
-                            <button class="trash-button" onclick="deleteAnswer(<%= answer.id %>)">🗑️</button>
+                            <button class="trash-button" onclick="deleteAnswer(<%= answer.id %>)" aria-label="Delete this answer">🗑️</button>
                             <a href="/history?question=<%= encodeURIComponent(answer.question) %>" class="history-link">
                                 View history
                             </a>
@@ -625,11 +625,11 @@
                     <div class="question">${question.question}</div>
                     <div class="context">${question.context}</div>
                     <div class="personal-question-actions">
-                        <button class="btn-small btn-primary" onclick="askPersonalQuestion(${question.id})">Ask AI</button>
-                        <button class="btn-small btn-secondary" onclick="viewPersonalAnswers(${question.id})">View Answers</button>
-                        <button class="btn-small" style="background-color: #28a745; color: white;" onclick="openScheduleModal(${question.id})">⏰ Schedule</button>
-                        <button class="btn-small" style="background-color: #17a2b8; color: white;" onclick="openAnalyticsModal(${question.id})">📊 Analytics</button>
-                        <button class="btn-small btn-danger" onclick="deletePersonalQuestion(${question.id})">Delete</button>
+                        <button class="btn-small btn-primary" onclick="askPersonalQuestion(${question.id})" aria-label="Ask AI this question">Ask AI</button>
+                        <button class="btn-small btn-secondary" onclick="viewPersonalAnswers(${question.id})" aria-label="View all answers to this question">View Answers</button>
+                        <button class="btn-small" style="background-color: #28a745; color: white;" onclick="openScheduleModal(${question.id})" aria-label="Schedule this question"><span aria-hidden="true">⏰</span> Schedule</button>
+                        <button class="btn-small" style="background-color: #17a2b8; color: white;" onclick="openAnalyticsModal(${question.id})" aria-label="View analytics for this question"><span aria-hidden="true">📊</span> Analytics</button>
+                        <button class="btn-small btn-danger" onclick="deletePersonalQuestion(${question.id})" aria-label="Delete this question">Delete</button>
                     </div>
                 `;
                 container.appendChild(questionDiv);
@@ -874,7 +874,7 @@
                         <span>Model: ${data.modelName || data.model}</span>
                         <span>Confidence: ${(data.confidence * 100).toFixed(2)}%</span>
                         <span>Date: ${new Date(data.date).toLocaleDateString()}</span>
-                        <button class="trash-button" onclick="deleteAnswer(${data.id})">🗑️</button>
+                        <button class="trash-button" onclick="deleteAnswer(${data.id})" aria-label="Delete this answer">🗑️</button>
                     `;
                     
                     const historyLink = document.createElement('a');

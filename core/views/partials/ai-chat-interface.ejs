@@ -36,7 +36,7 @@
           border-radius: 6px; 
           font-size: 14px;
       " onkeypress="if(event.key==='Enter') sendChatMessage()">
-      <button onclick="sendChatMessage()" id="chat-send-btn" style="
+      <button onclick="sendChatMessage()" id="chat-send-btn" aria-label="Send chat message" style="
           background: #007bff; 
           color: white; 
           border: none; 
@@ -45,7 +45,7 @@
           cursor: pointer;
           font-weight: 500;
       ">Send</button>
-      <button onclick="clearChat()" style="
+      <button onclick="clearChat()" aria-label="Clear chat conversation" style="
           background: #6c757d; 
           color: white; 
           border: none; 
@@ -65,7 +65,7 @@
           <input type="checkbox" id="chat-context-enabled" checked>
           <span>🧠 Use conversation context</span>
       </label>
-      <button onclick="toggleQueryLog()" id="query-log-toggle" style="
+      <button onclick="toggleQueryLog()" id="query-log-toggle" aria-label="Toggle Wikipedia query logs" style="
           background: #f8f9fa; 
           border: 1px solid #dee2e6; 
           padding: 4px 8px; 
@@ -99,7 +99,7 @@
           font-size: 14px;
       ">
           <span>🔍 Wikipedia Query Logs</span>
-          <button onclick="clearQueryLogs()" style="
+          <button onclick="clearQueryLogs()" aria-label="Clear query logs" style="
               background: none;
               border: none;
               color: #6c757d;
