@@ -3,6 +3,10 @@
  * These tests would have caught integration and initialization errors
  */
 
+const OfflineIntegrationManager = require('../../core/public/offline/integration-manager');
+const AIModelManager = require('../../core/public/offline/ai-model-manager');
+const WikipediaManager = require('../../core/public/offline/wikipedia-manager');
+
 describe('OfflineIntegrationManager', () => {
   let integrationManager;
   let mockDownloadManager;
