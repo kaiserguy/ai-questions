@@ -602,6 +602,139 @@ module.exports = (db, ai, wikipedia, config) => {
         }
     });
 
+    // ===== CONFIG PAGE ROUTE =====
+    // Config page - accessible to both logged-in and guest users
+    router.get("/config", (req, res) => {
+        res.render("config", { 
+            title: "Configuration - AI Questions",
+            user: req.user 
+        });
+    });
+
+    // ===== CONFIG API ENDPOINTS =====
+    
+    // Get all models and user preferences for config page
+    router.get("/api/config/models", async (req, res) => {
+        try {
+            const userId = req.user ? req.user.id : null;
+            
+            // Get all available models from AI client
+            const modelsResponse = await ai.listModels(userId);
+            const allModels = modelsResponse.models || [];
+            
+            let userPreferences = null;
+            if (userId) {
+                userPreferences = await db.getUserModelPreferences(userId);
+                
+                // If no preferences exist, create defaults
+                if (userPreferences.length === 0) {
+                    const defaultModels = allModels.filter(m => m.defaultEnabled).map(m => m.id);
+                    for (let i = 0; i < defaultModels.length; i++) {
+                        await db.saveUserModelPreference(userId, defaultModels[i], true, i);
+                    }
+                    
+                    // Reload preferences
+                    userPreferences = await db.getUserModelPreferences(userId);
+                }
+            }
+            
+            res.json({
+                allModels: allModels,
+                userPreferences: userPreferences
+            });
+        } catch (error) {
+            console.error("Error getting config models:", error);
+            res.status(500).json({ error: "Failed to load model configuration" });
+        }
+    });
+    
+    // Save user model preferences
+    router.post("/api/config/models", ensureAuthenticated, async (req, res) => {
+        try {
+            const userId = req.user ? req.user.id : null;
+            if (!userId) {
+                return res.status(401).json({ error: "Authentication required" });
+            }
+            
+            const { preferences } = req.body;
+            
+            if (!preferences || typeof preferences !== "object") {
+                return res.status(400).json({ error: "Invalid preferences data" });
+            }
+            
+            // Update preferences for each model
+            for (const [modelId, isEnabled] of Object.entries(preferences)) {
+                await db.saveUserModelPreference(userId, modelId, isEnabled, 0);
+            }
+            
+            res.json({ success: true });
+        } catch (error) {
+            console.error("Error saving model preferences:", error);
+            res.status(500).json({ error: "Failed to save model preferences" });
+        }
+    });
+    
+    // Get user API keys (masked)
+    router.get("/api/config/api-keys", ensureAuthenticated, async (req, res) => {
+        try {
+            const userId = req.user ? req.user.id : null;
+            if (!userId) {
+                return res.status(401).json({ error: "Authentication required" });
+            }
+            
+            const apiKeys = await db.getUserApiKeys(userId);
+            res.json(apiKeys);
+        } catch (error) {
+            console.error("Error getting API keys:", error);
+            res.status(500).json({ error: "Failed to load API keys" });
+        }
+    });
+    
+    // Save user API key
+    router.post("/api/config/api-keys", ensureAuthenticated, async (req, res) => {
+        try {
+            const userId = req.user ? req.user.id : null;
+            if (!userId) {
+                return res.status(401).json({ error: "Authentication required" });
+            }
+            
+            const { provider, apiKey } = req.body;
+            
+            if (!provider || !apiKey) {
+                return res.status(400).json({ error: "Provider and API key are required" });
+            }
+            
+            // Validate provider
+            const validProviders = ["openai", "anthropic", "google", "huggingface"];
+            if (!validProviders.includes(provider)) {
+                return res.status(400).json({ error: "Invalid provider" });
+            }
+            
+            await db.saveUserApiKey(userId, provider, apiKey);
+            res.json({ success: true });
+        } catch (error) {
+            console.error("Error saving API key:", error);
+            res.status(500).json({ error: "Failed to save API key" });
+        }
+    });
+    
+    // Delete user API key
+    router.delete("/api/config/api-keys/:provider", ensureAuthenticated, async (req, res) => {
+        try {
+            const userId = req.user ? req.user.id : null;
+            if (!userId) {
+                return res.status(401).json({ error: "Authentication required" });
+            }
+            
+            const { provider } = req.params;
+            await db.deleteUserApiKey(userId, provider);
+            res.json({ success: true });
+        } catch (error) {
+            console.error("Error deleting API key:", error);
+            res.status(500).json({ error: "Failed to delete API key" });
+        }
+    });
+
     return router;
 };
 

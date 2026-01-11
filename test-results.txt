@@ -1,0 +1,209 @@
+
+> simple-daily-ai-question@1.0.0 test
+> jest
+
+PASS tests/unit/installation-guide-button.test.js
+  Installation Guide Button
+    ✓ should have installation instructions modal in the template (4 ms)
+    ✓ should have showInstallInstructions function
+    ✓ should have closeInstallInstructions function
+    ✓ should have Installation Guide button that calls showInstallInstructions
+    ✓ modal should appear BEFORE personal-questions-section in the DOM (1 ms)
+    ✓ modal should NOT be nested inside personal-questions-section (2 ms)
+    ✓ modal should be positioned after offline-version-section (1 ms)
+    ✓ should have proper modal structure with content (1 ms)
+    ✓ should have Close button in modal
+
+PASS tests/unit/anti-demo-validation.test.js
+  Anti-Demo Validation Tests
+    Production Code Validation
+      ✓ should not contain demo or placeholder functionality (50 ms)
+      ✓ should not contain simulated delays or fake responses (13 ms)
+      ✓ should not contain hardcoded demo data (19 ms)
+    Functionality Validation
+      ✓ should validate Wikipedia manager has real database implementation (1 ms)
+      ✓ should validate AI manager has real model implementation (2 ms)
+    Regression Prevention
+      ✓ should document what this test suite prevents (1 ms)
+
+PASS tests/offline/offline-resource-routes.test.js
+  Offline Resource Routes
+    Route Module
+      ✓ should load offline resource routes module (10 ms)
+    Route Paths
+      ✓ should have expected route patterns
+    File Structure
+      ✓ should have offline resource routes file (1 ms)
+      ✓ should have proper module exports
+    Route Configuration
+      ✓ should export a function that can be used as middleware (3 ms)
+
+PASS tests/validation/deployment.test.js
+  Deployment Validation
+    Application Startup Validation
+      ✓ should validate hosted app can start without import errors (2 ms)
+      ✓ should validate local app can start without import errors (1 ms)
+    Route Configuration Validation
+      ✓ should validate offline resource routes are properly configured (1 ms)
+      ✓ should validate route mounting in both apps (3 ms)
+    Environment Configuration Validation
+      ✓ should validate Heroku configuration files exist (1 ms)
+      ✓ should validate Procfile points to correct entry point
+      ✓ should validate package.json has correct start script
+    Critical Endpoint Availability
+      ✓ should validate critical endpoints are defined (1 ms)
+    Database Configuration Validation
+      ✓ should validate database initialization in hosted app
+      ✓ should validate local database initialization
+    Static File Serving Validation
+      ✓ should validate static file configuration (1 ms)
+      ✓ should validate public directory exists
+    View Engine Configuration
+      ✓ should validate view engine is configured
+      ✓ should validate views directory exists (1 ms)
+    Security Configuration Validation
+      ✓ should validate session configuration in hosted app
+      ✓ should validate CORS configuration if present
+    Error Handling Validation
+      ✓ should validate error handling middleware exists (1 ms)
+    Port Configuration Validation
+      ✓ should validate port configuration for Heroku
+      ✓ should validate local port configuration (1 ms)
+
+PASS tests/unit/error-prevention.test.js
+  Error Prevention Tests
+    Constructor Parameter Validation
+      ✓ should demonstrate the DownloadManager constructor error I made (17 ms)
+      ✓ should demonstrate the aiModel access error I made
+    View Path Validation
+      ✓ should demonstrate the view path error I made
+    Package Configuration Validation
+      ✓ should validate all package types have required properties (1 ms)
+      ✓ should validate package type before accessing properties (3 ms)
+    DOM Element Validation
+      ✓ should validate required DOM elements exist (3 ms)
+      ✓ should validate sections are initially hidden (1 ms)
+    API Response Validation
+      ✓ should validate API responses have required structure (3 ms)
+  Integration Validation Tests
+    ✓ should validate complete offline flow requirements (1 ms)
+  Error Prevention Summary
+    ✓ should document the errors these tests would have prevented (1 ms)
+
+PASS tests/validation/import-paths.test.js
+  Import Path Validation
+    Hosted App Import Paths
+      ✓ should have correct import paths in hosted-app.js (1 ms)
+      ✓ should verify all imported files exist (1 ms)
+    Local App Import Paths
+      ✓ should have correct import paths in local-app.js
+      ✓ should verify all imported files exist in local app (1 ms)
+    Core Module Import Paths
+      ✓ should have consistent import paths in core modules (2 ms)
+    Route Mounting Validation
+      ✓ should verify offline resource routes are properly mounted in hosted app (1 ms)
+      ✓ should verify offline resource routes are properly mounted in local app
+    Package.json Dependencies
+      ✓ should have all required dependencies in package.json (1 ms)
+      ✓ should have test dependencies in package.json (1 ms)
+    File Structure Validation
+      ✓ should have required core files
+      ✓ should have required app entry points
+      ✓ should have required view files
+
+PASS tests/offline/integration-manager.test.js
+  OfflineIntegrationManager
+    Constructor and Initialization
+      ✓ should initialize with default values (6 ms)
+      ✓ should set package type correctly (2 ms)
+      ✓ should validate package type (31 ms)
+    Component Initialization
+      ✓ should initialize all components in correct order (2 ms)
+      ✓ should handle component initialization failures (1 ms)
+      ✓ should not initialize without package type (1 ms)
+    Readiness Checking
+      ✓ should check all components are ready (1 ms)
+      ✓ should handle missing components gracefully
+    UI State Management
+      ✓ should show chat and wiki sections when initialization complete (1 ms)
+      ✓ should handle missing DOM elements gracefully (1 ms)
+      ✓ should update progress display correctly (1 ms)
+    Error Handling
+      ✓ should handle download errors gracefully (1 ms)
+      ✓ should display error messages to user (1 ms)
+      ✓ should handle component failures during initialization (1 ms)
+  AIModelManager
+    Initialization
+      ✓ should initialize with package type
+      ✓ should require package type (14 ms)
+      ✓ should validate package type (1 ms)
+    Model Loading
+      ✓ should load model based on package type (101 ms)
+      ✓ should handle model loading failures (1 ms)
+      ✓ should not load model multiple times (100 ms)
+    Response Generation
+      ✓ should generate responses when ready
+      ✓ should not generate responses when not ready (1 ms)
+      ✓ should handle generation errors (1 ms)
+  WikipediaManager
+    Initialization
+      ✓ should initialize with package type (1 ms)
+      ✓ should require package type (2 ms)
+      ✓ should validate package type (1 ms)
+    Database Loading
+      ✓ should load database based on package type (11 ms)
+      ✓ should handle database loading failures (1 ms)
+      ✓ should handle missing package configuration (1 ms)
+    Search Functionality
+      ✓ should search when database is ready
+      ✓ should not search when database not ready
+      ✓ should handle search errors (1 ms)
+  Integration Tests
+    Complete Offline Flow
+      ✓ should complete full offline initialization flow (1 ms)
+      ✓ should handle partial initialization failures (1 ms)
+    Error Recovery
+      ✓ should allow retry after failure (1 ms)
+      ✓ should clean up resources on failure
+
+PASS tests/offline/download-manager.test.js
+  DownloadManager
+    Constructor
+      ✓ should require packageType parameter (45 ms)
+      ✓ should accept valid package types (1 ms)
+      ✓ should throw error for invalid package types (3 ms)
+      ✓ should initialize with correct package configuration (2 ms)
+      ✓ should initialize resources with pending status (1 ms)
+    Package Configuration Validation
+      ✓ all package types should have required aiModel properties (1 ms)
+      ✓ all package types should have required wikipedia properties (1 ms)
+      ✓ package configurations should be consistent (2 ms)
+    Event Handlers
+      ✓ should set event handlers correctly (1 ms)
+      ✓ should handle missing event handlers gracefully (1 ms)
+    Resource Management
+      ✓ should update resource status correctly (2 ms)
+      ✓ should validate resource names (3 ms)
+      ✓ should validate resource status values (2 ms)
+      ✓ should validate progress values (17 ms)
+    Download Process
+      ✓ should not start download without package type (2 ms)
+      ✓ should handle fetch errors gracefully (3 ms)
+      ✓ should validate API responses (2 ms)
+      ✓ should abort download when requested (1 ms)
+    Progress Calculation
+      ✓ should calculate overall progress correctly (1 ms)
+      ✓ should handle edge cases in progress calculation (1 ms)
+    Resource Name Resolution
+      ✓ should return correct resource names for display (1 ms)
+      ✓ should handle invalid resource names (1 ms)
+    Error Handling
+      ✓ should handle network errors during download (1009 ms)
+      ✓ should handle malformed API responses (1 ms)
+      ✓ should handle missing DOM elements gracefully (2 ms)
+
+Test Suites: 8 passed, 8 total
+Tests:       122 passed, 122 total
+Snapshots:   0 total
+Time:        2.103 s
+Ran all test suites.
