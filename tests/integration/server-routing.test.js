@@ -349,5 +349,71 @@ describe('Configuration Validation Tests', () => {
       expect(content).toMatch(/id="wikiSection"[^>]*style="[^"]*display:\s*none/);
     });
   });
+
+  describe('Config Route Configuration', () => {
+    test('should have config.ejs file in core/views directory', () => {
+      const configViewPath = path.join(__dirname, '../../core/views/config.ejs');
+      expect(fs.existsSync(configViewPath)).toBe(true);
+    });
+
+    test('should have valid EJS syntax in config.ejs', () => {
+      const configViewPath = path.join(__dirname, '../../core/views/config.ejs');
+      const content = fs.readFileSync(configViewPath, 'utf8');
+      
+      // Basic EJS syntax validation
+      expect(content).toContain('<!DOCTYPE html>');
+      expect(content).toContain('<html');
+      expect(content).toContain('</html>');
+      
+      // Check for balanced EJS tags
+      const openTags = (content.match(/<%/g) || []).length;
+      const closeTags = (content.match(/%>/g) || []).length;
+      expect(openTags).toBe(closeTags);
+    });
+
+    test('should have /config route in hosted-app.js', () => {
+      const hostedAppPath = path.join(__dirname, '../../hosted/hosted-app.js');
+      const content = fs.readFileSync(hostedAppPath, 'utf8');
+      
+      // Check for config route
+      expect(content).toMatch(/app\.get\(['"]\/config['"]/);
+      expect(content).toMatch(/res\.render\(['"]config['"]/);
+    });
+
+    test('should have config API endpoints in hosted-app.js', () => {
+      const hostedAppPath = path.join(__dirname, '../../hosted/hosted-app.js');
+      const content = fs.readFileSync(hostedAppPath, 'utf8');
+      
+      // Check for config API endpoints
+      expect(content).toMatch(/app\.get\(['"]\/api\/config\/models['"]/);
+      expect(content).toMatch(/app\.post\(['"]\/api\/config\/models['"]/);
+      expect(content).toMatch(/app\.get\(['"]\/api\/config\/api-keys['"]/);
+      expect(content).toMatch(/app\.post\(['"]\/api\/config\/api-keys['"]/);
+      expect(content).toMatch(/app\.delete\(['"]\/api\/config\/api-keys\/:provider['"]/);
+    });
+
+    test('config page should have API key configuration UI', () => {
+      const configViewPath = path.join(__dirname, '../../core/views/config.ejs');
+      const content = fs.readFileSync(configViewPath, 'utf8');
+      
+      // Check for API keys section
+      expect(content).toContain('API Keys Configuration');
+      expect(content).toContain('apiKeysSection');
+      
+      // Check for model configuration
+      expect(content).toContain('Available AI Models');
+      expect(content).toContain('modelsList');
+    });
+
+    test('config page should handle both logged-in and guest users', () => {
+      const configViewPath = path.join(__dirname, '../../core/views/config.ejs');
+      const content = fs.readFileSync(configViewPath, 'utf8');
+      
+      // Check for user status handling
+      expect(content).toContain('currentUser');
+      expect(content).toContain('Guest Mode');
+      expect(content).toContain('Log in');
+    });
+  });
 });
 
