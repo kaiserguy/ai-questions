@@ -172,7 +172,7 @@ module.exports = (db, ai, wikipedia, config) => {
     });
 
     // API to get answer history for a question
-    router.get("/history", ensureAuthenticated, async (req, res) => {
+    router.get("/history", async (req, res) => {
         const questionText = req.query.question;
         const userId = req.user ? req.user.id : null;
         let history = [];

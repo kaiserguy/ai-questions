@@ -185,7 +185,7 @@ class PgDatabase extends DatabaseInterface {
 
     async getHistory(question) {
         const result = await this.pool.query(
-            `SELECT * FROM answers WHERE question = $1 ORDER BY date DESC`,
+            `SELECT * FROM answers WHERE question = $1 AND is_personal = false ORDER BY date DESC`,
             [question]
         );
         return result.rows;
