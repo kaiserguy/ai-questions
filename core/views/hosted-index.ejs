@@ -14,13 +14,9 @@
                 <p>Tracking AI responses to questions over time</p>
             </div>
             <div class="header-nav">
-                <a href="https://github.com/kaiserguy/ai-questions" target="_blank" class="nav-link download-link">
-                    <span class="nav-icon">📥</span>
-                    <span class="nav-text">Install Locally</span>
-                </a>
-                <a href="/offline" target="_blank" class="nav-link download-link">
-                    <span class="nav-icon">📥</span>
-                    <span class="nav-text">Go Offline</span>
+                <a href="/offline" class="nav-link download-link">
+                    <span class="nav-icon">📱</span>
+                    <span class="nav-text">Offline Mode</span>
                 </a>
                 <a href="/config" class="nav-link config-link" id="config-nav-link" style="display: none;">
                     <span class="nav-icon">⚙️</span>
@@ -206,59 +202,102 @@
         </div>
     </div>
 
-    <!-- Offline Version Download Section - Visible to All Users -->
-    <div id="offline-version-section" class="offline-version-section" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border-radius: 12px; padding: 20px; margin: 25px 0; box-shadow: 0 4px 15px rgba(0,0,0,0.1);">
-        <div style="display: flex; align-items: center; gap: 15px; margin-bottom: 15px;">
-            <div style="font-size: 48px;">🏠</div>
+    <!-- Offline Mode Options Section - Visible to All Users -->
+    <div id="offline-version-section" class="offline-version-section" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border-radius: 12px; padding: 25px; margin: 25px 0; box-shadow: 0 4px 15px rgba(0,0,0,0.1);">
+        <div style="display: flex; align-items: center; gap: 15px; margin-bottom: 20px;">
+            <div style="font-size: 48px;">🔒</div>
             <div>
-                <h4 style="margin: 0; color: white; font-size: 20px;">Want Complete Privacy?</h4>
-                <p style="margin: 5px 0 0 0; opacity: 0.9; font-size: 16px;">Download the offline version for your own computer</p>
+                <h4 style="margin: 0; color: white; font-size: 22px;">Use AI Questions Offline</h4>
+                <p style="margin: 5px 0 0 0; opacity: 0.9; font-size: 16px;">Choose the option that works best for you</p>
             </div>
         </div>
         
-        <div style="background: rgba(255,255,255,0.1); border-radius: 8px; padding: 15px; margin-bottom: 15px;">
-            <h5 style="margin: 0 0 10px 0; color: white;">✨ Offline Version Features:</h5>
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; font-size: 14px;">
-                <div>• 🔒 Complete privacy - no data leaves your computer</div>
-                <div>• 🤖 Local AI models (Ollama integration)</div>
-                <div>• 📚 Local Wikipedia database</div>
-                <div>• 💬 Private chat with AI models</div>
-                <div>• 🚫 No API keys or internet required</div>
-                <div>• ⚡ Fast responses from local models</div>
+        <!-- Two Options: Browser Mode and Local Installation -->
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 20px;">
+            <!-- Browser-Based Offline Mode -->
+            <div style="background: rgba(255,255,255,0.15); border-radius: 8px; padding: 20px; border: 2px solid rgba(255,255,255,0.2);">
+                <div style="font-size: 32px; margin-bottom: 10px;">📱</div>
+                <h5 style="margin: 0 0 10px 0; color: white; font-size: 18px;">Browser Offline Mode</h5>
+                <p style="margin: 0 0 15px 0; opacity: 0.9; font-size: 14px; line-height: 1.5;">
+                    Quick and simple - use AI Questions offline right in your browser. Perfect for laptops and mobile devices.
+                </p>
+                <div style="font-size: 13px; margin-bottom: 15px; line-height: 1.6;">
+                    ✓ Works in any modern browser<br>
+                    ✓ No installation required<br>
+                    ✓ Cached for offline use<br>
+                    ✓ AI chat + Wikipedia search
+                </div>
+                <a href="/offline" style="
+                    background: white; 
+                    color: #667eea; 
+                    text-decoration: none; 
+                    padding: 10px 18px; 
+                    border-radius: 6px; 
+                    font-weight: 600;
+                    display: inline-flex;
+                    align-items: center;
+                    gap: 8px;
+                    font-size: 14px;
+                    transition: transform 0.2s;
+                " onmouseover="this.style.transform='translateY(-2px)'" onmouseout="this.style.transform='translateY(0)'">
+                    <span>📱</span>
+                    Go to Offline Mode
+                </a>
+            </div>
+            
+            <!-- Local Installation for Power Users -->
+            <div style="background: rgba(255,255,255,0.15); border-radius: 8px; padding: 20px; border: 2px solid rgba(255,255,255,0.2);">
+                <div style="font-size: 32px; margin-bottom: 10px;">💻</div>
+                <h5 style="margin: 0 0 10px 0; color: white; font-size: 18px;">Local Installation</h5>
+                <p style="margin: 0 0 15px 0; opacity: 0.9; font-size: 14px; line-height: 1.5;">
+                    Full-featured server installation on your computer. For power users who want complete control.
+                </p>
+                <div style="font-size: 13px; margin-bottom: 15px; line-height: 1.6;">
+                    ✓ Host on your own device<br>
+                    ✓ Serve to network devices<br>
+                    ✓ Full feature set<br>
+                    ✓ Persistent storage
+                </div>
+                <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                    <a href="https://github.com/kaiserguy/ai-questions" target="_blank" rel="noopener noreferrer" style="
+                        background: white; 
+                        color: #667eea; 
+                        text-decoration: none; 
+                        padding: 10px 18px; 
+                        border-radius: 6px; 
+                        font-weight: 600;
+                        display: inline-flex;
+                        align-items: center;
+                        gap: 8px;
+                        font-size: 14px;
+                        transition: transform 0.2s;
+                    " onmouseover="this.style.transform='translateY(-2px)'" onmouseout="this.style.transform='translateY(0)'">
+                        <span>📥</span>
+                        View on GitHub
+                    </a>
+                    <button onclick="showInstallInstructions()" style="
+                        background: rgba(255,255,255,0.2); 
+                        color: white; 
+                        border: 1px solid rgba(255,255,255,0.3); 
+                        padding: 10px 18px; 
+                        border-radius: 6px; 
+                        cursor: pointer;
+                        font-weight: 500;
+                        display: inline-flex;
+                        align-items: center;
+                        gap: 8px;
+                        font-size: 14px;
+                    ">
+                        <span>📋</span>
+                        Guide
+                    </button>
+                </div>
             </div>
         </div>
         
-        <div style="display: flex; gap: 12px; align-items: center; flex-wrap: wrap;">
-            <a href="/download/offline" style="
-                background: white; 
-                color: #667eea; 
-                text-decoration: none; 
-                padding: 12px 20px; 
-                border-radius: 6px; 
-                font-weight: 600;
-                display: flex;
-                align-items: center;
-                gap: 8px;
-                transition: transform 0.2s;
-            " onmouseover="this.style.transform='translateY(-2px)'" onmouseout="this.style.transform='translateY(0)'">
-                <span style="font-size: 16px;">📥</span>
-                Download Offline Version
-            </a>
-            <button onclick="showInstallInstructions()" style="
-                background: rgba(255,255,255,0.2); 
-                color: white; 
-                border: 1px solid rgba(255,255,255,0.3); 
-                padding: 12px 20px; 
-                border-radius: 6px; 
-                cursor: pointer;
-                font-weight: 500;
-                display: flex;
-                align-items: center;
-                gap: 8px;
-            ">
-                <span style="font-size: 16px;">📋</span>
-                Installation Guide
-            </button>
+        <div style="background: rgba(255,255,255,0.1); border-radius: 6px; padding: 12px; font-size: 13px; opacity: 0.95;">
+            <strong>💡 Which should I choose?</strong><br>
+            Choose <strong>Browser Mode</strong> for quick, temporary offline access on any device. Choose <strong>Local Installation</strong> if you want a permanent, full-featured server you can customize and share on your network.
         </div>
     </div>
     
