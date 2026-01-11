@@ -76,6 +76,10 @@ describe('OfflineIntegrationManager', () => {
       const manager = new OfflineIntegrationManager();
       manager.setPackageType('minimal');
       
+      // Inject mock managers
+      manager.aiModelManager = mockAIModelManager;
+      manager.wikipediaManager = mockWikipediaManager;
+      
       // Mock successful initialization
       mockAIModelManager.initialize.mockResolvedValue(true);
       mockWikipediaManager.initialize.mockResolvedValue(true);
@@ -89,6 +93,10 @@ describe('OfflineIntegrationManager', () => {
     test('should handle component initialization failures', async () => {
       const manager = new OfflineIntegrationManager();
       manager.setPackageType('minimal');
+      
+      // Inject mock managers
+      manager.aiModelManager = mockAIModelManager;
+      manager.wikipediaManager = mockWikipediaManager;
       
       // Mock failed initialization
       mockAIModelManager.initialize.mockRejectedValue(new Error('AI Model failed'));
@@ -198,7 +206,12 @@ describe('OfflineIntegrationManager', () => {
       const manager = new OfflineIntegrationManager();
       manager.setPackageType('minimal');
       
+      // Inject mock managers
+      manager.aiModelManager = mockAIModelManager;
+      manager.wikipediaManager = mockWikipediaManager;
+      
       // Mock component that fails to initialize
+      mockAIModelManager.initialize.mockResolvedValue(true);
       mockWikipediaManager.initialize.mockRejectedValue(new Error('Wikipedia init failed'));
       
       const mockErrorHandler = jest.fn();
@@ -393,13 +406,11 @@ describe('Integration Tests', () => {
       const integrationManager = new OfflineIntegrationManager();
       integrationManager.setPackageType('minimal');
       
-      // Mock all components to succeed
-      const mockComponents = {
-        downloadManager: mockDownloadManager,
-        aiModelManager: mockAIModelManager,
-        wikipediaManager: mockWikipediaManager
-      };
+      // Inject mock managers
+      integrationManager.aiModelManager = mockAIModelManager;
+      integrationManager.wikipediaManager = mockWikipediaManager;
       
+      // Mock all components to succeed
       mockAIModelManager.initialize.mockResolvedValue(true);
       mockWikipediaManager.initialize.mockResolvedValue(true);
       mockAIModelManager.isReady.mockReturnValue(true);
@@ -413,6 +424,10 @@ describe('Integration Tests', () => {
     test('should handle partial initialization failures', async () => {
       const integrationManager = new OfflineIntegrationManager();
       integrationManager.setPackageType('minimal');
+      
+      // Inject mock managers
+      integrationManager.aiModelManager = mockAIModelManager;
+      integrationManager.wikipediaManager = mockWikipediaManager;
       
       // Mock AI to succeed, Wikipedia to fail
       mockAIModelManager.initialize.mockResolvedValue(true);
@@ -428,6 +443,10 @@ describe('Integration Tests', () => {
       const integrationManager = new OfflineIntegrationManager();
       integrationManager.setPackageType('minimal');
       
+      // Inject mock managers
+      integrationManager.aiModelManager = mockAIModelManager;
+      integrationManager.wikipediaManager = mockWikipediaManager;
+      
       // First attempt fails
       mockAIModelManager.initialize.mockRejectedValueOnce(new Error('First failure'));
       await expect(integrationManager.initializeComponents()).rejects.toThrow();
@@ -442,6 +461,10 @@ describe('Integration Tests', () => {
     test('should clean up resources on failure', async () => {
       const integrationManager = new OfflineIntegrationManager();
       integrationManager.setPackageType('minimal');
+      
+      // Inject mock managers
+      integrationManager.aiModelManager = mockAIModelManager;
+      integrationManager.wikipediaManager = mockWikipediaManager;
       
       const mockCleanup = jest.fn();
       integrationManager.cleanup = mockCleanup;

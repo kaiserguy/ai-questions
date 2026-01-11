@@ -77,9 +77,14 @@ if (typeof document !== 'undefined') {
   };
 }
 
+// Store mock elements for getElementById
+const mockElements = {};
+
 // Reset all mocks before each test
 beforeEach(() => {
   jest.clearAllMocks();
+  // Clear mock elements
+  Object.keys(mockElements).forEach(key => delete mockElements[key]);
 });
 
 // Global test utilities
@@ -109,10 +114,13 @@ global.createMockElement = (id, properties = {}) => {
     }
   });
   
-  // Set up getElementById mock to return this element
+  // Store element in mock elements registry
+  mockElements[id] = element;
+  
+  // Set up getElementById mock to return elements from registry
   if (document && document.getElementById && document.getElementById.mockImplementation) {
     document.getElementById.mockImplementation((elementId) => {
-      return elementId === id ? element : null;
+      return mockElements[elementId] || null;
     });
   }
   
