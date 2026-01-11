@@ -86,9 +86,9 @@ beforeEach(() => {
 global.createMockElement = (id, properties = {}) => {
   const element = {
     id,
-    style: {},
-    textContent: '',
-    innerHTML: '',
+    style: properties.style || {},
+    textContent: properties.textContent || '',
+    innerHTML: properties.innerHTML || '',
     classList: {
       add: jest.fn(),
       remove: jest.fn(),
@@ -99,9 +99,15 @@ global.createMockElement = (id, properties = {}) => {
     removeEventListener: jest.fn(),
     click: jest.fn(),
     focus: jest.fn(),
-    blur: jest.fn(),
-    ...properties
+    blur: jest.fn()
   };
+  
+  // Merge any additional properties
+  Object.keys(properties).forEach(key => {
+    if (key !== 'style' && key !== 'textContent' && key !== 'innerHTML') {
+      element[key] = properties[key];
+    }
+  });
   
   // Set up getElementById mock to return this element
   if (document && document.getElementById && document.getElementById.mockImplementation) {

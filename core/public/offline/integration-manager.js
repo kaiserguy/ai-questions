@@ -82,6 +82,16 @@ class OfflineIntegrationManager {
         this.updateStatus('Initializing offline components...');
         
         try {
+            // Create managers if they don't exist (for production use)
+            // Tests will inject mock managers before calling this method
+            if (!this.aiModelManager && typeof AIModelManager !== 'undefined') {
+                this.aiModelManager = new AIModelManager(this.packageType);
+            }
+            
+            if (!this.wikipediaManager && typeof WikipediaManager !== 'undefined') {
+                this.wikipediaManager = new WikipediaManager(this.packageType);
+            }
+            
             // Initialize AI Model Manager if it exists
             if (this.aiModelManager) {
                 await this.aiModelManager.initialize();
@@ -101,24 +111,93 @@ class OfflineIntegrationManager {
         } catch (error) {
             this.error = error.message;
             this.updateStatus(`Initialization error: ${error.message}`, 'error');
+            
+            // Call error handler if it exists
+            if (this.onError) {
+                this.onError(error);
+            }
+            
+            // Call cleanup if it exists
+            if (this.cleanup) {
+                await this.cleanup();
+            }
+            
             throw error;
         }
     }
     
     /**
      * Check if all components are initialized
+     * @returns {boolean} True if all components are ready
      */
     checkInitializationComplete() {
-        if (this.aiManager && this.aiManager.initialized && 
-            this.wikiManager && this.wikiManager.initialized) {
-            
+        // Check if both managers exist and are ready
+        const aiReady = this.aiModelManager && this.aiModelManager.isReady();
+        const wikiReady = this.wikipediaManager && this.wikipediaManager.isReady();
+        
+        if (aiReady && wikiReady) {
             this.initialized = true;
+            this.isInitialized = true;
             this.updateStatus('All components initialized successfully');
             
-            // Show the chat and wiki sections
-            document.getElementById('progressSection').style.display = 'none';
-            document.getElementById('chatSection').style.display = 'block';
-            document.getElementById('wikiSection').style.display = 'block';
+            // Show the chat and wiki sections (only if DOM elements exist)
+            const progressSection = document.getElementById('progressSection');
+            const chatSection = document.getElementById('chatSection');
+            const wikiSection = document.getElementById('wikiSection');
+            
+            if (progressSection) progressSection.style.display = 'none';
+            if (chatSection) chatSection.style.display = 'block';
+            if (wikiSection) wikiSection.style.display = 'block';
+            
+            return true;
+        }
+        
+        return false;
+    }
+    
+    /**
+     * Show the offline interface (UI sections)
+     */
+    showOfflineInterface() {
+        const progressSection = document.getElementById('progressSection');
+        const chatSection = document.getElementById('chatSection');
+        const wikiSection = document.getElementById('wikiSection');
+        
+        if (progressSection) progressSection.style.display = 'none';
+        if (chatSection) chatSection.style.display = 'block';
+        if (wikiSection) wikiSection.style.display = 'block';
+    }
+    
+    /**
+     * Update progress display
+     */
+    updateProgress(message, progress) {
+        const progressElement = document.getElementById('progressText');
+        if (progressElement) {
+            progressElement.textContent = `${message} ${progress}%`;
+        }
+    }
+    
+    /**
+     * Handle errors
+     */
+    handleError(error) {
+        this.error = error.message || error;
+        console.error('[OfflineIntegrationManager] Error:', error);
+        
+        if (this.onError) {
+            this.onError(error);
+        }
+    }
+    
+    /**
+     * Display error message to user
+     */
+    displayError(message) {
+        const errorElement = document.getElementById('errorMessage');
+        if (errorElement) {
+            errorElement.textContent = message;
+            errorElement.style.display = 'block';
         }
     }
     

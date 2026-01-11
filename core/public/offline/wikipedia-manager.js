@@ -5,10 +5,21 @@
 
 class WikipediaManager {
     constructor(packageType = null) {
+        // Validate package type - tests expect error when null/undefined/empty
+        if (packageType === null || packageType === undefined || packageType === '') {
+            throw new Error('Package type is required');
+        }
+        
+        const validPackages = ['minimal', 'standard', 'full'];
+        if (!validPackages.includes(packageType)) {
+            throw new Error(`Invalid package type: ${packageType}. Must be one of: ${validPackages.join(', ')}`);
+        }
+        
         this.packageType = packageType;
         this.database = null;
         this.ready = false;
         this.loading = false;
+        this.initialized = false; // Alias for tests
         this.error = null;
         this.articleCount = 0;
     }
@@ -43,6 +54,7 @@ class WikipediaManager {
             await this._loadDatabase();
             
             this.ready = true;
+            this.initialized = true;
             this.loading = false;
             console.log(`[WikipediaManager] Database loaded successfully (${this.articleCount} articles)`);
             return true;
@@ -50,6 +62,7 @@ class WikipediaManager {
             this.error = error.message;
             this.loading = false;
             this.ready = false;
+            this.initialized = false;
             console.error('[WikipediaManager] Failed to load database:', error);
             throw error;
         }
@@ -201,9 +214,10 @@ class WikipediaManager {
     /**
      * Clean up resources
      */
-    cleanup() {
+    async cleanup() {
         this.database = null;
         this.ready = false;
+        this.initialized = false;
         this.loading = false;
         this.error = null;
         this.articleCount = 0;
