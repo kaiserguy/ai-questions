@@ -67,9 +67,9 @@
             </div>
             
             <div class="schedule-modal-actions">
-                <button class="schedule-btn schedule-btn-secondary" onclick="closeScheduleModal()">Cancel</button>
-                <button id="delete-schedule-btn" class="schedule-btn schedule-btn-danger" onclick="deleteSchedule()" style="display: none;">Delete Schedule</button>
-                <button class="schedule-btn schedule-btn-primary" onclick="saveSchedule()">Save Schedule</button>
+                <button class="schedule-btn schedule-btn-secondary" onclick="closeScheduleModal()" aria-label="Close schedule modal">Cancel</button>
+                <button id="delete-schedule-btn" class="schedule-btn schedule-btn-danger" onclick="deleteSchedule()" style="display: none;" aria-label="Delete schedule">Delete Schedule</button>
+                <button class="schedule-btn schedule-btn-primary" onclick="saveSchedule()" aria-label="Save schedule">Save Schedule</button>
             </div>
         </div>
     </div>
@@ -84,7 +84,7 @@
             </div>
             
             <div class="schedule-modal-actions">
-                <button class="schedule-btn schedule-btn-secondary" onclick="closeAnalyticsModal()">Close</button>
+                <button class="schedule-btn schedule-btn-secondary" onclick="closeAnalyticsModal()" aria-label="Close analytics modal">Close</button>
             </div>
         </div>
     </div>
@@ -110,7 +110,7 @@
                             <div style="display: flex; gap: 8px;">
                                 <input type="text" id="wikipedia-search-input" data-hint="Search Wikipedia..." 
                                        style="flex: 1; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
-                                <button onclick="searchWikipedia()" style="
+                                <button onclick="searchWikipedia()" aria-label="Search Wikipedia database" style="
                                     background: #0066cc; 
                                     color: white; 
                                     border: none; 
@@ -126,34 +126,34 @@
                     <div>
                         <h5 style="margin: 0 0 10px 0;">⚙️ Management</h5>
                         <div style="display: flex; flex-direction: column; gap: 8px;">
-                            <button onclick="showWikipediaDownload()" style="
+                            <button onclick="showWikipediaDownload()" aria-label="Download or upgrade Wikipedia database" style="
                                 background: #28a745; 
                                 color: white; 
                                 border: none; 
                                 padding: 8px 16px; 
                                 border-radius: 4px; 
-                                cursor: pointer;">📥 Download/Upgrade Wikipedia</button>
-                            <button onclick="showRandomArticles()" style="
+                                cursor: pointer;"><span aria-hidden="true">📥</span> Download/Upgrade Wikipedia</button>
+                            <button onclick="showRandomArticles()" aria-label="Show random Wikipedia articles" style="
                                 background: #17a2b8; 
                                 color: white; 
                                 border: none; 
                                 padding: 8px 16px; 
                                 border-radius: 4px; 
-                                cursor: pointer;">🎲 Random Articles</button>
-                            <button onclick="showWikipediaCategories()" style="
+                                cursor: pointer;"><span aria-hidden="true">🎲</span> Random Articles</button>
+                            <button onclick="showWikipediaCategories()" aria-label="Browse Wikipedia categories" style="
                                 background: #6f42c1; 
                                 color: white; 
                                 border: none; 
                                 padding: 8px 16px; 
                                 border-radius: 4px; 
-                                cursor: pointer;">📂 Browse Categories</button>
-                            <button onclick="showWikipediaStats()" style="
+                                cursor: pointer;"><span aria-hidden="true">📂</span> Browse Categories</button>
+                            <button onclick="showWikipediaStats()" aria-label="View Wikipedia database statistics" style="
                                 background: #fd7e14; 
                                 color: white; 
                                 border: none; 
                                 padding: 8px 16px; 
                                 border-radius: 4px; 
-                                cursor: pointer;">📊 Database Statistics</button>
+                                cursor: pointer;"><span aria-hidden="true">📊</span> Database Statistics</button>
                         </div>
                         <div style="margin-top: 15px;">
                             <label style="display: flex; align-items: center; gap: 8px; font-size: 14px;">
@@ -188,7 +188,7 @@
                     </div>
                 </div>
                 <div style="margin-top: 15px; padding-top: 15px; border-top: 1px solid #dee2e6;">
-                    <button id="refresh-models-btn" onclick="loadLocalModels()" style="
+                    <button id="refresh-models-btn" onclick="loadLocalModels()" aria-label="Refresh AI models list" style="
                         background: #6c757d; 
                         color: white; 
                         border: none; 
@@ -196,8 +196,8 @@
                         border-radius: 4px; 
                         cursor: pointer;
                         font-size: 0.9em;
-                    ">🔄 Refresh Models</button>
-                    <button id="manage-models-btn" onclick="openModelManager()" style="
+                    "><span aria-hidden="true">🔄</span> Refresh Models</button>
+                    <button id="manage-models-btn" onclick="openModelManager()" aria-label="Manage AI models" style="
                         background: #17a2b8; 
                         color: white; 
                         border: none; 
@@ -206,7 +206,7 @@
                         cursor: pointer;
                         font-size: 0.9em;
                         margin-left: 10px;
-                    ">⚙️ Manage Models</button>
+                    "><span aria-hidden="true">⚙️</span> Manage Models</button>
                 </div>
             </div>
         </div>
@@ -226,20 +226,22 @@
             <!-- Personal questions will be loaded here -->
         </div>
         
-        <button id="add-question-btn" class="button" onclick="toggleAddQuestionForm()">+ Add New Question</button>
+        <button id="add-question-btn" class="button" onclick="toggleAddQuestionForm()" aria-label="Add new personal question">+ Add New Question</button>
         
         <div id="add-question-form" class="add-question-form hidden">
             <h4>Add New Personal Question</h4>
             <form onsubmit="addPersonalQuestion(event)">
                 <div class="form-group">
-                    <label for="new-question">Question:</labe                        <input type="text" id="new-question" required data-hint="Enter your question...">                </div>
+                    <label for="new-question">Question:</label>
+                    <input type="text" id="new-question" required data-hint="Enter your question...">
+                </div>
                 <div class="form-group">
                     <label for="new-context">Context:</label>
                     <textarea id="new-context" required data-hint="Provide context for the question..."></textarea>
                 </div>
                 <div class="form-group">
-                    <button type="submit" class="button">Add Question</button>
-                    <button type="button" class="button" onclick="toggleAddQuestionForm()">Cancel</button>
+                    <button type="submit" class="button" aria-label="Submit new question">Add Question</button>
+                    <button type="button" class="button" onclick="toggleAddQuestionForm()" aria-label="Cancel adding question">Cancel</button>
                 </div>
             </form>
         </div>
@@ -273,7 +275,7 @@
                   <!-- Will be populated via JavaScript -->
                 </select>
               </div>
-            <button onclick="askAINow()" class="ask-button">Ask AI Now</button>
+            <button onclick="askAINow()" class="ask-button" aria-label="Ask AI the question now">Ask AI Now</button>
             <div id="loading-indicator" style="display: none; text-align: center; margin-top: 10px;">
                 <p>Asking AI... This may take a few moments.</p>
             </div>
@@ -549,11 +551,11 @@
                     <div class="question">${question.question}</div>
                     <div class="context">${question.context}</div>
                     <div class="personal-question-actions">
-                        <button class="btn-small btn-primary" onclick="askPersonalQuestion(${question.id})">Ask AI</button>
-                        <button class="btn-small btn-secondary" onclick="viewPersonalAnswers(${question.id})">View Answers</button>
-                        <button class="btn-small" style="background-color: #28a745; color: white;" onclick="openScheduleModal(${question.id})">⏰ Schedule</button>
-                        <button class="btn-small" style="background-color: #17a2b8; color: white;" onclick="openAnalyticsModal(${question.id})">📊 Analytics</button>
-                        <button class="btn-small btn-danger" onclick="deletePersonalQuestion(${question.id})">Delete</button>
+                        <button class="btn-small btn-primary" onclick="askPersonalQuestion(${question.id})" aria-label="Ask AI this question">Ask AI</button>
+                        <button class="btn-small btn-secondary" onclick="viewPersonalAnswers(${question.id})" aria-label="View all answers to this question">View Answers</button>
+                        <button class="btn-small" style="background-color: #28a745; color: white;" onclick="openScheduleModal(${question.id})" aria-label="Schedule this question"><span aria-hidden="true">⏰</span> Schedule</button>
+                        <button class="btn-small" style="background-color: #17a2b8; color: white;" onclick="openAnalyticsModal(${question.id})" aria-label="View analytics for this question"><span aria-hidden="true">📊</span> Analytics</button>
+                        <button class="btn-small btn-danger" onclick="deletePersonalQuestion(${question.id})" aria-label="Delete this question">Delete</button>
                     </div>
                 `;
                 container.appendChild(questionDiv);
