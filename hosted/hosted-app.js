@@ -154,7 +154,9 @@ app.get("/login", (req, res) => {
         return res.redirect("/");
     }
     res.render("login", {
-        config: PUBLIC_CONFIG
+        title: "Sign In - AI Questions",
+        config: PUBLIC_CONFIG,
+        error: req.query.error
     });
 });
 
