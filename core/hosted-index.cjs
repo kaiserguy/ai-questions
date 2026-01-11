@@ -1867,11 +1867,11 @@ app.get('/download/offline', async (req, res) => {
     // Pipe archive to response
     archive.pipe(res);
     
-    // Add install script
-    archive.file(path.join(__dirname, 'install.sh'), { name: 'install.sh' });
+    // Add install script (from repository root)
+    archive.file(path.join(__dirname, '..', 'install.sh'), { name: 'install.sh' });
     
-    // Add readme
-    archive.file(path.join(__dirname, 'README-OFFLINE.md'), { name: 'README.md' });
+    // Add readme (from repository root)
+    archive.file(path.join(__dirname, '..', 'README-OFFLINE.md'), { name: 'README.md' });
     
     // Create inner zip with local version files
     const innerArchive = archiver('zip', { zlib: { level: 9 } });
@@ -1887,8 +1887,8 @@ app.get('/download/offline', async (req, res) => {
       archive.finalize();
     });
     
-    // Add local version files to inner zip
-    innerArchive.directory(path.join(__dirname, 'local'), false);
+    // Add local version files to inner zip (from repository root)
+    innerArchive.directory(path.join(__dirname, '..', 'local'), false);
     innerArchive.finalize();
     
   } catch (error) {
