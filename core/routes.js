@@ -73,7 +73,7 @@ module.exports = (db, ai, wikipedia, config) => {
     };
 
     // Route for the main page
-    router.get("/", ensureAuthenticated, async (req, res) => {
+    router.get("/", async (req, res) => {
         const todayQuestion = getTodayQuestion();
         let todayAnswer = null;
         let allModels = [];
