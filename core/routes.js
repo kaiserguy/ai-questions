@@ -200,6 +200,24 @@ module.exports = (db, ai, wikipedia, config) => {
         }
     });
 
+    // Public API to get today's question (no authentication required)
+    router.get('/api/question', (req, res) => {
+        try {
+            const todayQuestion = getTodayQuestion();
+            if (todayQuestion == null) {
+                return res.status(404).json({
+                    error: 'No question available for today'
+                });
+            }
+            res.json(todayQuestion);
+        } catch (error) {
+            console.error('Error in question API route:', error);
+            res.status(500).json({ 
+                error: 'Failed to get question'
+            });
+        }
+    });
+
     // API to list available AI models
     router.get("/api/models", ensureAuthenticated, async (req, res) => {
         try {
