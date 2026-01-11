@@ -77,9 +77,9 @@ describe('Installation Guide Button', () => {
         let modalEnd = actionsStart;
         let divCount = 1; // We're inside the actions div
         for (let i = actionsStart; i < hostedIndexContent.length && divCount > 0; i++) {
-            if (hostedIndexContent.substr(i, 5) === '<div ') {
+            if (hostedIndexContent.substring(i, i + 5) === '<div ') {
                 divCount++;
-            } else if (hostedIndexContent.substr(i, 6) === '</div>') {
+            } else if (hostedIndexContent.substring(i, i + 6) === '</div>') {
                 divCount--;
                 if (divCount === 0) {
                     modalEnd = i;
