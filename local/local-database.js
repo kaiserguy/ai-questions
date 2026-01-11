@@ -229,6 +229,16 @@ class LocalDatabase {
             });
         });
     }
+
+    async getUserApiKeys(userId) {
+        // For local use, return empty array since API keys aren't persisted
+        return [];
+    }
+
+    async deleteUserApiKey(userId, provider) {
+        // For local use, just return success
+        return { success: true, provider };
+    }
 }
 
 module.exports = LocalDatabase;

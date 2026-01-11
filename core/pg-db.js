@@ -373,6 +373,22 @@ class PgDatabase extends DatabaseInterface {
         );
         return { success: true };
     }
+
+    async getUserApiKeys(userId) {
+        const result = await this.pool.query(
+            `SELECT provider, created_at FROM user_api_keys WHERE user_id = $1 ORDER BY created_at DESC`,
+            [userId]
+        );
+        return result.rows;
+    }
+
+    async deleteUserApiKey(userId, provider) {
+        const result = await this.pool.query(
+            `DELETE FROM user_api_keys WHERE user_id = $1 AND provider = $2 RETURNING *`,
+            [userId, provider]
+        );
+        return result.rows.length > 0 ? result.rows[0] : null;
+    }
 }
 
 module.exports = PgDatabase;
