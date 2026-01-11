@@ -191,6 +191,21 @@ class PgDatabase extends DatabaseInterface {
         return result.rows;
     }
 
+    async getLatestAnswers() {
+        const result = await this.pool.query(`
+            SELECT a.*
+            FROM answers a
+            INNER JOIN (
+                SELECT question, MAX(date) as max_date
+                FROM answers
+                WHERE is_personal = false
+                GROUP BY question
+            ) b ON a.question = b.question AND a.date = b.max_date AND a.is_personal = false
+            ORDER BY a.id DESC
+        `);
+        return result.rows;
+    }
+
     async deleteAnswer(id) {
         await this.pool.query(`DELETE FROM answers WHERE id = $1`, [id]);
         return { success: true };

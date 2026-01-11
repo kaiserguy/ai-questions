@@ -77,6 +77,7 @@ module.exports = (db, ai, wikipedia, config) => {
         const todayQuestion = getTodayQuestion();
         let todayAnswer = null;
         let allModels = [];
+        let latestAnswers = [];
         let indexFlavor = "hosted-index"
         console.log(`[DEBUG] Config object:`, config);
         console.log(`[DEBUG] config.isLocal:`, config.isLocal);
@@ -96,6 +97,9 @@ module.exports = (db, ai, wikipedia, config) => {
                     break;
                 }
             }
+
+            // Fetch latest answers for all questions
+            latestAnswers = await db.getLatestAnswers();
         } catch (error) {
             console.error("Error fetching data for main page:", error);
         }
@@ -107,7 +111,7 @@ module.exports = (db, ai, wikipedia, config) => {
             todayAnswer,
             allModels,
             isLocal: config.isLocal,
-            latestAnswers: [] // Ensure latestAnswers is always defined
+            latestAnswers
         });
     });
 
