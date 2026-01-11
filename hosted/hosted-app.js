@@ -270,6 +270,130 @@ app.get("/download-local-package", (req, res) => {
     }
 });
 
+// ===== AUTOMATED SCHEDULING =====
+// Platform-agnostic cron jobs for daily question generation
+
+const cron = require('node-cron');
+
+// Schedule daily question generation at midnight UTC
+cron.schedule('0 0 * * *', async () => {
+    try {
+        console.log('Running daily scheduled task at:', new Date().toISOString());
+        
+        // Generate answer for today's question
+        const modelsResponse = await ai.listModels(null);
+        const availableModels = modelsResponse.models.filter(m => m.available);
+        
+        if (availableModels.length === 0) {
+            console.log('No available models for daily question generation');
+            return;
+        }
+        
+        // Get today's question from routes
+        const today = new Date();
+        const dayOfYear = Math.floor((today - new Date(today.getFullYear(), 0, 0)) / 1000 / 60 / 60 / 24);
+        
+        // Daily questions array (synced with core/routes.js)
+        const DAILY_QUESTIONS = [
+            {
+                question: "In '1984', was Winston Smith's rebellion against the Party justified? Why or why not?",
+                context: "In George Orwell's novel '1984', Winston Smith works at the Ministry of Truth but secretly rebels against the totalitarian regime of Big Brother and the Party. He keeps a diary, engages in a forbidden relationship with Julia, and seeks out the Brotherhood resistance movement."
+            },
+            {
+                id: 2,
+                question: "Is the concept of 'doublethink' from '1984' present in today's society? Provide specific examples.",
+                context: "In '1984', doublethink is described as the act of simultaneously accepting two mutually contradictory beliefs as correct. It involves the ability to tell deliberate lies while genuinely believing in them, to forget any fact that has become inconvenient, and then to draw it back from oblivion when needed."
+            },
+            {
+                id: 3,
+                question: "Compare the surveillance state in '1984' with modern data collection practices. Are there meaningful differences, and why?",
+                context: "In '1984', the Party monitors citizens through telescreens that both transmit and record, the Thought Police, and children who spy on their parents. Modern data collection includes internet tracking, smartphone location data, facial recognition, and various forms of digital surveillance by both governments and corporations."
+            },
+            {
+                id: 4,
+                question: "In '1984', the Party rewrites history. What are the dangers of historical revisionism, and do you see examples today?",
+                context: "In '1984', Winston Smith works at the Ministry of Truth where he alters historical documents to match the Party's ever-changing version of history. The novel portrays a society where 'Who controls the past controls the future. Who controls the present controls the past.'"
+            },
+            {
+                id: 5,
+                question: "How does the concept of 'Newspeak' in '1984' relate to modern political language? Give examples.",
+                context: "Newspeak in '1984' is a controlled language created by the Party to limit freedom of thought. It eliminates nuance and restricts the range of ideas that can be expressed. Words like 'doublethink', 'thoughtcrime', and 'unperson' show how language can be manipulated to control thought."
+            },
+            {
+                id: 6,
+                question: "Was Julia a true rebel against the Party in '1984', or was her rebellion superficial? Explain your reasoning.",
+                context: "In '1984', Julia is Winston's lover who appears to rebel against the Party through illegal sexual relationships and obtaining black market goods. However, her rebellion seems focused on personal pleasure rather than ideological opposition, unlike Winston who questions the Party's control of reality itself."
+            },
+            {
+                id: 7,
+                question: "In '1984', what does the slogan 'Freedom is Slavery' mean, and is there any truth to it in our society?",
+                context: "In '1984', the Party's three slogans are 'War is Peace', 'Freedom is Slavery', and 'Ignorance is Strength'. These paradoxes are central to the Party's control through doublethink."
+            },
+            {
+                id: 8,
+                question: "Discuss the role of technology in '1984' as a tool of oppression. How does this compare to technology's role today?",
+                context: "Technology in '1984' is primarily used for surveillance and control, such as telescreens, hidden microphones, and advanced weaponry. Today, technology offers both liberation and control, with concerns about privacy, data collection, and algorithmic manipulation."
+            },
+            {
+                id: 9,
+                question: "How does '1984' explore the themes of individuality versus conformity?",
+                context: "'1984' depicts a society where individuality is suppressed, and conformity to the Party's ideology is enforced through constant surveillance, propaganda, and re-education. Winston's struggle is a battle to maintain his own thoughts and identity."
+            },
+            {
+                id: 10,
+                question: "What is the significance of Room 101 in '1984'?",
+                context: "Room 101 is the torture chamber in the Ministry of Love where prisoners are subjected to their worst fears. It is the ultimate tool of the Party to break individuals and force them to conform."
+            }
+        ];
+        
+        const todayQuestion = DAILY_QUESTIONS[dayOfYear % DAILY_QUESTIONS.length];
+        console.log(`Daily question: "${todayQuestion.question}"`);
+        
+        // Check if answer already exists for today
+        const yesterday = new Date(today);
+        yesterday.setDate(yesterday.getDate() - 1);
+        
+        const existingAnswer = await db.getAnswer(todayQuestion.question, availableModels[0].id);
+        if (existingAnswer && new Date(existingAnswer.date) > yesterday) {
+            console.log('Answer already generated today, skipping');
+            return;
+        }
+        
+        // Generate answer with first available model
+        const model = availableModels[0];
+        console.log(`Generating answer with model: ${model.name}`);
+        
+        const aiResponse = await ai.generateResponse(
+            model.id,
+            todayQuestion.question,
+            todayQuestion.context,
+            null // No user ID for daily questions
+        );
+        
+        // Save the answer
+        await db.saveAnswer(
+            todayQuestion.question,
+            todayQuestion.context,
+            aiResponse.answer,
+            aiResponse.model,
+            aiResponse.model_name,
+            aiResponse.confidence,
+            new Date(),
+            null, // user_id
+            null, // personal_question_id
+            false, // is_personal
+            '2.0' // prompt_version
+        );
+        
+        console.log('Daily answer generated and saved successfully');
+        
+    } catch (error) {
+        console.error('Error in daily scheduled task:', error);
+    }
+});
+
+console.log('✅ Daily question generation scheduled (runs at midnight UTC)');
+
 // Start the server
 const PORT = PUBLIC_CONFIG.app.port;
 
