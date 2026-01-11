@@ -204,7 +204,7 @@ module.exports = (db, ai, wikipedia, config) => {
     router.get('/api/question', (req, res) => {
         try {
             const todayQuestion = getTodayQuestion();
-            if (todayQuestion == null) {
+            if (todayQuestion === null || todayQuestion === undefined) {
                 return res.status(404).json({
                     error: 'No question available for today'
                 });
