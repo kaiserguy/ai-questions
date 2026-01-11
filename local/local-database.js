@@ -128,6 +128,10 @@ class LocalDatabase {
     }
 
     async getLatestAnswers(limit = 10) {
+        // Note: SQLite schema has simplified structure compared to PostgreSQL
+        // Missing fields (model_name, confidence, prompt_version, is_personal) are
+        // provided as defaults to match PostgreSQL API response structure
+        // All answers in local DB are non-personal (personal ones are in personal_questions table)
         const result = await this.query(`
             SELECT a.id, q.question, q.context, a.answer, a.model, 
                    a.created_at, a.user_id, a.question_id,
