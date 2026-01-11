@@ -71,8 +71,23 @@ describe('Installation Guide Button', () => {
     
     test('should have Close button in modal', () => {
         const modalStart = hostedIndexContent.indexOf('id="install-instructions-modal"');
-        const modalEnd = hostedIndexContent.indexOf('</div>', 
-            hostedIndexContent.indexOf('schedule-modal-actions', modalStart) + 200);
+        const actionsStart = hostedIndexContent.indexOf('schedule-modal-actions', modalStart);
+        
+        // Find the closing div tag after the actions section (within reasonable bounds)
+        let modalEnd = actionsStart;
+        let divCount = 1; // We're inside the actions div
+        for (let i = actionsStart; i < hostedIndexContent.length && divCount > 0; i++) {
+            if (hostedIndexContent.substr(i, 5) === '<div ') {
+                divCount++;
+            } else if (hostedIndexContent.substr(i, 6) === '</div>') {
+                divCount--;
+                if (divCount === 0) {
+                    modalEnd = i;
+                    break;
+                }
+            }
+        }
+        
         const modalContent = hostedIndexContent.substring(modalStart, modalEnd);
         
         expect(modalContent).toContain('onclick="closeInstallInstructions()"');
