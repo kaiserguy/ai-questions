@@ -6,13 +6,13 @@ Based on analysis of `core/hosted-index.cjs`, the following personal question AP
 
 ### 1. GET /api/personal-questions
 - **Purpose**: List all active personal questions for authenticated user
-- **Auth**: Required (requireAuth)
+- **Auth**: Required (ensureAuthenticated)
 - **Query**: `SELECT * FROM personal_questions WHERE user_id = $1 AND is_active = true ORDER BY created_at DESC`
 - **Line**: 1039-1050
 
 ### 2. POST /api/personal-questions
 - **Purpose**: Create a new personal question
-- **Auth**: Required (requireAuth)
+- **Auth**: Required (ensureAuthenticated)
 - **Body**: `{ question, context }`
 - **Validation**: Both question and context required
 - **Special**: Handles debug user (id=999999) creation
@@ -20,7 +20,7 @@ Based on analysis of `core/hosted-index.cjs`, the following personal question AP
 
 ### 3. PUT /api/personal-questions/:id
 - **Purpose**: Update an existing personal question
-- **Auth**: Required (requireAuth)
+- **Auth**: Required (ensureAuthenticated)
 - **Params**: `id` (question ID)
 - **Body**: `{ question, context }`
 - **Validation**: Both question and context required, user ownership check
@@ -28,21 +28,21 @@ Based on analysis of `core/hosted-index.cjs`, the following personal question AP
 
 ### 4. DELETE /api/personal-questions/:id
 - **Purpose**: Soft delete a personal question (set is_active = false)
-- **Auth**: Required (requireAuth)
+- **Auth**: Required (ensureAuthenticated)
 - **Params**: `id` (question ID)
 - **Query**: `UPDATE personal_questions SET is_active = false WHERE id = $1 AND user_id = $2`
 - **Line**: 1110-1130
 
 ### 5. GET /api/personal-questions/:id/answers
 - **Purpose**: Get all answers for a specific personal question
-- **Auth**: Required (requireAuth)
+- **Auth**: Required (ensureAuthenticated)
 - **Params**: `id` (question ID)
 - **Query**: `SELECT * FROM answers WHERE personal_question_id = $1 AND user_id = $2 ORDER BY date DESC`
 - **Line**: 1255-1272
 
 ### 6. POST /api/personal-questions/:id/schedule
 - **Purpose**: Create or update schedule for a personal question
-- **Auth**: Required (requireAuth)
+- **Auth**: Required (ensureAuthenticated)
 - **Params**: `id` (question ID)
 - **Body**: `{ frequency_type, frequency_value, frequency_unit, selected_models }`
 - **Validation**: frequency_type and selected_models required, user ownership check
@@ -50,14 +50,14 @@ Based on analysis of `core/hosted-index.cjs`, the following personal question AP
 
 ### 7. GET /api/personal-questions/:id/schedule
 - **Purpose**: Get schedule for a personal question
-- **Auth**: Required (requireAuth)
+- **Auth**: Required (ensureAuthenticated)
 - **Params**: `id` (question ID)
 - **Query**: `SELECT * FROM question_schedules WHERE question_id = $1 AND user_id = $2`
 - **Line**: 1332-1351
 
 ### 8. DELETE /api/personal-questions/:id/schedule
 - **Purpose**: Delete schedule for a personal question
-- **Auth**: Required (requireAuth)
+- **Auth**: Required (ensureAuthenticated)
 - **Params**: `id` (question ID)
 - **Query**: `DELETE FROM question_schedules WHERE question_id = $1 AND user_id = $2`
 - **Line**: 1353-1370
