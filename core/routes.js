@@ -1,5 +1,17 @@
 const express = require("express");
 const cron = require("node-cron");
+const crypto = require("crypto");
+
+// Generate a random debug token on startup if DEBUG_TOKEN is not set
+const DEBUG_TOKEN = process.env.DEBUG_TOKEN || (() => {
+    const token = crypto.randomBytes(32).toString('hex');
+    console.log('\n===========================================')
+    console.log('DEBUG TOKEN GENERATED (for development):')
+    console.log(`   ${token}`)
+    console.log('   Set DEBUG_TOKEN env var to use a custom token')
+    console.log('===========================================\n')
+    return token;
+})();
 
 module.exports = (db, ai, wikipedia, config) => {
     const router = express.Router();
@@ -109,6 +121,33 @@ module.exports = (db, ai, wikipedia, config) => {
             isLocal: config.isLocal,
             latestAnswers: [] // Ensure latestAnswers is always defined
         });
+    });
+
+    // API to get current user info
+    router.get('/api/user', (req, res) => {
+        // Check for debug token first
+        const debugToken = req.headers['x-debug-token'] || req.query.debug_token;
+        
+        if (debugToken === DEBUG_TOKEN) {
+            return res.json({
+                id: 999999,
+                name: 'Debug User',
+                email: 'debug@test.com',
+                avatar_url: 'https://via.placeholder.com/40',
+                debug_mode: true
+            });
+        }
+        
+        if (req.isAuthenticated()) {
+            res.json({
+                id: req.user.id,
+                name: req.user.name,
+                email: req.user.email,
+                avatar_url: req.user.avatar_url
+            });
+        } else {
+            res.status(401).json({ error: 'Not authenticated' });
+        }
     });
 
     // API to get daily question and answer
