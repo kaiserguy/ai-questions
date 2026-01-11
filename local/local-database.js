@@ -127,6 +127,17 @@ class LocalDatabase {
         return result.rows;
     }
 
+    async getLatestAnswers(limit = 10) {
+        const result = await this.query(`
+            SELECT a.*, q.question, q.context 
+            FROM answers a 
+            JOIN questions q ON a.question_id = q.id 
+            ORDER BY a.created_at DESC 
+            LIMIT ?
+        `, [limit]);
+        return result.rows;
+    }
+
     async deleteAnswer(id) {
         const result = await this.query('DELETE FROM answers WHERE id = ?', [id]);
         return result.rowCount > 0;
