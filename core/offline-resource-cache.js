@@ -181,6 +181,19 @@ class OfflineResourceCache {
         return fs.existsSync(filePath) ? filePath : null;
     }
 
+    // Alias methods for API compatibility
+    isMinimalPackageAvailable() {
+        return this.isMinimalPackageReady();
+    }
+
+    getMinimalPackageManifest() {
+        return this.getManifest();
+    }
+
+    get isInitialized() {
+        return fs.existsSync(this.cacheDir);
+    }
+
     getPackageInfo() {
         const manifest = this.getManifest();
         if (!manifest) {

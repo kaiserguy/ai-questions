@@ -148,6 +148,16 @@ if (PUBLIC_CONFIG.auth.google.clientID && PUBLIC_CONFIG.auth.google.clientSecret
 
 // Authentication routes removed - duplicates of routes defined in OAuth configuration block above
 
+// Serve login page
+app.get("/login", (req, res) => {
+    if (req.isAuthenticated()) {
+        return res.redirect("/");
+    }
+    res.render("login", {
+        config: PUBLIC_CONFIG
+    });
+});
+
 // Middleware to check authentication
 const ensureAuthenticated = (req, res, next) => {
     if (req.isAuthenticated()) {
