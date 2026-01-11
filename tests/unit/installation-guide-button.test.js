@@ -44,8 +44,27 @@ describe('Installation Guide Button', () => {
     test('modal should NOT be nested inside personal-questions-section', () => {
         // Extract the personal-questions-section content
         const personalSectionStart = hostedIndexContent.indexOf('<div id="personal-questions-section"');
-        const personalSectionEnd = hostedIndexContent.indexOf('</div>', 
-            hostedIndexContent.indexOf('<!-- AI Models Configuration Page -->', personalSectionStart));
+
+        // Safeguard: if the section is not found, fail explicitly
+        expect(personalSectionStart).toBeGreaterThan(-1);
+
+        // Find the matching closing </div> for the personal-questions-section,
+        // correctly handling nested <div> elements.
+        const sectionOpenEnd = hostedIndexContent.indexOf('>', personalSectionStart);
+        let personalSectionEnd = sectionOpenEnd + 1;
+        let divCount = 1; // We are currently inside the personal-questions-section <div>
+
+        for (let i = sectionOpenEnd + 1; i < hostedIndexContent.length && divCount > 0; i++) {
+            if (hostedIndexContent.substring(i, i + 5) === '<div ') {
+                divCount++;
+            } else if (hostedIndexContent.substring(i, i + 6) === '</div>') {
+                divCount--;
+                if (divCount === 0) {
+                    personalSectionEnd = i;
+                    break;
+                }
+            }
+        }
         
         const personalSectionContent = hostedIndexContent.substring(personalSectionStart, personalSectionEnd);
         
