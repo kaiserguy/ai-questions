@@ -302,6 +302,58 @@ module.exports = (db, ai, wikipedia, config) => {
         }
     });
 
+    // API route to get answer history for a specific question
+    router.get("/api/answers/history", ensureAuthenticated, async (req, res) => {
+        try {
+            const question = req.query.question;
+            
+            if (!question) {
+                return res.status(400).json({ 
+                    error: 'Missing required parameter: question' 
+                });
+            }
+            
+            const history = await db.getHistory(question);
+            
+            // Distinguish between a non-existent question and questions with no history
+            if (history === null || typeof history === 'undefined') {
+                return res.status(404).json({
+                    error: 'Question not found',
+                    question: question
+                });
+            }
+
+            if (Array.isArray(history) && history.length === 0) {
+                return res.status(200).json({
+                    question: question,
+                    history: [],
+                    message: 'No answer history found for this question.'
+                });
+            }
+
+            res.json({
+                question: question,
+                history: history
+            });
+        } catch (error) {
+            // Use application logger if available, fallback to console.error
+            const logger = req.app && typeof req.app.get === 'function'
+                ? req.app.get('logger')
+                : null;
+
+            if (logger && typeof logger.error === 'function') {
+                logger.error('Error in answers history API route:', error);
+            } else {
+                console.error('Error in answers history API route:', error);
+            }
+
+            res.status(500).json({ 
+                error: 'Failed to get answer history', 
+                message: error.message 
+            });
+        }
+    });
+
     // Personal Questions Routes
     router.get("/personal-questions", ensureAuthenticated, async (req, res) => {
         const userId = req.user ? req.user.id : null;
