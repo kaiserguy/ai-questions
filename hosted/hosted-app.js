@@ -258,6 +258,58 @@ app.get("/generate-local-package", async (req, res) => {
     }
 });
 
+// Download offline version route (generates and downloads package)
+app.get("/download/offline", async (req, res) => {
+    const archiver = require('archiver');
+    
+    try {
+        // Set response headers for download
+        res.setHeader('Content-Type', 'application/zip');
+        res.setHeader('Content-Disposition', 'attachment; filename="ai-questions-offline.zip"');
+        
+        // Create archive
+        const archive = archiver('zip', { zlib: { level: 9 } });
+        
+        // Handle errors
+        archive.on('error', (err) => {
+            console.error('Archive error:', err);
+            if (!res.headersSent) {
+                res.status(500).json({ error: 'Failed to create download package' });
+            }
+        });
+        
+        // Pipe archive to response
+        archive.pipe(res);
+        
+        // Add install script (from repository root)
+        const installPath = path.join(__dirname, '..', 'install.sh');
+        if (fs.existsSync(installPath)) {
+            archive.file(installPath, { name: 'install.sh' });
+        }
+        
+        // Add readme (from repository root)
+        const readmePath = path.join(__dirname, '..', 'README-OFFLINE.md');
+        if (fs.existsSync(readmePath)) {
+            archive.file(readmePath, { name: 'README.md' });
+        }
+        
+        // Add local version files (from repository root)
+        const localPath = path.join(__dirname, '..', 'local');
+        if (fs.existsSync(localPath)) {
+            archive.directory(localPath, 'ai-questions-local');
+        }
+        
+        // Finalize the archive
+        await archive.finalize();
+        
+    } catch (error) {
+        console.error('Error creating download package:', error);
+        if (!res.headersSent) {
+            res.status(500).json({ error: 'Failed to create download package' });
+        }
+    }
+});
+
 // Serve the generated package
 app.get("/download-local-package", (req, res) => {
     const packagePath = path.join(__dirname, "local-package.zip");
