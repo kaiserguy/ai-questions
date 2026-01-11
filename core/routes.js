@@ -1,5 +1,17 @@
 const express = require("express");
 const cron = require("node-cron");
+const crypto = require("crypto");
+
+// Generate a random debug token on startup if DEBUG_TOKEN is not set
+const DEBUG_TOKEN = process.env.DEBUG_TOKEN || (() => {
+    const token = crypto.randomBytes(32).toString('hex');
+    console.log('\n===========================================')
+    console.log('DEBUG TOKEN GENERATED (for development):')
+    console.log(`   ${token}`)
+    console.log('   Set DEBUG_TOKEN env var to use a custom token')
+    console.log('===========================================\n')
+    return token;
+})();
 
 module.exports = (db, ai, wikipedia, config) => {
     const router = express.Router();
@@ -115,9 +127,8 @@ module.exports = (db, ai, wikipedia, config) => {
     router.get('/api/user', (req, res) => {
         // Check for debug token first
         const debugToken = req.headers['x-debug-token'] || req.query.debug_token;
-        const validDebugToken = process.env.DEBUG_TOKEN || 'debug-test-token-2024';
         
-        if (debugToken === validDebugToken) {
+        if (debugToken === DEBUG_TOKEN) {
             return res.json({
                 id: 999999,
                 name: 'Debug User',
