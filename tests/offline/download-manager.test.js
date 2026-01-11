@@ -275,11 +275,12 @@ describe('DownloadManager', () => {
       const mockErrorHandler = jest.fn();
       manager.setEventHandlers({ onError: mockErrorHandler });
 
-      // Mock network error
-      global.fetch.mockRejectedValueOnce(new Error('Network Error'));
+      // Mock network error for all fetch calls in this test
+      global.fetch.mockRejectedValue(new Error('Network Error'));
 
-      await expect(manager.downloadLibraries()).rejects.toThrow('Network Error');
+      await expect(manager.downloadLibraries()).rejects.toThrow();
       expect(mockErrorHandler).toHaveBeenCalled();
+      expect(mockErrorHandler.mock.calls[0][0]).toContain('Network Error');
     });
 
     test('should handle malformed API responses', async () => {

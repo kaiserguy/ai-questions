@@ -133,6 +133,11 @@ class DownloadManager {
         
         try {
             const response = await fetch('/api/offline/packages/availability');
+            
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            
             const data = await response.json();
             
             if (!data.success) {
@@ -149,7 +154,13 @@ class DownloadManager {
             return data;
         } catch (error) {
             console.error('Error checking package availability:', error);
-            throw new Error('Failed to check package availability: ' + error.message);
+            
+            // Call error handler if set
+            if (this.onError) {
+                this.onError(error.message || error.toString());
+            }
+            
+            throw error;
         }
     }
     
@@ -216,6 +227,12 @@ class DownloadManager {
                 
             } catch (error) {
                 this.updateResource('libraries', 'error', 0);
+                
+                // Call error handler if set
+                if (this.onError) {
+                    this.onError(`Failed to download ${library.name}: ${error.message}`);
+                }
+                
                 throw new Error(`Failed to download ${library.name}: ${error.message}`);
             }
         }
@@ -481,35 +498,7 @@ class DownloadManager {
         });
     }
     
-    /**
-     * Initialize IndexedDB for offline storage
-     */
-    async initializeStorage() {
-        return new Promise((resolve, reject) => {
-            const request = indexedDB.open('OfflineAI', 1);
-            
-            request.onerror = () => reject(request.error);
-            request.onsuccess = () => {
-                this.db = request.result;
-                resolve();
-            };
-            
-            request.onupgradeneeded = (event) => {
-                const db = event.target.result;
-                
-                // Create object stores for different types of files
-                if (!db.objectStoreNames.contains('libraries')) {
-                    db.createObjectStore('libraries', { keyPath: 'name' });
-                }
-                if (!db.objectStoreNames.contains('models')) {
-                    db.createObjectStore('models', { keyPath: 'name' });
-                }
-                if (!db.objectStoreNames.contains('wikipedia')) {
-                    db.createObjectStore('wikipedia', { keyPath: 'name' });
-                }
-            };
-        });
-    }
+
     
     /**
      * Store a file in IndexedDB
@@ -590,8 +579,14 @@ class DownloadManager {
      * Check if a file exists in storage
      */
     async fileExists(name) {
-        const file = await this.getFile(name);
-        return file !== null;
+        try {
+            const file = await this.getFile(name);
+            return file !== null;
+        } catch (error) {
+            // If storage not available, assume file doesn't exist
+            console.log('Storage not available, assuming file does not exist');
+            return false;
+        }
     }
     async downloadCachedResource(filename, size) {
         return new Promise((resolve, reject) => {

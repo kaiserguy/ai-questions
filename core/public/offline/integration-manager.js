@@ -83,7 +83,7 @@ class OfflineIntegrationManager {
         
         try {
             // Create managers if they don't exist (for production use)
-            // Tests will inject mock managers before calling this method
+            // Tests will inject test managers before calling this method
             if (!this.aiModelManager && typeof AIModelManager !== 'undefined') {
                 this.aiModelManager = new AIModelManager(this.packageType);
             }
