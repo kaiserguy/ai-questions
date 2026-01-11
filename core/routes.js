@@ -111,6 +111,34 @@ module.exports = (db, ai, wikipedia, config) => {
         });
     });
 
+    // API to get current user info
+    router.get('/api/user', (req, res) => {
+        // Check for debug token first
+        const debugToken = req.headers['x-debug-token'] || req.query.debug_token;
+        const validDebugToken = process.env.DEBUG_TOKEN || 'debug-test-token-2024';
+        
+        if (debugToken === validDebugToken) {
+            return res.json({
+                id: 999999,
+                name: 'Debug User',
+                email: 'debug@test.com',
+                avatar_url: 'https://via.placeholder.com/40',
+                debug_mode: true
+            });
+        }
+        
+        if (req.isAuthenticated()) {
+            res.json({
+                id: req.user.id,
+                name: req.user.name,
+                email: req.user.email,
+                avatar_url: req.user.avatar_url
+            });
+        } else {
+            res.status(401).json({ error: 'Not authenticated' });
+        }
+    });
+
     // API to get daily question and answer
     router.get("/api/daily-question", ensureAuthenticated, async (req, res) => {
         const dailyQuestion = getTodayQuestion();
