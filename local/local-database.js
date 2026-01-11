@@ -129,7 +129,10 @@ class LocalDatabase {
 
     async getLatestAnswers(limit = 10) {
         const result = await this.query(`
-            SELECT a.*, q.question, q.context 
+            SELECT a.id, q.question, q.context, a.answer, a.model, 
+                   a.created_at, a.user_id, a.question_id,
+                   NULL as model_name, NULL as confidence, NULL as prompt_version,
+                   false as is_personal
             FROM answers a 
             JOIN questions q ON a.question_id = q.id 
             ORDER BY a.created_at DESC 

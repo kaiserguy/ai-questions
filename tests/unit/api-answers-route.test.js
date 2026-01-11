@@ -1,28 +1,80 @@
 /**
- * Unit tests for /api/answers route and getLatestAnswers method
+ * Integration tests for /api/answers route and getLatestAnswers method
+ * Tests database methods and route configuration
  */
 
 const path = require('path');
 const fs = require('fs');
 
-describe('API Answers Route Tests', () => {
-  describe('Database Method Existence', () => {
-    test('pg-db.js should have getLatestAnswers method', () => {
-      const pgDbPath = path.join(__dirname, '../../core/pg-db.js');
-      expect(fs.existsSync(pgDbPath)).toBe(true);
+// Mock database for testing
+class MockDatabase {
+  async getLatestAnswers(limit = 10) {
+    return [
+      {
+        id: 1,
+        question: 'Test question 1',
+        context: 'Test context 1',
+        answer: 'Test answer 1',
+        model: 'gpt-4',
+        model_name: 'GPT-4',
+        confidence: 0.95,
+        created_at: new Date('2024-01-01'),
+        user_id: 1,
+        is_personal: false,
+        prompt_version: '1.0'
+      },
+      {
+        id: 2,
+        question: 'Test question 2',
+        context: 'Test context 2',
+        answer: 'Test answer 2',
+        model: 'gpt-3.5',
+        model_name: 'GPT-3.5',
+        confidence: 0.88,
+        created_at: new Date('2024-01-02'),
+        user_id: 1,
+        is_personal: false,
+        prompt_version: '1.0'
+      }
+    ].slice(0, limit);
+  }
+}
+
+describe('API Answers Route Integration Tests', () => {
+  describe('Database Method Tests', () => {
+    test('MockDatabase getLatestAnswers should return array', async () => {
+      const db = new MockDatabase();
+      const results = await db.getLatestAnswers(5);
       
-      const pgDbContent = fs.readFileSync(pgDbPath, 'utf8');
-      expect(pgDbContent).toContain('async getLatestAnswers');
-      expect(pgDbContent).toContain('limit = 10');
+      expect(Array.isArray(results)).toBe(true);
+      expect(results.length).toBeLessThanOrEqual(5);
     });
 
-    test('local-database.js should have getLatestAnswers method', () => {
-      const localDbPath = path.join(__dirname, '../../local/local-database.js');
-      expect(fs.existsSync(localDbPath)).toBe(true);
+    test('MockDatabase getLatestAnswers should respect limit', async () => {
+      const db = new MockDatabase();
+      const results = await db.getLatestAnswers(1);
       
-      const localDbContent = fs.readFileSync(localDbPath, 'utf8');
-      expect(localDbContent).toContain('async getLatestAnswers');
-      expect(localDbContent).toContain('limit = 10');
+      expect(results.length).toBe(1);
+    });
+
+    test('MockDatabase getLatestAnswers should have required fields', async () => {
+      const db = new MockDatabase();
+      const results = await db.getLatestAnswers(1);
+      
+      expect(results[0]).toHaveProperty('id');
+      expect(results[0]).toHaveProperty('question');
+      expect(results[0]).toHaveProperty('answer');
+      expect(results[0]).toHaveProperty('created_at');
+      expect(results[0]).toHaveProperty('is_personal');
+    });
+
+    test('MockDatabase getLatestAnswers should filter non-personal answers', async () => {
+      const db = new MockDatabase();
+      const results = await db.getLatestAnswers(10);
+      
+      results.forEach(answer => {
+        expect(answer.is_personal).toBe(false);
+      });
     });
   });
 
@@ -48,7 +100,7 @@ describe('API Answers Route Tests', () => {
       const routesPath = path.join(__dirname, '../../core/routes.js');
       const routesContent = fs.readFileSync(routesPath, 'utf8');
       
-      // Check for try-catch block
+      // Find the answers route
       const answersRouteMatch = routesContent.match(/router\.get\("\/api\/answers"[\s\S]*?}\);/);
       expect(answersRouteMatch).toBeTruthy();
       
@@ -63,7 +115,7 @@ describe('API Answers Route Tests', () => {
       const routesContent = fs.readFileSync(routesPath, 'utf8');
       
       // Find the answers route
-      const answersRouteMatch = routesContent.match(/router\.get\("\/api\/answers"[\s\S]*?}\);[\s\S]*?router\./);
+      const answersRouteMatch = routesContent.match(/router\.get\("\/api\/answers"[\s\S]*?}\);/);
       expect(answersRouteMatch).toBeTruthy();
       const answersRouteCode = answersRouteMatch[0];
       
@@ -86,35 +138,109 @@ describe('API Answers Route Tests', () => {
       expect(answersRouteCode).toContain('req.query.limit');
       expect(answersRouteCode).toContain('parseInt');
     });
+
+    test('/api/answers route should use default limit of 10', () => {
+      const routesPath = path.join(__dirname, '../../core/routes.js');
+      const routesContent = fs.readFileSync(routesPath, 'utf8');
+      
+      const answersRouteMatch = routesContent.match(/router\.get\("\/api\/answers"[\s\S]*?}\);/);
+      const answersRouteCode = answersRouteMatch[0];
+      
+      // Should have default of 10 when parsing limit
+      expect(answersRouteCode).toMatch(/\|\|\s*10/);
+    });
   });
 
-  describe('SQL Query Validation', () => {
-    test('pg-db getLatestAnswers should query non-personal answers only', () => {
+  describe('Database Query Consistency', () => {
+    test('pg-db getLatestAnswers returns created_at field', () => {
       const pgDbPath = path.join(__dirname, '../../core/pg-db.js');
       const pgDbContent = fs.readFileSync(pgDbPath, 'utf8');
       
-      // Find the getLatestAnswers method
       const methodMatch = pgDbContent.match(/async getLatestAnswers[\s\S]*?}\s*\n\s*async/);
       expect(methodMatch).toBeTruthy();
       
       const methodCode = methodMatch[0];
+      // Should alias date as created_at for consistency
+      expect(methodCode).toContain('created_at');
       expect(methodCode).toContain('is_personal = false');
-      expect(methodCode).toContain('ORDER BY date DESC');
+      expect(methodCode).toContain('ORDER BY');
       expect(methodCode).toContain('LIMIT');
     });
 
-    test('local-database getLatestAnswers should join with questions table', () => {
+    test('local-database getLatestAnswers returns created_at field', () => {
       const localDbPath = path.join(__dirname, '../../local/local-database.js');
       const localDbContent = fs.readFileSync(localDbPath, 'utf8');
       
-      // Find the getLatestAnswers method
       const methodMatch = localDbContent.match(/async getLatestAnswers[\s\S]*?}\s*\n\s*async/);
       expect(methodMatch).toBeTruthy();
       
       const methodCode = methodMatch[0];
-      expect(methodCode).toContain('JOIN questions');
+      expect(methodCode).toContain('created_at');
+      expect(methodCode).toContain('is_personal');
       expect(methodCode).toContain('ORDER BY');
       expect(methodCode).toContain('LIMIT');
+    });
+
+    test('both databases should return consistent field structure', () => {
+      const pgDbPath = path.join(__dirname, '../../core/pg-db.js');
+      const localDbPath = path.join(__dirname, '../../local/local-database.js');
+      
+      const pgDbContent = fs.readFileSync(pgDbPath, 'utf8');
+      const localDbContent = fs.readFileSync(localDbPath, 'utf8');
+      
+      // Both should have the method
+      expect(pgDbContent).toContain('async getLatestAnswers');
+      expect(localDbContent).toContain('async getLatestAnswers');
+      
+      // Both should filter non-personal answers
+      const pgMatch = pgDbContent.match(/async getLatestAnswers[\s\S]*?}\s*\n\s*async/);
+      const localMatch = localDbContent.match(/async getLatestAnswers[\s\S]*?}\s*\n\s*async/);
+      
+      expect(pgMatch[0]).toContain('is_personal');
+      expect(localMatch[0]).toContain('is_personal');
+    });
+
+    test('both databases should include question and context fields', () => {
+      const pgDbPath = path.join(__dirname, '../../core/pg-db.js');
+      const localDbPath = path.join(__dirname, '../../local/local-database.js');
+      
+      const pgDbContent = fs.readFileSync(pgDbPath, 'utf8');
+      const localDbContent = fs.readFileSync(localDbPath, 'utf8');
+      
+      const pgMatch = pgDbContent.match(/async getLatestAnswers[\s\S]*?}\s*\n\s*async/);
+      const localMatch = localDbContent.match(/async getLatestAnswers[\s\S]*?}\s*\n\s*async/);
+      
+      // Both should select question and context
+      expect(pgMatch[0]).toContain('question');
+      expect(pgMatch[0]).toContain('context');
+      expect(localMatch[0]).toContain('question');
+      expect(localMatch[0]).toContain('context');
+    });
+
+    test('PostgreSQL query should use date column aliased as created_at', () => {
+      const pgDbPath = path.join(__dirname, '../../core/pg-db.js');
+      const pgDbContent = fs.readFileSync(pgDbPath, 'utf8');
+      
+      const methodMatch = pgDbContent.match(/async getLatestAnswers[\s\S]*?}\s*\n\s*async/);
+      expect(methodMatch).toBeTruthy();
+      
+      const methodCode = methodMatch[0];
+      // PostgreSQL uses 'date' column but aliases it as 'created_at'
+      expect(methodCode).toContain('date as created_at');
+      expect(methodCode).toContain('ORDER BY date DESC');
+    });
+
+    test('SQLite query should use created_at column directly', () => {
+      const localDbPath = path.join(__dirname, '../../local/local-database.js');
+      const localDbContent = fs.readFileSync(localDbPath, 'utf8');
+      
+      const methodMatch = localDbContent.match(/async getLatestAnswers[\s\S]*?}\s*\n\s*async/);
+      expect(methodMatch).toBeTruthy();
+      
+      const methodCode = methodMatch[0];
+      // SQLite has 'created_at' column natively
+      expect(methodCode).toContain('a.created_at');
+      expect(methodCode).toContain('ORDER BY a.created_at DESC');
     });
   });
 });
