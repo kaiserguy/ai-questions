@@ -23,6 +23,20 @@ For local/private deployment with offline AI capabilities, see the local install
 
 This version is optimized for cloud deployment on Heroku with external AI APIs.
 
+## Running the Application
+
+### Hosted Version (Production)
+```bash
+node hosted/hosted-app.js
+```
+
+### Local Version (Development)
+```bash
+node local/local-app.js
+```
+
+**Note**: The legacy `core/hosted-index.cjs` file has been archived and should not be used.
+
 ### Environment Variables
 
 Required environment variables:

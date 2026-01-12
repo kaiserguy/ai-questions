@@ -1,3 +1,29 @@
+/**
+ * ⚠️ LEGACY CODE - DO NOT USE ⚠️
+ * 
+ * This file was replaced by hosted/hosted-app.js on January 10, 2026.
+ * It is archived for reference only while analytics features are being migrated.
+ * 
+ * Current Status:
+ * - ✅ Authentication: Migrated to hosted/hosted-app.js
+ * - ✅ Personal Questions: Migrated to core/routes.js (Issue #43)
+ * - ✅ Schedule Execution: Migrated to core/routes.js (Issue #34)
+ * - ✅ Config Page: Migrated to hosted/hosted-app.js (Issue #35)
+ * - ✅ API Key Management: Migrated to hosted/hosted-app.js (Issue #33)
+ * - ⚠️ Analytics: NOT YET MIGRATED (Issue #32)
+ * 
+ * Once Issue #32 is complete, this file should be deleted entirely.
+ * 
+ * For reference, see git history:
+ * - Original file: core/hosted-index.cjs
+ * - Archived: January 12, 2026
+ * - Commit: 328712c
+ * 
+ * DO NOT USE THIS FILE IN PRODUCTION
+ * DO NOT IMPORT THIS FILE IN ANY CODE
+ * DO NOT MODIFY THIS FILE
+ */
+
 const express = require('express');
 const axios = require('axios');
 const { Pool } = require('pg');

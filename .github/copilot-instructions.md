@@ -61,7 +61,7 @@ LOCAL_MODE=true PORT=3000 node local-app.js
 #### Hosted/Cloud Version  
 ```bash
 # Note: Requires PostgreSQL database connection - will show database errors without proper env vars
-node core/hosted-index.cjs
+node hosted/hosted-app.js
 ```
 **Access**: http://localhost:3000 (accessible despite database connection errors)
 **Features**: PostgreSQL database, external AI APIs (OpenAI, Hugging Face), Google OAuth
@@ -114,7 +114,7 @@ After making changes, ALWAYS test these user workflows:
 5. **Test Wikipedia search**: Search for any term (may show database warnings - expected)
 
 #### Hosted Version Testing (if database available)
-1. **Start hosted server**: `node core/hosted-index.cjs`  
+1. **Start hosted server**: `node hosted/hosted-app.js`  
 2. **Access homepage**: Navigate to http://localhost:3000
 3. **Test Google OAuth**: Login flow
 4. **Test external AI**: Submit questions using OpenAI/Hugging Face APIs
@@ -141,10 +141,9 @@ The GitHub Actions workflow (`/github/workflows/deploy.yml`) runs comprehensive 
   - `core/views/`: EJS templates
   - `core/public/`: Static assets (CSS, JS, images)
   - `core/offline-*`: Offline package generation and caching
-  - `core/hosted-index.cjs`: Heroku entry point (per Procfile)
 
 - **`hosted/`**: Cloud-specific code
-  - `hosted/hosted-app.js`: Heroku application logic
+  - `hosted/hosted-app.js`: Heroku application entry point
   - `hosted/package-generator.js`: Local package generation
 
 - **`local/`**: Local deployment code  
@@ -160,7 +159,7 @@ The GitHub Actions workflow (`/github/workflows/deploy.yml`) runs comprehensive 
   - `tests/offline/`: Offline functionality tests
 
 ### Entry Points
-- **Heroku Production**: `core/hosted-index.cjs` (defined in Procfile)
+- **Heroku Production**: `hosted/hosted-app.js` (defined in Procfile)
 - **Local Development**: `local/local-app.js`  
 - **Package.json**: `index.cjs` (not used in production)
 
