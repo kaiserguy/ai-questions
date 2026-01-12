@@ -1,3 +1,4 @@
+const logger = require('../core/logger');
 /**
  * Public Application Entry Point
  * 
@@ -55,20 +56,20 @@ const PUBLIC_CONFIG = {
 };
 
 // Initialize database and AI client with error handling
-console.log("Initializing database connection...");
+logger.info("Initializing database connection...");
 if (!PUBLIC_CONFIG.database.url) {
-    console.warn("Warning: DATABASE_URL not set. Database operations may fail.");
+    logger.warn("Warning: DATABASE_URL not set. Database operations may fail.");
 }
 
 const db = new PostgresDatabase(PUBLIC_CONFIG.database.url);
 const ai = new ExternalLLMClient();
 
-console.log("Database and AI client initialized successfully.");
+logger.info("Database and AI client initialized successfully.");
 
 // Initialize database tables
 db.initialize().catch(err => {
-    console.warn("Database initialization warning:", err.message);
-    console.log("App will continue running with limited database functionality");
+    logger.warn("Database initialization warning:", err.message);
+    logger.info("App will continue running with limited database functionality");
 });
 
 // Initialize Wikipedia integration
@@ -103,9 +104,9 @@ if (PUBLIC_CONFIG.auth.google.clientID && PUBLIC_CONFIG.auth.google.clientSecret
         return done(null, profile);
     }));
     
-    console.log("Google OAuth strategy configured successfully");
+    logger.info("Google OAuth strategy configured successfully");
 } else {
-    console.warn("Google OAuth credentials not configured - authentication will be limited");
+    logger.warn("Google OAuth credentials not configured - authentication will be limited");
 }
 
 // Serialize user for session
@@ -130,12 +131,12 @@ if (PUBLIC_CONFIG.auth.google.clientID && PUBLIC_CONFIG.auth.google.clientSecret
     
     app.get("/logout", (req, res) => {
         req.logout((err) => {
-            if (err) console.error("Logout error:", err);
+            if (err) logger.error("Logout error:", err);
             res.redirect("/");
         });
     });
     
-    console.log("OAuth routes configured successfully");
+    logger.info("OAuth routes configured successfully");
 } else {
     // Provide fallback auth routes for development/environments without OAuth configured
     app.get("/auth/google", (req, res) => {
@@ -202,7 +203,7 @@ app.get("/generate-local-package", async (req, res) => {
         
         // Listen for all archive data to be written
         output.on("close", function() {
-            console.log(`Local package created: ${archive.pointer()} total bytes`);
+            logger.info(`Local package created: ${archive.pointer()} total bytes`);
             res.json({
                 success: true,
                 message: "Package generated successfully",
@@ -213,7 +214,7 @@ app.get("/generate-local-package", async (req, res) => {
         
         // Handle errors
         archive.on("error", function(err) {
-            console.error("Archive error:", err);
+            logger.error("Archive error:", err);
             res.status(500).json({
                 success: false,
                 message: "Failed to generate package",
@@ -250,7 +251,7 @@ app.get("/generate-local-package", async (req, res) => {
         // Finalize the archive
         await archive.finalize();
     } catch (error) {
-        console.error("Package generation error:", error);
+        logger.error("Package generation error:", error);
         res.status(500).json({
             success: false,
             message: "Failed to generate package",
@@ -273,7 +274,7 @@ app.get("/download/offline", async (req, res) => {
         
         // Handle errors
         archive.on('error', (err) => {
-            console.error('Archive error:', err);
+            logger.error('Archive error:', err);
             if (!res.headersSent) {
                 res.status(500).json({ error: 'Failed to create download package' });
             }
@@ -304,7 +305,7 @@ app.get("/download/offline", async (req, res) => {
         await archive.finalize();
         
     } catch (error) {
-        console.error('Error creating download package:', error);
+        logger.error('Error creating download package:', error);
         if (!res.headersSent) {
             res.status(500).json({ error: 'Failed to create download package' });
         }
@@ -329,14 +330,14 @@ app.get("/download-local-package", (req, res) => {
 // Schedule daily question generation at midnight UTC
 cron.schedule('0 0 * * *', async () => {
     try {
-        console.log('Running daily scheduled task at:', new Date().toISOString());
+        logger.info('Running daily scheduled task at:', new Date().toISOString());
         
         // Generate answer for today's question
         const modelsResponse = await ai.listModels(null);
         const availableModels = modelsResponse.models.filter(m => m.available);
         
         if (availableModels.length === 0) {
-            console.log('No available models for daily question generation');
+            logger.info('No available models for daily question generation');
             return;
         }
         
@@ -389,7 +390,7 @@ cron.schedule('0 0 * * *', async () => {
         ];
         
         const todayQuestion = DAILY_QUESTIONS[dayOfYear % DAILY_QUESTIONS.length];
-        console.log(`Daily question: "${todayQuestion.question}"`);
+        logger.info(`Daily question: "${todayQuestion.question}"`);
         
         // Check if answer already exists for today
         const existingAnswer = await db.getAnswer(todayQuestion.question, availableModels[0].id);
@@ -400,14 +401,14 @@ cron.schedule('0 0 * * *', async () => {
                 existingDate.getUTCMonth() === today.getUTCMonth() &&
                 existingDate.getUTCDate() === today.getUTCDate();
             if (isSameUtcDay) {
-                console.log('Answer already generated today, skipping');
+                logger.info('Answer already generated today, skipping');
                 return;
             }
         }
         
         // Generate answer with first available model
         const model = availableModels[0];
-        console.log(`Generating answer with model: ${model.name}`);
+        logger.info(`Generating answer with model: ${model.name}`);
         
         const aiResponse = await ai.generateResponse(
             model.id,
@@ -431,28 +432,28 @@ cron.schedule('0 0 * * *', async () => {
             '2.0' // prompt_version
         );
         
-        console.log('Daily answer generated and saved successfully');
+        logger.info('Daily answer generated and saved successfully');
         
     } catch (error) {
-        console.error('Error in daily scheduled task:', error);
+        logger.error('Error in daily scheduled task:', error);
     }
 });
 
-console.log('✅ Daily question generation scheduled (runs at midnight UTC)');
+logger.info('✅ Daily question generation scheduled (runs at midnight UTC)');
 
 // Start the server
 const PORT = PUBLIC_CONFIG.app.port;
 
-console.log(`Starting server on port ${PORT}...`);
-console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
-console.log(`Database URL configured: ${!!PUBLIC_CONFIG.database.url}`);
+logger.info(`Starting server on port ${PORT}...`);
+logger.info(`Environment: ${process.env.NODE_ENV || 'development'}`);
+logger.info(`Database URL configured: ${!!PUBLIC_CONFIG.database.url}`);
 
 app.listen(PORT, () => {
-    console.log(`AI Questions server running on port ${PORT}`);
+    logger.info(`AI Questions server running on port ${PORT}`);
     if (process.env.NODE_ENV === "production") {
-        console.log("Running in production mode");
+        logger.info("Running in production mode");
     } else {
-        console.log(`Visit http://localhost:${PORT} to access the application`);
+        logger.info(`Visit http://localhost:${PORT} to access the application`);
     }
 });
 

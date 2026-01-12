@@ -1,3 +1,4 @@
+const logger = require('../core/logger');
 const sqlite3 = require('sqlite3').verbose();
 const path = require('path');
 
@@ -242,7 +243,7 @@ class LocalDatabase {
         return new Promise((resolve) => {
             this.db.close((err) => {
                 if (err) {
-                    console.error('Error closing database:', err);
+                    logger.error('Error closing database:', err);
                 }
                 resolve();
             });

@@ -1,3 +1,4 @@
+const logger = require('../core/logger');
 /**
  * Wikipedia Parser for n8n Integration
  * Ensures proper parsing and formatting of Wikipedia content
@@ -104,7 +105,7 @@ const WikipediaParserN8n = {
         formattedInfobox[cleanKey] = cleanValue;
       }
     } catch (error) {
-      console.error('Error parsing infobox:', error);
+      logger.error('Error parsing infobox:', error);
       return null;
     }
     

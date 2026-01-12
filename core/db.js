@@ -1,3 +1,4 @@
+const logger = require('./logger');
 const DatabaseInterface = require("./db-interface");
 
 // TODO: Replace with actual database implementation
@@ -76,7 +77,7 @@ class PlaceholderDatabase extends DatabaseInterface {
     }
 
     async initialize() {
-        console.log("Placeholder database initialized.");
+        logger.info("Placeholder database initialized.");
         return { success: true };
     }
 

@@ -1,3 +1,4 @@
+const logger = require('../core/logger');
 /**
  * Local Application Entry Point
  * 
@@ -76,7 +77,7 @@ app.get("/n8n-status", async (req, res) => {
         const status = await n8n.checkStatus();
         res.json(status);
     } catch (error) {
-        console.error("Error checking n8n status:", error);
+        logger.error("Error checking n8n status:", error);
         res.json({ available: false, n8nConnected: false, internetConnected: false, mode: 'error', error: error.message });
     }
 });
@@ -86,7 +87,7 @@ app.get("/n8n-workflows", async (req, res) => {
         const workflows = await n8n.listWorkflows();
         res.json(workflows);
     } catch (error) {
-        console.error("Error listing n8n workflows:", error);
+        logger.error("Error listing n8n workflows:", error);
         res.status(500).json({ error: error.message });
     }
 });
@@ -96,7 +97,7 @@ app.post("/n8n-execute", async (req, res) => {
         const result = await n8n.executeWorkflow(req.body.workflowId, req.body.data);
         res.json(result);
     } catch (error) {
-        console.error("Error executing n8n workflow:", error);
+        logger.error("Error executing n8n workflow:", error);
         res.status(500).json({ error: error.message });
     }
 });
@@ -131,8 +132,8 @@ app.get("/download-package", (req, res) => {
 // Start the server
 const PORT = LOCAL_CONFIG.app.port;
 app.listen(PORT, () => {
-    console.log(`AI Questions (Local) server running on port ${PORT}`);
-    console.log(`Visit http://localhost:${PORT} to access the application`);
+    logger.info(`AI Questions (Local) server running on port ${PORT}`);
+    logger.info(`Visit http://localhost:${PORT} to access the application`);
 });
 
 

@@ -1,3 +1,4 @@
+const logger = require('./logger');
 const { spawn } = require("child_process");
 const fs = require("fs");
 const path = require("path");
@@ -15,16 +16,16 @@ class WikipediaIntegration {
         try {
             // Check if Wikipedia database exists
             if (!fs.existsSync(this.wikipediaDbPath)) {
-                console.log("⚠️ Wikipedia database not found. Use setup script to download.");
-                console.log("⚠️ Expected path: " + this.wikipediaDbPath);
+                logger.info("⚠️ Wikipedia database not found. Use setup script to download.");
+                logger.info("⚠️ Expected path: " + this.wikipediaDbPath);
                 return;
             }
 
             // Initialize Python search engine
             this.available = true;
-            console.log("✅ Wikipedia integration available");
+            logger.info("✅ Wikipedia integration available");
         } catch (error) {
-            console.log("⚠️ Wikipedia integration failed:", error.message);
+            logger.info("⚠️ Wikipedia integration failed:", error.message);
             this.available = false;
         }
     }
@@ -38,7 +39,7 @@ class WikipediaIntegration {
             const result = await this.runPythonScript("search", { query, limit });
             return JSON.parse(result);
         } catch (error) {
-            console.error("Wikipedia search failed:", error);
+            logger.error("Wikipedia search failed:", error);
             return { results: [], error: error.message };
         }
     }
@@ -52,7 +53,7 @@ class WikipediaIntegration {
             const result = await this.runPythonScript("context", { query, maxLength });
             return JSON.parse(result);
         } catch (error) {
-            console.error("Wikipedia context extraction failed:", error);
+            logger.error("Wikipedia context extraction failed:", error);
             return { context: "", sources: [], confidence: 0 };
         }
     }
@@ -66,7 +67,7 @@ class WikipediaIntegration {
             const result = await this.runPythonScript("stats", {});
             return JSON.parse(result);
         } catch (error) {
-            console.error("Wikipedia stats failed:", error);
+            logger.error("Wikipedia stats failed:", error);
             return { error: error.message };
         }
     }
@@ -116,7 +117,7 @@ class WikipediaIntegration {
             const parsed = JSON.parse(result);
             return parsed.article || null;
         } catch (error) {
-            console.error("Wikipedia article retrieval failed:", error);
+            logger.error("Wikipedia article retrieval failed:", error);
             return null;
         }
     }

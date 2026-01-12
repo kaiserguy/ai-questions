@@ -1,3 +1,4 @@
+const logger = require('./logger');
 const axios = require("axios");
 const AiInterface = require("./ai-interface");
 
@@ -13,11 +14,11 @@ class OllamaClient extends AiInterface {
         try {
             const response = await axios.get(`${this.baseUrl}/api/tags`, { timeout: 5000 });
             this.available = true;
-            console.log("✅ Ollama service is available");
+            logger.info("✅ Ollama service is available");
             return true;
         } catch (error) {
             this.available = false;
-            console.log("⚠️ Ollama service not available:", error.message);
+            logger.info("⚠️ Ollama service not available:", error.message);
             return false;
         }
     }
@@ -50,7 +51,7 @@ class OllamaClient extends AiInterface {
                 response_time: response.data.total_duration ? Math.round(response.data.total_duration / 1000000) : 0,
             };
         } catch (error) {
-            console.error("Ollama generation error:", error.message);
+            logger.error("Ollama generation error:", error.message);
             throw new Error(`Local AI model error: ${error.message}`);
         }
     }
@@ -64,7 +65,7 @@ class OllamaClient extends AiInterface {
             const response = await axios.get(`${this.baseUrl}/api/tags`);
             return response.data;
         } catch (error) {
-            console.error("Error listing Ollama models:", error.message);
+            logger.error("Error listing Ollama models:", error.message);
             return { models: [] };
         }
     }
@@ -143,7 +144,7 @@ class OllamaClient extends AiInterface {
 
             return response.data;
         } catch (error) {
-            console.error("Error pulling Ollama model:", error.message);
+            logger.error("Error pulling Ollama model:", error.message);
             throw new Error(`Failed to download model: ${error.message}`);
         }
     }
@@ -159,7 +160,7 @@ class OllamaClient extends AiInterface {
             });
             return response.data;
         } catch (error) {
-            console.error("Error deleting Ollama model:", error.message);
+            logger.error("Error deleting Ollama model:", error.message);
             throw new Error(`Failed to delete model: ${error.message}`);
         }
     }

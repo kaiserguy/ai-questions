@@ -1,3 +1,4 @@
+const logger = require('./logger');
 /**
  * Intelligent Wikipedia Query System
  * Analyzes user queries and generates intelligent Wikipedia searches
@@ -244,7 +245,7 @@ class WikipediaSearchEngine {
       results.relatedTopics = this.generateRelatedTopics(analysis);
 
     } catch (error) {
-      console.error('Wikipedia search error:', error);
+      logger.error('Wikipedia search error:', error);
       results.error = error.message;
     }
 
@@ -270,7 +271,7 @@ class WikipediaSearchEngine {
         }));
       }
     } catch (error) {
-      console.error(`Error searching for "${term}":`, error);
+      logger.error(`Error searching for "${term}":`, error);
     }
     
     return [];
@@ -292,7 +293,7 @@ class WikipediaSearchEngine {
         url: data.content_urls?.desktop?.page
       };
     } catch (error) {
-      console.error(`Error getting summary for "${title}":`, error);
+      logger.error(`Error getting summary for "${title}":`, error);
       return null;
     }
   }

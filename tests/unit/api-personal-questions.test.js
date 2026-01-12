@@ -253,7 +253,7 @@ describe('Personal Question API Routes Tests', () => {
                 expect(startIdx).toBeGreaterThan(-1);
                 const section = routesContent.substring(startIdx, startIdx + 2000);
                 expect(section).toMatch(/try[\s\S]*catch/);
-                expect(section).toMatch(/console\.error/);
+                expect(section).toMatch(/logger\.error/);
             });
         });
 

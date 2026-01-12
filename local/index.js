@@ -1,3 +1,4 @@
+const logger = require('../core/logger');
 const express = require('express');
 const axios = require('axios');
 const { Pool } = require('pg');
@@ -29,16 +30,16 @@ class WikipediaIntegration {
     try {
       // Check if Wikipedia database exists
       if (!fs.existsSync(this.wikipediaDbPath)) {
-        console.log('⚠️ Wikipedia database not found. Use setup script to download.');
-        console.log("⚠️ Expected path: " + this.wikipediaDbPath);
+        logger.info('⚠️ Wikipedia database not found. Use setup script to download.');
+        logger.info("⚠️ Expected path: " + this.wikipediaDbPath);
         return;
       }
       
       // Initialize Python search engine
       this.available = true;
-      console.log('✅ Wikipedia integration available');
+      logger.info('✅ Wikipedia integration available');
     } catch (error) {
-      console.log('⚠️ Wikipedia integration failed:', error.message);
+      logger.info('⚠️ Wikipedia integration failed:', error.message);
       this.available = false;
     }
   }
@@ -52,7 +53,7 @@ class WikipediaIntegration {
       const result = await this.runPythonScript('search', { query, limit });
       return JSON.parse(result);
     } catch (error) {
-      console.error('Wikipedia search failed:', error);
+      logger.error('Wikipedia search failed:', error);
       return { results: [], error: error.message };
     }
   }
@@ -66,7 +67,7 @@ class WikipediaIntegration {
       const result = await this.runPythonScript('context', { query, maxLength });
       return JSON.parse(result);
     } catch (error) {
-      console.error('Wikipedia context extraction failed:', error);
+      logger.error('Wikipedia context extraction failed:', error);
       return { context: '', sources: [], confidence: 0 };
     }
   }
@@ -80,7 +81,7 @@ class WikipediaIntegration {
       const result = await this.runPythonScript('stats', {});
       return JSON.parse(result);
     } catch (error) {
-      console.error('Wikipedia stats failed:', error);
+      logger.error('Wikipedia stats failed:', error);
       return { error: error.message };
     }
   }
@@ -130,7 +131,7 @@ class WikipediaIntegration {
       const parsed = JSON.parse(result);
       return parsed.article || null;
     } catch (error) {
-      console.error('Wikipedia article retrieval failed:', error);
+      logger.error('Wikipedia article retrieval failed:', error);
       return null;
     }
   }
@@ -148,11 +149,11 @@ class OllamaClient {
     try {
       const response = await axios.get(`${this.baseUrl}/api/tags`, { timeout: 5000 });
       this.available = true;
-      console.log('✅ Ollama service is available');
+      logger.info('✅ Ollama service is available');
       return true;
     } catch (error) {
       this.available = false;
-      console.log('⚠️ Ollama service not available:', error.message);
+      logger.info('⚠️ Ollama service not available:', error.message);
       return false;
     }
   }
@@ -185,7 +186,7 @@ class OllamaClient {
         response_time: response.data.total_duration ? Math.round(response.data.total_duration / 1000000) : 0
       };
     } catch (error) {
-      console.error('Ollama generation error:', error.message);
+      logger.error('Ollama generation error:', error.message);
       throw new Error(`Local AI model error: ${error.message}`);
     }
   }
@@ -199,7 +200,7 @@ class OllamaClient {
       const response = await axios.get(`${this.baseUrl}/api/tags`);
       return response.data;
     } catch (error) {
-      console.error('Error listing Ollama models:', error.message);
+      logger.error('Error listing Ollama models:', error.message);
       return { models: [] };
     }
   }
@@ -216,7 +217,7 @@ class OllamaClient {
       
       return response.data;
     } catch (error) {
-      console.error('Error pulling Ollama model:', error.message);
+      logger.error('Error pulling Ollama model:', error.message);
       throw new Error(`Failed to download model: ${error.message}`);
     }
   }
@@ -232,7 +233,7 @@ class OllamaClient {
       });
       return response.data;
     } catch (error) {
-      console.error('Error deleting Ollama model:', error.message);
+      logger.error('Error deleting Ollama model:', error.message);
       throw new Error(`Failed to delete model: ${error.message}`);
     }
   }
@@ -333,7 +334,7 @@ app.use(session({
 // Local mode authentication bypass
 if (LOCAL_CONFIG.enabled) {
   // Skip passport setup in local mode
-  console.log('Running in LOCAL MODE - Authentication disabled');
+  logger.info('Running in LOCAL MODE - Authentication disabled');
   
   // Middleware to inject default user
   app.use((req, res, next) => {
@@ -397,7 +398,7 @@ if (LOCAL_CONFIG.enabled) {
   // Use SQLite database for local mode to avoid PostgreSQL dependency
   const LocalDatabase = require('./local-database');
   pool = new LocalDatabase();
-  console.log('Using SQLite database for local mode');
+  logger.info('Using SQLite database for local mode');
 } else {
   // Use PostgreSQL for production
   pool = new Pool({
@@ -412,7 +413,7 @@ if (LOCAL_CONFIG.enabled) {
 async function initializeDatabase() {
   if (LOCAL_CONFIG.enabled) {
     // Skip database initialization for SQLite database (already initialized)
-    console.log('Skipping database initialization for SQLite database');
+    logger.info('Skipping database initialization for SQLite database');
     return;
   }
   
@@ -428,7 +429,7 @@ async function initializeDatabase() {
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `);
-    console.log('Users table created/verified');
+    logger.info('Users table created/verified');
 
     // In local mode, ensure default user exists
     if (LOCAL_CONFIG.enabled) {
@@ -439,10 +440,10 @@ async function initializeDatabase() {
             'INSERT INTO users (google_id, email, name, avatar_url) VALUES ($1, $2, $3, $4)',
             [LOCAL_CONFIG.defaultUser.google_id, LOCAL_CONFIG.defaultUser.email, LOCAL_CONFIG.defaultUser.name, LOCAL_CONFIG.defaultUser.avatar_url]
           );
-          console.log('Created default local user');
+          logger.info('Created default local user');
         }
       } catch (err) {
-        console.error('Error creating default user:', err);
+        logger.error('Error creating default user:', err);
       }
     }
 
@@ -458,7 +459,7 @@ async function initializeDatabase() {
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `);
-    console.log('Personal questions table created/verified');
+    logger.info('Personal questions table created/verified');
 
     // Create answers table with all columns
     await pool.query(`
@@ -476,14 +477,14 @@ async function initializeDatabase() {
         is_personal BOOLEAN DEFAULT false
       )
     `);
-    console.log('Answers table created/verified');
+    logger.info('Answers table created/verified');
 
     // Create scheduling tables
     await createSchedulingTables();
     
-    console.log('Database initialization completed successfully');
+    logger.info('Database initialization completed successfully');
   } catch (err) {
-    console.error('Error during database initialization:', err);
+    logger.error('Error during database initialization:', err);
   }
 }
 
@@ -539,9 +540,9 @@ async function createSchedulingTables() {
       )
     `);
 
-    console.log('Scheduling tables created successfully');
+    logger.info('Scheduling tables created successfully');
   } catch (err) {
-    console.error('Error creating scheduling tables:', err);
+    logger.error('Error creating scheduling tables:', err);
   }
 }
 
@@ -627,10 +628,10 @@ async function askQuestion(question, context, modelId, apiKeys, useWikipedia = f
         if (wikiResult.context && wikiResult.confidence > 0.3) {
           wikipediaContext = wikiResult.context;
           wikipediaSources = wikiResult.sources || [];
-          console.log(`📚 Added Wikipedia context (confidence: ${wikiResult.confidence.toFixed(2)})`);
+          logger.info(`📚 Added Wikipedia context (confidence: ${wikiResult.confidence.toFixed(2)})`);
         }
       } catch (wikiError) {
-        console.warn('Wikipedia context failed:', wikiError.message);
+        logger.warn('Wikipedia context failed:', wikiError.message);
       }
     }
     
@@ -665,11 +666,11 @@ async function askQuestion(question, context, modelId, apiKeys, useWikipedia = f
         
         return result;
       } catch (ollamaError) {
-        console.error('Ollama error:', ollamaError.message);
+        logger.error('Ollama error:', ollamaError.message);
         
         // If Ollama fails and fallback is enabled, try cloud models
         if (process.env.OLLAMA_FALLBACK_TO_CLOUD === 'true') {
-          console.log('Falling back to cloud models...');
+          logger.info('Falling back to cloud models...');
           // Continue to cloud model logic below
         } else {
           throw new Error(`Local AI model error: ${ollamaError.message}`);
@@ -778,11 +779,11 @@ Answer:`;
     
     return result;
   } catch (error) {
-    console.error('Error calling AI API:', error);
+    logger.error('Error calling AI API:', error);
     
     // Enhanced error logging for OpenAI API issues
     if (selectedModel && selectedModel.provider === 'openai' && error.response) {
-      console.error('OpenAI API Error Details:', {
+      logger.error('OpenAI API Error Details:', {
         status: error.response.status,
         statusText: error.response.statusText,
         data: error.response.data,
@@ -793,9 +794,9 @@ Answer:`;
       if (error.response.status === 429) {
         const errorData = error.response.data;
         if (errorData && errorData.error) {
-          console.error('OpenAI 429 Error Type:', errorData.error.type);
-          console.error('OpenAI 429 Error Code:', errorData.error.code);
-          console.error('OpenAI 429 Error Message:', errorData.error.message);
+          logger.error('OpenAI 429 Error Type:', errorData.error.type);
+          logger.error('OpenAI 429 Error Code:', errorData.error.code);
+          logger.error('OpenAI 429 Error Message:', errorData.error.message);
         }
       }
     }
@@ -884,7 +885,7 @@ app.get('/', async (req, res) => {
       user: req.user
     });
   } catch (error) {
-    console.error('Error in index route:', error);
+    logger.error('Error in index route:', error);
     res.status(500).render('error', { error: 'An unexpected error occurred' });
   }
 });
@@ -900,7 +901,7 @@ app.get('/history', async (req, res) => {
     const history = await getAnswerHistory(question);
     res.render('history', { question, history });
   } catch (error) {
-    console.error('Error in history route:', error);
+    logger.error('Error in history route:', error);
     res.status(500).render('error', { error: 'Failed to get answer history' });
   }
 });
@@ -957,7 +958,7 @@ app.get('/api/question', async (req, res) => {
     answer.id = id;
     res.json(answer);
   } catch (error) {
-    console.error('Error in question API route:', error);
+    logger.error('Error in question API route:', error);
     
     // Enhanced error response for OpenAI API issues
     let errorResponse = { 
@@ -1013,13 +1014,13 @@ app.get('/api/models', async (req, res) => {
           api_key_required: false
         }));
       } catch (error) {
-        console.error('Error fetching Ollama models:', error);
+        logger.error('Error fetching Ollama models:', error);
       }
     }
     
     res.json(localModels);
   } catch (error) {
-    console.error('Error in models API:', error);
+    logger.error('Error in models API:', error);
     res.json([]);
   }
 });
@@ -1029,7 +1030,7 @@ app.get('/api/answers', async (req, res) => {
     const latestAnswers = await getLatestAnswers();
     res.json(latestAnswers);
   } catch (error) {
-    console.error('Error in answers API route:', error);
+    logger.error('Error in answers API route:', error);
     res.status(500).json({ 
       error: 'Failed to get latest answers', 
       message: error.message 
@@ -1048,7 +1049,7 @@ app.get('/api/answers/history', async (req, res) => {
     const history = await getAnswerHistory(question);
     res.json(history);
   } catch (error) {
-    console.error('Error in answer history API route:', error);
+    logger.error('Error in answer history API route:', error);
     res.status(500).json({ 
       error: 'Failed to get answer history', 
       message: error.message 
@@ -1065,7 +1066,7 @@ app.delete('/api/answers/:id', async (req, res) => {
     
     res.json({ success: true, message: 'Answer deleted successfully' });
   } catch (error) {
-    console.error('Error deleting answer:', error);
+    logger.error('Error deleting answer:', error);
     res.status(500).json({ 
       error: 'Failed to delete answer', 
       message: error.message 
@@ -1124,7 +1125,7 @@ app.get('/api/personal-questions', requireAuth, async (req, res) => {
     );
     res.json(result.rows);
   } catch (error) {
-    console.error('Error fetching personal questions:', error);
+    logger.error('Error fetching personal questions:', error);
     res.status(500).json({ error: 'Failed to fetch personal questions' });
   }
 });
@@ -1144,7 +1145,7 @@ app.post('/api/personal-questions', requireAuth, async (req, res) => {
     
     res.json(result.rows[0]);
   } catch (error) {
-    console.error('Error creating personal question:', error);
+    logger.error('Error creating personal question:', error);
     res.status(500).json({ error: 'Failed to create personal question' });
   }
 });
@@ -1169,7 +1170,7 @@ app.put('/api/personal-questions/:id', requireAuth, async (req, res) => {
     
     res.json(result.rows[0]);
   } catch (error) {
-    console.error('Error updating personal question:', error);
+    logger.error('Error updating personal question:', error);
     res.status(500).json({ error: 'Failed to update personal question' });
   }
 });
@@ -1189,7 +1190,7 @@ app.delete('/api/personal-questions/:id', requireAuth, async (req, res) => {
     
     res.json({ success: true, message: 'Personal question deleted successfully' });
   } catch (error) {
-    console.error('Error deleting personal question:', error);
+    logger.error('Error deleting personal question:', error);
     res.status(500).json({ error: 'Failed to delete personal question' });
   }
 });
@@ -1285,7 +1286,7 @@ app.post('/api/personal-question/:id/ask', requireAuth, async (req, res) => {
     answer.id = answerId;
     res.json(answer);
   } catch (error) {
-    console.error('Error in personal question API route:', error);
+    logger.error('Error in personal question API route:', error);
     res.status(500).json({ 
       error: 'Failed to get answer from AI', 
       message: error.message 
@@ -1305,7 +1306,7 @@ app.get('/api/personal-questions/:id/answers', requireAuth, async (req, res) => 
     
     res.json(result.rows);
   } catch (error) {
-    console.error('Error fetching personal question answers:', error);
+    logger.error('Error fetching personal question answers:', error);
     res.status(500).json({ error: 'Failed to fetch answers' });
   }
 });
@@ -1365,7 +1366,7 @@ app.post('/api/personal-questions/:id/schedule', requireAuth, async (req, res) =
     
     res.json(result.rows[0]);
   } catch (error) {
-    console.error('Error creating/updating schedule:', error);
+    logger.error('Error creating/updating schedule:', error);
     res.status(500).json({ error: 'Failed to create/update schedule' });
   }
 });
@@ -1386,7 +1387,7 @@ app.get('/api/personal-questions/:id/schedule', requireAuth, async (req, res) =>
     
     res.json(result.rows[0]);
   } catch (error) {
-    console.error('Error fetching schedule:', error);
+    logger.error('Error fetching schedule:', error);
     res.status(500).json({ error: 'Failed to fetch schedule' });
   }
 });
@@ -1407,7 +1408,7 @@ app.delete('/api/personal-questions/:id/schedule', requireAuth, async (req, res)
     
     res.json({ success: true, message: 'Schedule deleted successfully' });
   } catch (error) {
-    console.error('Error deleting schedule:', error);
+    logger.error('Error deleting schedule:', error);
     res.status(500).json({ error: 'Failed to delete schedule' });
   }
 });
@@ -1426,7 +1427,7 @@ app.get('/api/schedules', requireAuth, async (req, res) => {
     
     res.json(result.rows);
   } catch (error) {
-    console.error('Error fetching schedules:', error);
+    logger.error('Error fetching schedules:', error);
     res.status(500).json({ error: 'Failed to fetch schedules' });
   }
 });
@@ -1447,7 +1448,7 @@ app.post('/api/schedules/:id/toggle', requireAuth, async (req, res) => {
     
     res.json(result.rows[0]);
   } catch (error) {
-    console.error('Error toggling schedule:', error);
+    logger.error('Error toggling schedule:', error);
     res.status(500).json({ error: 'Failed to toggle schedule' });
   }
 });
@@ -1477,7 +1478,7 @@ app.post('/api/schedules/:id/execute', requireAuth, async (req, res) => {
     
     res.json(executionResult);
   } catch (error) {
-    console.error('Error executing schedule:', error);
+    logger.error('Error executing schedule:', error);
     res.status(500).json({ error: 'Failed to execute schedule' });
   }
 });
@@ -1494,7 +1495,7 @@ app.get('/api/schedules/:id/executions', requireAuth, async (req, res) => {
     
     res.json(result.rows);
   } catch (error) {
-    console.error('Error fetching execution history:', error);
+    logger.error('Error fetching execution history:', error);
     res.status(500).json({ error: 'Failed to fetch execution history' });
   }
 });
@@ -1580,7 +1581,7 @@ async function executeSchedule(schedule) {
         
         successCount++;
       } catch (error) {
-        console.error(`Error executing model ${modelId}:`, error);
+        logger.error(`Error executing model ${modelId}:`, error);
         errors.push(`${modelId}: ${error.message}`);
         failureCount++;
       }
@@ -1609,7 +1610,7 @@ async function executeSchedule(schedule) {
       status: failureCount > 0 ? 'partial' : 'completed'
     };
   } catch (error) {
-    console.error('Error in executeSchedule:', error);
+    logger.error('Error in executeSchedule:', error);
     throw error;
   }
 }
@@ -1617,7 +1618,7 @@ async function executeSchedule(schedule) {
 // Schedule daily question and execute scheduled personal questions
 cron.schedule('0 0 * * *', async () => {
   try {
-    console.log('Running daily scheduled task at:', new Date().toISOString());
+    logger.info('Running daily scheduled task at:', new Date().toISOString());
     
     // Execute daily question
     const apiKeys = {
@@ -1641,31 +1642,31 @@ cron.schedule('0 0 * * *', async () => {
         response.modelName
       );
       
-      console.log('Successfully saved daily AI answer');
+      logger.info('Successfully saved daily AI answer');
     }
     
     // Execute scheduled personal questions
     await executeScheduledQuestions();
     
   } catch (error) {
-    console.error('Error in daily scheduled task:', error);
+    logger.error('Error in daily scheduled task:', error);
   }
 });
 
 // Also run scheduled questions every hour to catch any missed executions
 cron.schedule('0 * * * *', async () => {
   try {
-    console.log('Running hourly scheduled question check at:', new Date().toISOString());
+    logger.info('Running hourly scheduled question check at:', new Date().toISOString());
     await executeScheduledQuestions();
   } catch (error) {
-    console.error('Error in hourly scheduled task:', error);
+    logger.error('Error in hourly scheduled task:', error);
   }
 });
 
 // Execute all due scheduled questions
 async function executeScheduledQuestions() {
   try {
-    console.log('Checking for due scheduled questions...');
+    logger.info('Checking for due scheduled questions...');
     
     const dueSchedules = await pool.query(
       `SELECT qs.*, pq.question, pq.context 
@@ -1676,19 +1677,19 @@ async function executeScheduledQuestions() {
        AND pq.is_active = true`
     );
     
-    console.log(`Found ${dueSchedules.rows.length} due schedules`);
+    logger.info(`Found ${dueSchedules.rows.length} due schedules`);
     
     for (const schedule of dueSchedules.rows) {
       try {
-        console.log(`Executing schedule ${schedule.id} for question: ${schedule.question}`);
+        logger.info(`Executing schedule ${schedule.id} for question: ${schedule.question}`);
         await executeSchedule(schedule);
-        console.log(`Successfully executed schedule ${schedule.id}`);
+        logger.info(`Successfully executed schedule ${schedule.id}`);
       } catch (error) {
-        console.error(`Error executing schedule ${schedule.id}:`, error);
+        logger.error(`Error executing schedule ${schedule.id}:`, error);
       }
     }
   } catch (error) {
-    console.error('Error in executeScheduledQuestions:', error);
+    logger.error('Error in executeScheduledQuestions:', error);
   }
 }
 
@@ -1724,7 +1725,7 @@ app.post('/api/chat', async (req, res) => {
           });
         }
       } catch (agentError) {
-        console.log('AI Agent failed, falling back to direct processing:', agentError.message);
+        logger.info('AI Agent failed, falling back to direct processing:', agentError.message);
       }
     }
     
@@ -1822,7 +1823,7 @@ app.post('/api/chat', async (req, res) => {
         }
         
       } catch (error) {
-        console.error('Error with enhanced Wikipedia search:', error);
+        logger.error('Error with enhanced Wikipedia search:', error);
         wikipediaSearchLog.push(`❌ Wikipedia search error: ${error.message}`);
         
         // Fallback to basic search
@@ -1840,7 +1841,7 @@ app.post('/api/chat', async (req, res) => {
             wikipediaSearchLog.push(`✅ Basic search found ${searchResults.length} articles`);
           }
         } catch (fallbackError) {
-          console.error('Fallback Wikipedia search also failed:', fallbackError);
+          logger.error('Fallback Wikipedia search also failed:', fallbackError);
           wikipediaSearchLog.push(`❌ Fallback search failed: ${fallbackError.message}`);
         }
       }
@@ -1905,7 +1906,7 @@ When a task would benefit from n8n automation:
       });
       
     } catch (error) {
-      console.error('Error calling Ollama:', error);
+      logger.error('Error calling Ollama:', error);
       res.status(500).json({ 
         success: false, 
         error: `Failed to get response from AI model: ${error.message}` 
@@ -1913,7 +1914,7 @@ When a task would benefit from n8n automation:
     }
     
   } catch (error) {
-    console.error('Error in chat endpoint:', error);
+    logger.error('Error in chat endpoint:', error);
     res.status(500).json({ 
       success: false, 
       error: 'Internal server error' 
@@ -1993,7 +1994,7 @@ When a task would benefit from n8n automation:
 4. Describe the basic workflow steps needed
 `;
           // logging relevant Wikipedia information
-          console.log('Relevant Wikipedia information found:', searchResults);
+          logger.info('Relevant Wikipedia information found:', searchResults);
           prompt += 'Relevant Wikipedia information:\n';
           searchResults.forEach(result => {
             prompt += `- ${result.title}: ${result.content.substring(0, 200)}...\n`;
@@ -2002,7 +2003,7 @@ When a task would benefit from n8n automation:
           prompt += '\n';
         }
       } catch (error) {
-        console.error('Error searching Wikipedia:', error);
+        logger.error('Error searching Wikipedia:', error);
       }
     }
     
@@ -2066,7 +2067,7 @@ When a task would benefit from n8n automation:
                   break;
                 }
               } catch (parseError) {
-                console.error('Error parsing streaming response:', parseError);
+                logger.error('Error parsing streaming response:', parseError);
               }
             }
           }
@@ -2079,13 +2080,13 @@ When a task would benefit from n8n automation:
       res.end();
       
     } catch (error) {
-      console.error('Error calling Ollama streaming:', error);
+      logger.error('Error calling Ollama streaming:', error);
       res.write(`data: ${JSON.stringify({ type: 'error', error: `Failed to get response from AI model: ${error.message}` })}\n\n`);
       res.end();
     }
     
   } catch (error) {
-    console.error('Error in streaming chat endpoint:', error);
+    logger.error('Error in streaming chat endpoint:', error);
     res.write(`data: ${JSON.stringify({ type: 'error', error: 'Internal server error' })}\n\n`);
     res.end();
   }
@@ -2292,7 +2293,7 @@ app.get('/wikipedia/article/:title', async (req, res) => {
       `);
       
     } catch (error) {
-      console.error('Error retrieving article:', error);
+      logger.error('Error retrieving article:', error);
       res.status(500).send(`
         <html>
           <head><title>Error</title></head>
@@ -2306,15 +2307,15 @@ app.get('/wikipedia/article/:title', async (req, res) => {
     }
     
   } catch (error) {
-    console.error('Error in Wikipedia article endpoint:', error);
+    logger.error('Error in Wikipedia article endpoint:', error);
     res.status(500).send('Internal server error');
   }
 });
 
 // Server will be started by startServer() function below
 // app.listen(PORT, () => {
-//   console.log(`Server running on port ${PORT}`);
-  console.log(`Visit http://localhost:${PORT} to view the application`) ;
+//   logger.info(`Server running on port ${PORT}`);
+  logger.info(`Visit http://localhost:${PORT} to view the application`) ;
 // });
 
 // ===== ANALYTICS API ENDPOINTS =====
@@ -2393,7 +2394,7 @@ app.get('/api/analytics/question/:id', requireAuth, async (req, res) => {
     
     res.json(analytics);
   } catch (error) {
-    console.error('Error fetching question analytics:', error);
+    logger.error('Error fetching question analytics:', error);
     res.status(500).json({ error: 'Failed to fetch analytics' });
   }
 });
@@ -2445,7 +2446,7 @@ app.get('/api/analytics/model-comparison/:id', requireAuth, async (req, res) => 
     
     res.json(comparison);
   } catch (error) {
-    console.error('Error fetching model comparison:', error);
+    logger.error('Error fetching model comparison:', error);
     res.status(500).json({ error: 'Failed to fetch model comparison' });
   }
 });
@@ -2527,7 +2528,7 @@ app.get('/api/analytics/trend-analysis/:id', requireAuth, async (req, res) => {
     
     res.json(trends);
   } catch (error) {
-    console.error('Error fetching trend analysis:', error);
+    logger.error('Error fetching trend analysis:', error);
     res.status(500).json({ error: 'Failed to fetch trend analysis' });
   }
 });
@@ -2585,7 +2586,7 @@ app.get('/api/analytics/dashboard', requireAuth, async (req, res) => {
     
     res.json(dashboard);
   } catch (error) {
-    console.error('Error fetching dashboard data:', error);
+    logger.error('Error fetching dashboard data:', error);
     res.status(500).json({ error: 'Failed to fetch dashboard data' });
   }
 });
@@ -2606,7 +2607,7 @@ app.get('/api/ollama/models', async (req, res) => {
       service_available: ollama.available
     });
   } catch (error) {
-    console.error('Error fetching Ollama models:', error);
+    logger.error('Error fetching Ollama models:', error);
     res.status(500).json({ 
       error: 'Failed to fetch local models',
       available: [],
@@ -2628,10 +2629,10 @@ app.post('/api/ollama/models/:modelName/download', async (req, res) => {
     // Start the download (this is async and may take a long time)
     ollama.pullModel(modelName)
       .then(() => {
-        console.log(`Model ${modelName} downloaded successfully`);
+        logger.info(`Model ${modelName} downloaded successfully`);
       })
       .catch(error => {
-        console.error(`Failed to download model ${modelName}:`, error);
+        logger.error(`Failed to download model ${modelName}:`, error);
       });
     
     res.json({ 
@@ -2639,7 +2640,7 @@ app.post('/api/ollama/models/:modelName/download', async (req, res) => {
       status: 'downloading'
     });
   } catch (error) {
-    console.error('Error starting model download:', error);
+    logger.error('Error starting model download:', error);
     res.status(500).json({ error: 'Failed to start model download' });
   }
 });
@@ -2660,7 +2661,7 @@ app.delete('/api/ollama/models/:modelName', async (req, res) => {
       status: 'deleted'
     });
   } catch (error) {
-    console.error('Error deleting model:', error);
+    logger.error('Error deleting model:', error);
     res.status(500).json({ error: 'Failed to delete model' });
   }
 });
@@ -2684,7 +2685,7 @@ app.post('/api/ollama/models/:modelName/test', async (req, res) => {
       model: response.model
     });
   } catch (error) {
-    console.error('Error testing model:', error);
+    logger.error('Error testing model:', error);
     res.status(500).json({ error: `Model test failed: ${error.message}` });
   }
 });
@@ -2702,7 +2703,7 @@ app.get('/api/ollama/status', async (req, res) => {
       models: models.models || []
     });
   } catch (error) {
-    console.error('Error checking Ollama status:', error);
+    logger.error('Error checking Ollama status:', error);
     res.json({
       service_available: false,
       service_url: ollama.baseUrl,
@@ -2745,7 +2746,7 @@ app.get('/api/models/all', async (req, res) => {
       ollama_available: ollama.available
     });
   } catch (error) {
-    console.error('Error fetching all models:', error);
+    logger.error('Error fetching all models:', error);
     res.status(500).json({ error: 'Failed to fetch model list' });
   }
 });
@@ -2766,7 +2767,7 @@ app.get('/api/wikipedia/search', async (req, res) => {
     res.json(result);
     
   } catch (error) {
-    console.error('Wikipedia search error:', error);
+    logger.error('Wikipedia search error:', error);
     res.status(500).json({ error: 'Wikipedia search failed' });
   }
 });
@@ -2784,7 +2785,7 @@ app.get('/api/wikipedia/context', async (req, res) => {
     res.json(result);
     
   } catch (error) {
-    console.error('Wikipedia context error:', error);
+    logger.error('Wikipedia context error:', error);
     res.status(500).json({ error: 'Wikipedia context extraction failed' });
   }
 });
@@ -2806,7 +2807,7 @@ const { parseWikipediaContent, extractInfoboxData } = require('./wikipedia-parse
 //     res.json(parsed);
 //     
 //   } catch (error) {
-//     console.error('Wikipedia article error:', error);
+//     logger.error('Wikipedia article error:', error);
 //     res.status(500).json({ error: 'Failed to get Wikipedia article' });
 //   }
 // });
@@ -2822,7 +2823,7 @@ app.get('/api/wikipedia/random', async (req, res) => {
     res.json(parsed);
     
   } catch (error) {
-    console.error('Wikipedia random articles error:', error);
+    logger.error('Wikipedia random articles error:', error);
     res.status(500).json({ error: 'Failed to get random articles' });
   }
 });
@@ -2838,7 +2839,7 @@ app.get('/api/wikipedia/categories', async (req, res) => {
     res.json(parsed);
     
   } catch (error) {
-    console.error('Wikipedia categories error:', error);
+    logger.error('Wikipedia categories error:', error);
     res.status(500).json({ error: 'Failed to get categories' });
   }
 });
@@ -2858,7 +2859,7 @@ app.get('/api/wikipedia/category/:category', async (req, res) => {
     res.json(parsed);
     
   } catch (error) {
-    console.error('Wikipedia category search error:', error);
+    logger.error('Wikipedia category search error:', error);
     res.status(500).json({ error: 'Failed to search category' });
   }
 });
@@ -2870,7 +2871,7 @@ app.get('/api/wikipedia/stats', async (req, res) => {
     res.json(result);
     
   } catch (error) {
-    console.error('Wikipedia stats error:', error);
+    logger.error('Wikipedia stats error:', error);
     res.status(500).json({ error: 'Failed to get Wikipedia statistics' });
   }
 });
@@ -2892,7 +2893,7 @@ app.get('/api/wikipedia/status', async (req, res) => {
     res.json(status);
     
   } catch (error) {
-    console.error('Wikipedia status error:', error);
+    logger.error('Wikipedia status error:', error);
     res.status(500).json({ error: 'Failed to get Wikipedia status' });
   }
 });
@@ -2911,7 +2912,7 @@ app.post('/api/wikipedia/download', async (req, res) => {
     });
     
   } catch (error) {
-    console.error('Wikipedia download error:', error);
+    logger.error('Wikipedia download error:', error);
     res.status(500).json({ error: 'Failed to start Wikipedia download' });
   }
 });
@@ -3001,17 +3002,17 @@ app.post('/api/agent/initialize', async (req, res) => {
 // Initialize AI Agent and start server
 async function startServer() {
   try {
-    console.log('🤖 Initializing AI Agent...');
+    logger.info('🤖 Initializing AI Agent...');
     await aiAgent.initialize();
     
     app.listen(PORT, () => {
-      console.log(`🚀 Local AI Questions server running on http://localhost:${PORT}`);
-      console.log(`📊 AI Agent status available at http://localhost:${PORT}/api/agent/status`);
-      console.log(`🔧 Task automation available at http://localhost:${PORT}/api/agent/task`);
-      console.log(`❓ Enhanced questions at http://localhost:${PORT}/api/agent/question`);
+      logger.info(`🚀 Local AI Questions server running on http://localhost:${PORT}`);
+      logger.info(`📊 AI Agent status available at http://localhost:${PORT}/api/agent/status`);
+      logger.info(`🔧 Task automation available at http://localhost:${PORT}/api/agent/task`);
+      logger.info(`❓ Enhanced questions at http://localhost:${PORT}/api/agent/question`);
     });
   } catch (error) {
-    console.error('❌ Failed to start server:', error);
+    logger.error('❌ Failed to start server:', error);
     process.exit(1);
   }
 }

@@ -9,6 +9,7 @@ const GoogleStrategy = require('passport-google-oauth20').Strategy;
 // const { addOfflinePackageRoutes } = require('./offline-package-routes');
 const offlinePackageRoutesNew = require('./offline-package-routes-new.js');
 const { InferenceClient } = require("@huggingface/inference");
+const logger = require('./logger');
 // Create Express app
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -78,7 +79,7 @@ if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
     }
   });
 } else {
-  console.log('Google OAuth not configured - running without authentication');
+  logger.warn('Google OAuth not configured - running without authentication');
 }
 
 // Initialize PostgreSQL connection
@@ -99,7 +100,7 @@ pool.query(`
     avatar_url TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
   )
-`).catch(err => console.error('Error creating users table:', err));
+`).catch(err => logger.error('Error creating users table:', err));
 
 // Create user API keys table
 pool.query(`
@@ -113,7 +114,7 @@ pool.query(`
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     UNIQUE(user_id, provider)
   )
-`).catch(err => console.error('Error creating user_api_keys table:', err));
+`).catch(err => logger.error('Error creating user_api_keys table:', err));
 
 // Create user model preferences table
 pool.query(`
@@ -127,7 +128,7 @@ pool.query(`
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     UNIQUE(user_id, model_id)
   )
-`).catch(err => console.error('Error creating user_model_preferences table:', err));
+`).catch(err => logger.error('Error creating user_model_preferences table:', err));
 
 pool.query(`
   CREATE TABLE IF NOT EXISTS personal_questions (
@@ -139,7 +140,7 @@ pool.query(`
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
   )
-`).catch(err => console.error('Error creating personal_questions table:', err));
+`).catch(err => logger.error('Error creating personal_questions table:', err));
 
 // Check if answers table exists and add new columns if needed
 async function migrateAnswersTable() {
@@ -173,7 +174,7 @@ async function migrateAnswersTable() {
         ALTER TABLE answers 
         ADD COLUMN user_id INTEGER REFERENCES users(id) ON DELETE CASCADE
       `);
-      console.log('Added user_id column to answers table');
+      logger.info('Added user_id column to answers table');
     }
     
     // Add personal_question_id column if it doesn't exist
@@ -182,7 +183,7 @@ async function migrateAnswersTable() {
         ALTER TABLE answers 
         ADD COLUMN personal_question_id INTEGER REFERENCES personal_questions(id) ON DELETE CASCADE
       `);
-      console.log('Added personal_question_id column to answers table');
+      logger.info('Added personal_question_id column to answers table');
     }
     
     // Add is_personal column if it doesn't exist
@@ -191,7 +192,7 @@ async function migrateAnswersTable() {
         ALTER TABLE answers 
         ADD COLUMN is_personal BOOLEAN DEFAULT false
       `);
-      console.log('Added is_personal column to answers table');
+      logger.info('Added is_personal column to answers table');
     }
     
     // Add prompt_version column if it doesn't exist
@@ -200,12 +201,12 @@ async function migrateAnswersTable() {
         ALTER TABLE answers 
         ADD COLUMN prompt_version VARCHAR(10) DEFAULT '1.0'
       `);
-      console.log('Added prompt_version column to answers table');
+      logger.info('Added prompt_version column to answers table');
     }
     
-    console.log('Database migration completed successfully');
+    logger.info('Database migration completed successfully');
   } catch (err) {
-    console.error('Error during database migration:', err);
+    logger.error('Error during database migration:', err);
   }
 }
 
@@ -264,9 +265,9 @@ async function createSchedulingTables() {
       )
     `);
 
-    console.log('Scheduling tables created successfully');
+    logger.info('Scheduling tables created successfully');
   } catch (err) {
-    console.error('Error creating scheduling tables:', err);
+    logger.error('Error creating scheduling tables:', err);
   }
 }
 
@@ -511,7 +512,7 @@ Answer (be concise):`;
     // Handle different providers
     if (selectedModel.provider === 'huggingface') {
       // Hugging Face API call with improved error handling
-      console.log(`Calling Hugging Face model: ${selectedModel.id}`);
+      logger.info(`Calling Hugging Face model: ${selectedModel.id}`);
 
       const client = new InferenceClient(apiKey);
 
@@ -527,7 +528,7 @@ Answer (be concise):`;
       });
       
       // Handle different response formats from Hugging Face
-      console.log('Hugging Face raw response:', JSON.stringify(chatCompletion, null, 2));
+      logger.info('Hugging Face raw response:', JSON.stringify(chatCompletion, null, 2));
       
       if (Array.isArray(chatCompletion.choices) && chatCompletion.choices.length > 0) {
         // For text generation models, the response includes the original prompt
@@ -542,7 +543,7 @@ Answer (be concise):`;
         throw new Error(`Hugging Face API Error: ${chatCompletion.error.message}`);
       } else {
         // Fallback for unexpected response format
-        console.warn('Unexpected Hugging Face response format:', chatCompletion);
+        logger.warn('Unexpected Hugging Face response format:', chatCompletion);
         answer = chatCompletion.choices ? chatCompletion.choices[0].message.content : '';
       }
       
@@ -589,11 +590,11 @@ Answer (be concise):`;
       promptVersion: promptVersion // Include the prompt version in the response
     };
   } catch (error) {
-    console.error('Error calling AI API:', error);
+    logger.error('Error calling AI API:', error);
     
     // Enhanced error logging and handling
     if (selectedModel && selectedModel.provider === 'huggingface' && error.response) {
-      console.error('Hugging Face API Error Details:', {
+      logger.error('Hugging Face API Error Details:', {
         status: error.response.status,
         statusText: error.response.statusText,
         data: error.response.data,
@@ -623,7 +624,7 @@ Answer (be concise):`;
     
     // Enhanced error logging for OpenAI API issues
     if (selectedModel && selectedModel.provider === 'openai' && error.response) {
-      console.error('OpenAI API Error Details:', {
+      logger.error('OpenAI API Error Details:', {
         status: error.response.status,
         statusText: error.response.statusText,
         data: error.response.data,
@@ -634,9 +635,9 @@ Answer (be concise):`;
       if (error.response.status === 429) {
         const errorData = error.response.data;
         if (errorData && errorData.error) {
-          console.error('OpenAI 429 Error Type:', errorData.error.type);
-          console.error('OpenAI 429 Error Code:', errorData.error.code);
-          console.error('OpenAI 429 Error Message:', errorData.error.message);
+          logger.error('OpenAI 429 Error Type:', errorData.error.type);
+          logger.error('OpenAI 429 Error Code:', errorData.error.code);
+          logger.error('OpenAI 429 Error Message:', errorData.error.message);
         }
       }
     }
@@ -727,7 +728,7 @@ app.get('/', async (req, res) => {
       today
     });
   } catch (error) {
-    console.error('Error in index route:', error);
+    logger.error('Error in index route:', error);
     res.status(500).render('error', { error: 'An unexpected error occurred' });
   }
 });
@@ -743,7 +744,7 @@ app.get('/history', async (req, res) => {
     const history = await getAnswerHistory(question);
     res.render('history', { question, history });
   } catch (error) {
-    console.error('Error in history route:', error);
+    logger.error('Error in history route:', error);
     res.status(500).render('error', { error: 'Failed to get answer history' });
   }
 });
@@ -803,7 +804,7 @@ app.get('/api/question', async (req, res) => {
     answer.id = id;
     res.json(answer);
   } catch (error) {
-    console.error('Error in question API route:', error);
+    logger.error('Error in question API route:', error);
     
     // Enhanced error response with actual error details
     let errorResponse = { 
@@ -905,7 +906,7 @@ app.get('/api/models', async (req, res) => {
     
     res.json(enabledModels);
   } catch (error) {
-    console.error('Error getting models:', error);
+    logger.error('Error getting models:', error);
     // Fallback to default models
     const defaultModels = AVAILABLE_MODELS.filter(model => model.defaultEnabled);
     res.json(defaultModels);
@@ -917,7 +918,7 @@ app.get('/api/answers', async (req, res) => {
     const latestAnswers = await getLatestAnswers();
     res.json(latestAnswers);
   } catch (error) {
-    console.error('Error in answers API route:', error);
+    logger.error('Error in answers API route:', error);
     res.status(500).json({ 
       error: 'Failed to get latest answers', 
       message: error.message 
@@ -936,7 +937,7 @@ app.get('/api/answers/history', async (req, res) => {
     const history = await getAnswerHistory(question);
     res.json(history);
   } catch (error) {
-    console.error('Error in answer history API route:', error);
+    logger.error('Error in answer history API route:', error);
     res.status(500).json({ 
       error: 'Failed to get answer history', 
       message: error.message 
@@ -953,7 +954,7 @@ app.delete('/api/answers/:id', async (req, res) => {
     
     res.json({ success: true, message: 'Answer deleted successfully' });
   } catch (error) {
-    console.error('Error deleting answer:', error);
+    logger.error('Error deleting answer:', error);
     res.status(500).json({ 
       error: 'Failed to delete answer', 
       message: error.message 
@@ -976,7 +977,7 @@ function requireAuth(req, res, next) {
       avatar_url: 'https://via.placeholder.com/40',
       google_id: 'debug-user-id'
     };
-    console.log('🔧 Debug token authentication bypass activated');
+    logger.info('🔧 Debug token authentication bypass activated');
     return next();
   }
   
@@ -1044,7 +1045,7 @@ app.get('/api/personal-questions', requireAuth, async (req, res) => {
     );
     res.json(result.rows);
   } catch (error) {
-    console.error('Error fetching personal questions:', error);
+    logger.error('Error fetching personal questions:', error);
     res.status(500).json({ error: 'Failed to fetch personal questions' });
   }
 });
@@ -1066,7 +1067,7 @@ app.post('/api/personal-questions', requireAuth, async (req, res) => {
           'INSERT INTO users (id, google_id, name, email, avatar_url) VALUES ($1, $2, $3, $4, $5) ON CONFLICT (id) DO NOTHING',
           [999999, 'debug-user-id', 'Debug User', 'debug@test.com', 'https://via.placeholder.com/40']
         );
-        console.log('🔧 Debug user created in database');
+        logger.info('🔧 Debug user created in database');
       }
     }
     
@@ -1077,7 +1078,7 @@ app.post('/api/personal-questions', requireAuth, async (req, res) => {
     
     res.json(result.rows[0]);
   } catch (error) {
-    console.error('Error creating personal question:', error);
+    logger.error('Error creating personal question:', error);
     res.status(500).json({ error: 'Failed to create personal question' });
   }
 });
@@ -1102,7 +1103,7 @@ app.put('/api/personal-questions/:id', requireAuth, async (req, res) => {
     
     res.json(result.rows[0]);
   } catch (error) {
-    console.error('Error updating personal question:', error);
+    logger.error('Error updating personal question:', error);
     res.status(500).json({ error: 'Failed to update personal question' });
   }
 });
@@ -1122,7 +1123,7 @@ app.delete('/api/personal-questions/:id', requireAuth, async (req, res) => {
     
     res.json({ success: true, message: 'Personal question deleted successfully' });
   } catch (error) {
-    console.error('Error deleting personal question:', error);
+    logger.error('Error deleting personal question:', error);
     res.status(500).json({ error: 'Failed to delete personal question' });
   }
 });
@@ -1193,7 +1194,7 @@ app.post('/api/personal-question/:id/ask', requireAuth, async (req, res) => {
     
     // Enhanced API key validation with specific error messages
     if (!apiKeys[selectedModel.apiKeyEnv]) {
-      console.error(`Missing API key for ${selectedModel.name}: ${selectedModel.apiKeyEnv}`);
+      logger.error(`Missing API key for ${selectedModel.name}: ${selectedModel.apiKeyEnv}`);
       return res.status(500).json({ 
         error: `API key for ${selectedModel.name} not configured on server`,
         details: `Missing environment variable: ${selectedModel.apiKeyEnv}`,
@@ -1205,7 +1206,7 @@ app.post('/api/personal-question/:id/ask', requireAuth, async (req, res) => {
       });
     }
     
-    console.log(`Asking personal question to ${selectedModel.name} (${model})`);
+    logger.info(`Asking personal question to ${selectedModel.name} (${model})`);
     const response = await askQuestion(personalQuestion.question, personalQuestion.context, model, apiKeys);
     
     const answer = {
@@ -1236,8 +1237,8 @@ app.post('/api/personal-question/:id/ask', requireAuth, async (req, res) => {
     answer.id = answerId;
     res.json(answer);
   } catch (error) {
-    console.error('Error in personal question API route:', error);
-    console.error('Error details:', {
+    logger.error('Error in personal question API route:', error);
+    logger.error('Error details:', {
       message: error.message,
       stack: error.stack,
       model: req.body.model,
@@ -1263,7 +1264,7 @@ app.get('/api/personal-questions/:id/answers', requireAuth, async (req, res) => 
     
     res.json(result.rows);
   } catch (error) {
-    console.error('Error fetching personal question answers:', error);
+    logger.error('Error fetching personal question answers:', error);
     res.status(500).json({ error: 'Failed to fetch answers' });
   }
 });
@@ -1323,7 +1324,7 @@ app.post('/api/personal-questions/:id/schedule', requireAuth, async (req, res) =
     
     res.json(result.rows[0]);
   } catch (error) {
-    console.error('Error creating/updating schedule:', error);
+    logger.error('Error creating/updating schedule:', error);
     res.status(500).json({ error: 'Failed to create/update schedule' });
   }
 });
@@ -1344,7 +1345,7 @@ app.get('/api/personal-questions/:id/schedule', requireAuth, async (req, res) =>
     
     res.json(result.rows[0]);
   } catch (error) {
-    console.error('Error fetching schedule:', error);
+    logger.error('Error fetching schedule:', error);
     res.status(500).json({ error: 'Failed to fetch schedule' });
   }
 });
@@ -1365,7 +1366,7 @@ app.delete('/api/personal-questions/:id/schedule', requireAuth, async (req, res)
     
     res.json({ success: true, message: 'Schedule deleted successfully' });
   } catch (error) {
-    console.error('Error deleting schedule:', error);
+    logger.error('Error deleting schedule:', error);
     res.status(500).json({ error: 'Failed to delete schedule' });
   }
 });
@@ -1384,7 +1385,7 @@ app.get('/api/schedules', requireAuth, async (req, res) => {
     
     res.json(result.rows);
   } catch (error) {
-    console.error('Error fetching schedules:', error);
+    logger.error('Error fetching schedules:', error);
     res.status(500).json({ error: 'Failed to fetch schedules' });
   }
 });
@@ -1405,7 +1406,7 @@ app.post('/api/schedules/:id/toggle', requireAuth, async (req, res) => {
     
     res.json(result.rows[0]);
   } catch (error) {
-    console.error('Error toggling schedule:', error);
+    logger.error('Error toggling schedule:', error);
     res.status(500).json({ error: 'Failed to toggle schedule' });
   }
 });
@@ -1435,7 +1436,7 @@ app.post('/api/schedules/:id/execute', requireAuth, async (req, res) => {
     
     res.json(executionResult);
   } catch (error) {
-    console.error('Error executing schedule:', error);
+    logger.error('Error executing schedule:', error);
     res.status(500).json({ error: 'Failed to execute schedule' });
   }
 });
@@ -1452,7 +1453,7 @@ app.get('/api/schedules/:id/executions', requireAuth, async (req, res) => {
     
     res.json(result.rows);
   } catch (error) {
-    console.error('Error fetching execution history:', error);
+    logger.error('Error fetching execution history:', error);
     res.status(500).json({ error: 'Failed to fetch execution history' });
   }
 });
@@ -1538,7 +1539,7 @@ async function executeSchedule(schedule) {
         
         successCount++;
       } catch (error) {
-        console.error(`Error executing model ${modelId}:`, error);
+        logger.error(`Error executing model ${modelId}:`, error);
         errors.push(`${modelId}: ${error.message}`);
         failureCount++;
       }
@@ -1567,7 +1568,7 @@ async function executeSchedule(schedule) {
       status: failureCount > 0 ? 'partial' : 'completed'
     };
   } catch (error) {
-    console.error('Error in executeSchedule:', error);
+    logger.error('Error in executeSchedule:', error);
     throw error;
   }
 }
@@ -1575,7 +1576,7 @@ async function executeSchedule(schedule) {
 // Schedule daily question and execute scheduled personal questions
 cron.schedule('0 0 * * *', async () => {
   try {
-    console.log('Running daily scheduled task at:', new Date().toISOString());
+    logger.info('Running daily scheduled task at:', new Date().toISOString());
     
     // Execute daily question with all available models
     const apiKeys = {
@@ -1587,7 +1588,7 @@ cron.schedule('0 0 * * *', async () => {
     
     // Get today's question
     const { question, context } = getTodaysQuestion();
-    console.log(`Daily question: "${question}"`);
+    logger.info(`Daily question: "${question}"`);
     
     // Check which models were already queried in the last 24 hours
     const today = new Date();
@@ -1600,7 +1601,7 @@ cron.schedule('0 0 * * *', async () => {
     );
     
     const recentlyQueriedModels = new Set(recentAnswers.rows.map(row => row.model));
-    console.log(`Models already queried in last 24 hours: ${Array.from(recentlyQueriedModels).join(', ') || 'none'}`);
+    logger.info(`Models already queried in last 24 hours: ${Array.from(recentlyQueriedModels).join(', ') || 'none'}`);
     
     // Track results
     const results = {
@@ -1615,18 +1616,18 @@ cron.schedule('0 0 * * *', async () => {
       try {
         // Skip if API key not available
         if (!apiKeys[model.apiKeyEnv]) {
-          console.log(`Skipping model ${model.id}: API key not available`);
+          logger.info(`Skipping model ${model.id}: API key not available`);
           continue;
         }
         
         // Skip if already queried in last 24 hours
         if (recentlyQueriedModels.has(model.id)) {
-          console.log(`Skipping model ${model.id}: already queried in last 24 hours`);
+          logger.info(`Skipping model ${model.id}: already queried in last 24 hours`);
           results.skipped++;
           continue;
         }
         
-        console.log(`Querying model ${model.id}...`);
+        logger.info(`Querying model ${model.id}...`);
         const response = await askQuestion(question, context, model.id, apiKeys);
         
         // Include promptVersion in saved answer
@@ -1641,10 +1642,10 @@ cron.schedule('0 0 * * *', async () => {
           response.promptVersion || "2.0" // Use the version from response or default to 2.0
         );
         
-        console.log(`Successfully saved answer from ${model.id}`);
+        logger.info(`Successfully saved answer from ${model.id}`);
         results.success++;
       } catch (error) {
-        console.error(`Error querying model ${model.id}:`, error);
+        logger.error(`Error querying model ${model.id}:`, error);
         results.failed++;
         results.errors.push({
           model: model.id,
@@ -1653,33 +1654,33 @@ cron.schedule('0 0 * * *', async () => {
       }
     }
     
-    console.log(`Daily question results: ${results.success} successful, ${results.failed} failed, ${results.skipped} skipped`);
+    logger.info(`Daily question results: ${results.success} successful, ${results.failed} failed, ${results.skipped} skipped`);
     if (results.errors.length > 0) {
-      console.log('Errors:', JSON.stringify(results.errors, null, 2));
+      logger.info('Errors:', JSON.stringify(results.errors, null, 2));
     }
     
     // Execute scheduled personal questions
     await executeScheduledQuestions();
     
   } catch (error) {
-    console.error('Error in daily scheduled task:', error);
+    logger.error('Error in daily scheduled task:', error);
   }
 });
 
 // Also run scheduled questions every hour to catch any missed executions
 cron.schedule('0 * * * *', async () => {
   try {
-    console.log('Running hourly scheduled question check at:', new Date().toISOString());
+    logger.info('Running hourly scheduled question check at:', new Date().toISOString());
     await executeScheduledQuestions();
   } catch (error) {
-    console.error('Error in hourly scheduled task:', error);
+    logger.error('Error in hourly scheduled task:', error);
   }
 });
 
 // Execute all due scheduled questions
 async function executeScheduledQuestions() {
   try {
-    console.log('Checking for due scheduled questions...');
+    logger.info('Checking for due scheduled questions...');
     
     const dueSchedules = await pool.query(
       `SELECT qs.*, pq.question, pq.context 
@@ -1690,19 +1691,19 @@ async function executeScheduledQuestions() {
        AND pq.is_active = true`
     );
     
-    console.log(`Found ${dueSchedules.rows.length} due schedules`);
+    logger.info(`Found ${dueSchedules.rows.length} due schedules`);
     
     for (const schedule of dueSchedules.rows) {
       try {
-        console.log(`Executing schedule ${schedule.id} for question: ${schedule.question}`);
+        logger.info(`Executing schedule ${schedule.id} for question: ${schedule.question}`);
         await executeSchedule(schedule);
-        console.log(`Successfully executed schedule ${schedule.id}`);
+        logger.info(`Successfully executed schedule ${schedule.id}`);
       } catch (error) {
-        console.error(`Error executing schedule ${schedule.id}:`, error);
+        logger.error(`Error executing schedule ${schedule.id}:`, error);
       }
     }
   } catch (error) {
-    console.error('Error in executeScheduledQuestions:', error);
+    logger.error('Error in executeScheduledQuestions:', error);
   }
 }
 
@@ -1743,7 +1744,7 @@ app.get('/api/config/models', async (req, res) => {
       userPreferences: userPreferences
     });
   } catch (error) {
-    console.error('Error getting config models:', error);
+    logger.error('Error getting config models:', error);
     res.status(500).json({ error: 'Failed to load model configuration' });
   }
 });
@@ -1770,7 +1771,7 @@ app.post('/api/config/models', requireAuth, async (req, res) => {
     
     res.json({ success: true });
   } catch (error) {
-    console.error('Error saving model preferences:', error);
+    logger.error('Error saving model preferences:', error);
     res.status(500).json({ error: 'Failed to save model preferences' });
   }
 });
@@ -1785,7 +1786,7 @@ app.get('/api/config/api-keys', requireAuth, async (req, res) => {
     
     res.json(result.rows);
   } catch (error) {
-    console.error('Error getting API keys:', error);
+    logger.error('Error getting API keys:', error);
     res.status(500).json({ error: 'Failed to load API keys' });
   }
 });
@@ -1818,7 +1819,7 @@ app.post('/api/config/api-keys', requireAuth, async (req, res) => {
     
     res.json({ success: true });
   } catch (error) {
-    console.error('Error saving API key:', error);
+    logger.error('Error saving API key:', error);
     res.status(500).json({ error: 'Failed to save API key' });
   }
 });
@@ -1835,7 +1836,7 @@ app.delete('/api/config/api-keys/:provider', requireAuth, async (req, res) => {
     
     res.json({ success: true });
   } catch (error) {
-    console.error('Error deleting API key:', error);
+    logger.error('Error deleting API key:', error);
     res.status(500).json({ error: 'Failed to delete API key' });
   }
 });
@@ -1858,7 +1859,7 @@ app.get('/download/offline', async (req, res) => {
     
     // Handle archiver errors
     archive.on('error', (err) => {
-      console.error('Archive error:', err);
+      logger.error('Archive error:', err);
       if (!res.headersSent) {
         res.status(500).json({ error: 'Failed to create download package' });
       }
@@ -1892,7 +1893,7 @@ app.get('/download/offline', async (req, res) => {
     innerArchive.finalize();
     
   } catch (error) {
-    console.error('Error creating download package:', error);
+    logger.error('Error creating download package:', error);
     if (!res.headersSent) {
       res.status(500).json({ error: 'Failed to create download package' });
     }
@@ -1908,8 +1909,8 @@ app.get('/config', (req, res) => {
 });
 
 app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
-  console.log(`Visit http://localhost:${PORT} to view the application`) ;
+  logger.info(`Server running on port ${PORT}`);
+  logger.info(`Visit http://localhost:${PORT} to view the application`) ;
 });
 
 // ===== ANALYTICS API ENDPOINTS =====
@@ -1988,7 +1989,7 @@ app.get('/api/analytics/question/:id', requireAuth, async (req, res) => {
     
     res.json(analytics);
   } catch (error) {
-    console.error('Error fetching question analytics:', error);
+    logger.error('Error fetching question analytics:', error);
     res.status(500).json({ error: 'Failed to fetch analytics' });
   }
 });
@@ -2040,7 +2041,7 @@ app.get('/api/analytics/model-comparison/:id', requireAuth, async (req, res) => 
     
     res.json(comparison);
   } catch (error) {
-    console.error('Error fetching model comparison:', error);
+    logger.error('Error fetching model comparison:', error);
     res.status(500).json({ error: 'Failed to fetch model comparison' });
   }
 });
@@ -2122,7 +2123,7 @@ app.get('/api/analytics/trend-analysis/:id', requireAuth, async (req, res) => {
     
     res.json(trends);
   } catch (error) {
-    console.error('Error fetching trend analysis:', error);
+    logger.error('Error fetching trend analysis:', error);
     res.status(500).json({ error: 'Failed to fetch trend analysis' });
   }
 });
@@ -2180,7 +2181,7 @@ app.get('/api/analytics/dashboard', requireAuth, async (req, res) => {
     
     res.json(dashboard);
   } catch (error) {
-    console.error('Error fetching dashboard data:', error);
+    logger.error('Error fetching dashboard data:', error);
     res.status(500).json({ error: 'Failed to fetch dashboard data' });
   }
 });
@@ -2297,7 +2298,7 @@ app.get('/api/analytics/export-csv/:id', requireAuth, async (req, res) => {
     
     res.send(csvContent);
   } catch (error) {
-    console.error('Error exporting CSV:', error);
+    logger.error('Error exporting CSV:', error);
     res.status(500).json({ error: 'Failed to export CSV' });
   }
 });

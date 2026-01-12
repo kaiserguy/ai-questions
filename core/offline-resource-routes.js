@@ -1,3 +1,4 @@
+const logger = require('./logger');
 /**
  * Offline Resource Routes
  * Serves libraries, AI models, and Wikipedia databases for offline download
@@ -18,7 +19,7 @@ async function ensureResourcesDirectory() {
     try {
         await fs.access(OFFLINE_RESOURCES_DIR);
     } catch (error) {
-        console.log('Creating offline resources directory...');
+        logger.info('Creating offline resources directory...');
         await fs.mkdir(OFFLINE_RESOURCES_DIR, { recursive: true });
         await fs.mkdir(path.join(OFFLINE_RESOURCES_DIR, 'libs'), { recursive: true });
         await fs.mkdir(path.join(OFFLINE_RESOURCES_DIR, 'models'), { recursive: true });
@@ -43,7 +44,7 @@ async function downloadAndCacheResource(url, localPath) {
                 
                 fileStream.on('finish', () => {
                     fileStream.close();
-                    console.log(`Downloaded and cached: ${url} -> ${localPath}`);
+                    logger.info(`Downloaded and cached: ${url} -> ${localPath}`);
                     resolve();
                 });
                 
@@ -94,7 +95,7 @@ router.get('/libs/:filename', async (req, res) => {
             res.sendFile(localPath);
             
         } catch (downloadError) {
-            console.error(`Failed to download ${filename}:`, downloadError);
+            logger.error(`Failed to download ${filename}:`, downloadError);
             res.status(500).json({ error: 'Failed to download library' });
         }
     }

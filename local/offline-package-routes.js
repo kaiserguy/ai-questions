@@ -1,3 +1,4 @@
+const logger = require('../core/logger');
 /**
  * Offline Package Routes for Local Server
  * Provides API endpoints for offline package management
@@ -71,7 +72,7 @@ const PACKAGES = {
 // Check package availability
 router.get('/packages/availability', (req, res) => {
     try {
-        console.log('[Offline API] Checking package availability...');
+        logger.info('[Offline API] Checking package availability...');
         
         const availability = {};
         
@@ -96,14 +97,14 @@ router.get('/packages/availability', (req, res) => {
             };
         }
         
-        console.log('[Offline API] Package availability check complete');
+        logger.info('[Offline API] Package availability check complete');
         res.json({
             success: true,
             packages: availability
         });
         
     } catch (error) {
-        console.error('[Offline API] Error checking package availability:', error);
+        logger.error('[Offline API] Error checking package availability:', error);
         res.status(500).json({
             success: false,
             error: error.message
@@ -114,7 +115,7 @@ router.get('/packages/availability', (req, res) => {
 // Download library files
 router.get('/download/library/:filename', (req, res) => {
     const filename = req.params.filename;
-    console.log(`[Offline API] Downloading library: ${filename}`);
+    logger.info(`[Offline API] Downloading library: ${filename}`);
     
     // Process download with delay
     setTimeout(() => {
@@ -129,7 +130,7 @@ router.get('/download/library/:filename', (req, res) => {
 // Download model files
 router.get('/download/model/:modelname', (req, res) => {
     const modelname = req.params.modelname;
-    console.log(`[Offline API] Downloading model: ${modelname}`);
+    logger.info(`[Offline API] Downloading model: ${modelname}`);
     
     // Process model download with longer delay
     setTimeout(() => {
@@ -144,7 +145,7 @@ router.get('/download/model/:modelname', (req, res) => {
 // Download Wikipedia database
 router.get('/download/wikipedia/:dbname', (req, res) => {
     const dbname = req.params.dbname;
-    console.log(`[Offline API] Downloading Wikipedia database: ${dbname}`);
+    logger.info(`[Offline API] Downloading Wikipedia database: ${dbname}`);
     
     // Process Wikipedia database download with delay
     setTimeout(() => {
@@ -230,7 +231,7 @@ router.get('/packages/:packageType/manifest', (req, res) => {
         
         res.json(manifest);
     } catch (error) {
-        console.error('Error serving package manifest:', error);
+        logger.error('Error serving package manifest:', error);
         res.status(500).json({
             success: false,
             error: 'Failed to serve manifest'

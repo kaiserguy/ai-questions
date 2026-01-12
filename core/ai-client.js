@@ -1,6 +1,7 @@
+const logger = require('./logger');
 class LocalAiClient {
     constructor() {
-        console.log("Using Local AI Client for testing.");
+        logger.info("Using Local AI Client for testing.");
     }
 
     async listModels(userId) {
