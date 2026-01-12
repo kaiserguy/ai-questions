@@ -100,6 +100,38 @@
                 </div>
                 <div class="progress-details" id="progressDetails">Preparing download...</div>
                 
+                <!-- Download Controls -->
+                <div class="download-controls" id="downloadControls">
+                    <button class="control-btn pause-btn" id="pauseBtn" title="Pause download">
+                        ⏸️ Pause
+                    </button>
+                    <button class="control-btn resume-btn" id="resumeBtn" style="display:none" title="Resume download">
+                        ▶️ Resume
+                    </button>
+                    <button class="control-btn cancel-btn" id="cancelBtn" title="Cancel download">
+                        ❌ Cancel
+                    </button>
+                </div>
+                
+                <!-- Storage Monitor -->
+                <div class="storage-monitor" id="storageMonitor">
+                    <div class="storage-header">
+                        <span class="storage-title">💾 Storage Usage</span>
+                        <span class="storage-summary" id="storageSummary">Checking...</span>
+                    </div>
+                    <div class="storage-bar">
+                        <div class="storage-fill" id="storageFill"></div>
+                    </div>
+                    <div class="storage-details" id="storageDetails">
+                        <span class="storage-used">Used: --</span>
+                        <span class="storage-available">Available: --</span>
+                        <span class="storage-quota">Quota: --</span>
+                    </div>
+                    <div class="storage-warning" id="storageWarning" style="display:none">
+                        ⚠️ Storage space is running low!
+                    </div>
+                </div>
+                
                 <div class="component-status" id="componentStatus">
                     <div class="component" id="coreLibraries">
                         <span class="component-name">Core Libraries</span>
@@ -248,6 +280,14 @@
             
             // Clear cache button
             document.getElementById('clearCacheBtn').addEventListener('click', clearAllCache);
+            
+            // Download control buttons
+            document.getElementById('pauseBtn').addEventListener('click', pauseDownload);
+            document.getElementById('resumeBtn').addEventListener('click', resumeDownload);
+            document.getElementById('cancelBtn').addEventListener('click', cancelDownload);
+            
+            // Initialize storage monitor
+            updateStorageMonitor();
             
             // Check for existing installation
             checkExistingInstallation();
@@ -402,6 +442,92 @@
                 // Clear logs
                 logContainer.innerHTML = '';
             }
+        }
+        
+        // Pause download
+        function pauseDownload() {
+            if (downloadManager && downloadManager.isDownloading()) {
+                downloadManager.pause();
+                document.getElementById('pauseBtn').style.display = 'none';
+                document.getElementById('resumeBtn').style.display = 'inline-flex';
+                document.getElementById('progressText').textContent = 'Download Paused';
+                addLogEntry('Download paused by user', 'warning');
+            }
+        }
+        
+        // Resume download
+        function resumeDownload() {
+            if (downloadManager && downloadManager.isPaused()) {
+                downloadManager.resume();
+                document.getElementById('resumeBtn').style.display = 'none';
+                document.getElementById('pauseBtn').style.display = 'inline-flex';
+                document.getElementById('progressText').textContent = 'Downloading...';
+                addLogEntry('Download resumed', 'info');
+            }
+        }
+        
+        // Cancel download
+        function cancelDownload() {
+            if (downloadManager) {
+                const confirmed = confirm('Are you sure you want to cancel the download? All progress will be lost.');
+                if (confirmed) {
+                    downloadManager.cancel();
+                    document.getElementById('progressSection').style.display = 'none';
+                    document.getElementById('downloadBtn').style.display = 'block';
+                    document.getElementById('pauseBtn').style.display = 'inline-flex';
+                    document.getElementById('resumeBtn').style.display = 'none';
+                    addLogEntry('Download cancelled by user', 'error');
+                }
+            }
+        }
+        
+        // Update storage monitor
+        async function updateStorageMonitor() {
+            if ('storage' in navigator && 'estimate' in navigator.storage) {
+                try {
+                    const estimate = await navigator.storage.estimate();
+                    const used = estimate.usage || 0;
+                    const quota = estimate.quota || 0;
+                    const available = quota - used;
+                    const percentage = quota > 0 ? (used / quota) * 100 : 0;
+                    
+                    // Update UI
+                    document.getElementById('storageSummary').textContent = 
+                        `${formatBytes(used)} / ${formatBytes(quota)} (${percentage.toFixed(1)}%)`;
+                    document.getElementById('storageFill').style.width = `${percentage}%`;
+                    
+                    // Update details
+                    const details = document.getElementById('storageDetails');
+                    details.innerHTML = `
+                        <span class="storage-used">Used: ${formatBytes(used)}</span>
+                        <span class="storage-available">Available: ${formatBytes(available)}</span>
+                        <span class="storage-quota">Quota: ${formatBytes(quota)}</span>
+                    `;
+                    
+                    // Show warning if > 80%
+                    const warning = document.getElementById('storageWarning');
+                    if (percentage > 80) {
+                        warning.style.display = 'block';
+                        document.getElementById('storageFill').classList.add('warning');
+                    } else {
+                        warning.style.display = 'none';
+                        document.getElementById('storageFill').classList.remove('warning');
+                    }
+                } catch (err) {
+                    document.getElementById('storageSummary').textContent = 'Unable to check storage';
+                }
+            } else {
+                document.getElementById('storageSummary').textContent = 'Storage API not supported';
+            }
+        }
+        
+        // Format bytes to human readable
+        function formatBytes(bytes) {
+            if (bytes === 0) return '0 B';
+            const k = 1024;
+            const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
         }
         
         // Toggle download log visibility
