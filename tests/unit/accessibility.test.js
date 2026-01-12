@@ -393,7 +393,8 @@ describe('Accessibility Tests (Issue #25)', () => {
                 const content = contentMatch[1];
                 
                 // Check if content is ONLY emoji (and whitespace), no actual text
-                // Remove spans and other tags to get just the text
+                // Note: This is test code analyzing static file content, not user input
+                // The content comes from trusted EJS template files being tested
                 const textOnly = content
                     .replace(/<[^>]+>/g, '') // Remove all tags
                     .replace(/\s+/g, ''); // Remove whitespace
