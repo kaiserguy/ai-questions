@@ -3,6 +3,9 @@
  * Handles downloading and tracking of offline resources
  */
 class DownloadManager {
+    // Constants for package sizes
+    static LIBRARIES_SIZE_MB = 5; // Core JavaScript libraries size in MB
+    
     constructor(packageType) {
         // Validate packageType parameter
         if (!packageType) {
@@ -97,6 +100,12 @@ class DownloadManager {
         console.log(`Starting download of ${this.packageType} package`);
         
         try {
+            // Check storage space first
+            const storageCheck = await this.checkStorageSpace();
+            if (!storageCheck.sufficient) {
+                throw new Error(storageCheck.message);
+            }
+            
             // Check package availability first
             await this.checkPackageAvailability();
             
@@ -162,6 +171,111 @@ class DownloadManager {
             
             throw error;
         }
+    }
+    
+    /**
+     * Check if sufficient storage space is available
+     * @returns {Object} Object with sufficient (boolean) and message (string)
+     */
+    async checkStorageSpace() {
+        const requiredBytes = this.getPackageSizeInBytes();
+        
+        try {
+            // Check if Storage API is supported
+            if (!navigator.storage || !navigator.storage.estimate) {
+                console.warn('Storage API not supported, skipping storage check');
+                return {
+                    sufficient: true,
+                    message: 'Storage check not available on this browser',
+                    available: 'unknown',
+                    required: this.formatBytes(requiredBytes)
+                };
+            }
+            
+            // Get storage estimate
+            const estimate = await navigator.storage.estimate();
+            const availableBytes = (estimate.quota || 0) - (estimate.usage || 0);
+            
+            // Add 20% buffer for safety
+            const requiredWithBuffer = requiredBytes * 1.2;
+            
+            console.log('Storage check:', {
+                required: this.formatBytes(requiredBytes),
+                requiredWithBuffer: this.formatBytes(requiredWithBuffer),
+                available: this.formatBytes(availableBytes),
+                quota: this.formatBytes(estimate.quota || 0),
+                usage: this.formatBytes(estimate.usage || 0)
+            });
+            
+            if (availableBytes < requiredWithBuffer) {
+                return {
+                    sufficient: false,
+                    message: `Insufficient storage space. Required: ${this.formatBytes(requiredWithBuffer)} (including 20% buffer), Available: ${this.formatBytes(availableBytes)}. Please free up ${this.formatBytes(requiredWithBuffer - availableBytes)} of space.`,
+                    available: this.formatBytes(availableBytes),
+                    required: this.formatBytes(requiredWithBuffer)
+                };
+            }
+            
+            return {
+                sufficient: true,
+                message: 'Sufficient storage space available',
+                available: this.formatBytes(availableBytes),
+                required: this.formatBytes(requiredWithBuffer)
+            };
+            
+        } catch (error) {
+            console.error('Error checking storage:', error);
+            // If storage check fails, allow download to proceed with warning
+            return {
+                sufficient: true,
+                message: 'Unable to verify storage space, proceeding with download',
+                available: 'unknown',
+                required: this.formatBytes(requiredBytes)
+            };
+        }
+    }
+    
+    /**
+     * Get package size in bytes
+     * @returns {number} Size in bytes
+     */
+    getPackageSizeInBytes() {
+        // Libraries size from constant
+        const librariesSize = DownloadManager.LIBRARIES_SIZE_MB * 1024 * 1024;
+        
+        // Get model and wikipedia sizes from existing methods
+        const modelSize = this.getModelSize();
+        const wikiSize = this.getWikiSize();
+        
+        return librariesSize + modelSize + wikiSize;
+    }
+    
+    /**
+     * Get package size in bytes (static version for use without instantiation)
+     * @param {string} packageType - Package type (minimal, standard, full)
+     * @returns {number} Size in bytes
+     */
+    static getPackageSizeInBytesStatic(packageType) {
+        const librariesSize = DownloadManager.LIBRARIES_SIZE_MB * 1024 * 1024;
+        
+        // Model sizes based on package type
+        const modelSizes = {
+            'minimal': 150 * 1024 * 1024,
+            'standard': 500 * 1024 * 1024,
+            'full': 1500 * 1024 * 1024
+        };
+        
+        // Wikipedia sizes based on package type
+        const wikiSizes = {
+            'minimal': 20 * 1024 * 1024,
+            'standard': 50 * 1024 * 1024,
+            'full': 200 * 1024 * 1024
+        };
+        
+        const modelSize = modelSizes[packageType] || modelSizes['standard'];
+        const wikiSize = wikiSizes[packageType] || wikiSizes['standard'];
+        
+        return librariesSize + modelSize + wikiSize;
     }
     
     /**

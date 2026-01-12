@@ -36,9 +36,10 @@
                     <div class="option-title">🎯 Minimal Performance</div>
                     <div class="option-description">Essential AI capabilities with basic Wikipedia content</div>
                     <div class="option-specs">
-                        • AI Model: Phi-3 Mini (500MB)<br>
-                        • Wikipedia: Simple English (50MB)<br>
-                        • Total: ~550MB
+                        • AI Model: TinyBERT (150MB)<br>
+                        • Wikipedia: Subset (20MB)<br>
+                        • Libraries: Core JS (5MB)<br>
+                        • Total: ~175MB
                     </div>
                 </div>
                 
@@ -46,20 +47,40 @@
                     <div class="option-title">⚡ Standard Performance</div>
                     <div class="option-description">Balanced performance with comprehensive Wikipedia</div>
                     <div class="option-specs">
-                        • AI Model: Phi-3 Medium (1.2GB)<br>
-                        • Wikipedia: Full English (2.5GB)<br>
-                        • Total: ~3.7GB
+                        • AI Model: Phi-3 Mini (500MB)<br>
+                        • Wikipedia: Simple English (50MB)<br>
+                        • Libraries: Core JS (5MB)<br>
+                        • Total: ~555MB
                     </div>
                 </div>
                 
-                <div class="option-card" data-package="premium">
-                    <div class="option-title">🚀 Premium Performance</div>
-                    <div class="option-description">Maximum capabilities with multilingual support</div>
+                <div class="option-card" data-package="full">
+                    <div class="option-title">🚀 Full Performance</div>
+                    <div class="option-description">Maximum capabilities with extended Wikipedia</div>
                     <div class="option-specs">
-                        • AI Model: Phi-3 Large (2.8GB)<br>
-                        • Wikipedia: Multilingual (8GB)<br>
-                        • Total: ~10.8GB
+                        • AI Model: Multiple Models (1.5GB)<br>
+                        • Wikipedia: Extended (200MB)<br>
+                        • Libraries: Core JS (5MB)<br>
+                        • Total: ~1.7GB
                     </div>
+                </div>
+            </div>
+
+            <!-- Storage Space Indicator -->
+            <div class="storage-indicator" id="storageIndicator" style="display: none;">
+                <div class="storage-header">
+                    <span class="storage-icon">💾</span>
+                    <span class="storage-title">Available Storage Space</span>
+                </div>
+                <div class="storage-bar">
+                    <div class="storage-fill" id="storageFill"></div>
+                </div>
+                <div class="storage-details">
+                    <span id="storageAvailable">Checking...</span>
+                    <span id="storageRequired"></span>
+                </div>
+                <div class="storage-warning" id="storageWarning" style="display: none;">
+                    ⚠️ <span id="storageWarningText"></span>
                 </div>
             </div>
 
@@ -195,6 +216,9 @@
                     // Update selected package
                     selectedPackage = this.dataset.package;
                     
+                    // Check storage space for selected package
+                    checkStorageForPackage(selectedPackage);
+                    
                     // Update download button
                     const option = this.querySelector('.option-title');
                     document.getElementById('downloadBtn').textContent = `Download ${option.textContent}`;
@@ -227,6 +251,88 @@
             // Check for existing installation
             checkExistingInstallation();
         });
+        
+        // Check storage space for selected package
+        async function checkStorageForPackage(packageType) {
+            const storageIndicator = document.getElementById('storageIndicator');
+            const storageAvailable = document.getElementById('storageAvailable');
+            const storageRequired = document.getElementById('storageRequired');
+            const storageWarning = document.getElementById('storageWarning');
+            const storageWarningText = document.getElementById('storageWarningText');
+            const storageFill = document.getElementById('storageFill');
+            const downloadBtn = document.getElementById('downloadBtn');
+            
+            // Show storage indicator
+            storageIndicator.style.display = 'block';
+            storageAvailable.textContent = 'Checking available space...';
+            storageRequired.textContent = '';
+            storageWarning.style.display = 'none';
+            
+            try {
+                // Get package size using static method (no need to instantiate)
+                const requiredBytes = DownloadManager.getPackageSizeInBytesStatic(packageType);
+                const requiredWithBuffer = requiredBytes * 1.2; // Add 20% buffer
+                
+                // Create temporary manager just for formatting helper
+                const tempManager = new DownloadManager(packageType);
+                
+                storageRequired.textContent = `Required: ${tempManager.formatBytes(requiredWithBuffer)} (including 20% buffer)`;
+                
+                // Check if Storage API is available
+                if (!navigator.storage || !navigator.storage.estimate) {
+                    storageAvailable.textContent = 'Storage check not available';
+                    storageWarning.style.display = 'block';
+                    storageWarningText.textContent = 'Your browser does not support storage estimation. Download may fail if insufficient space.';
+                    storageFill.style.width = '50%';
+                    storageFill.style.backgroundColor = '#f59e0b';
+                    return;
+                }
+                
+                // Get storage estimate
+                const estimate = await navigator.storage.estimate();
+                const availableBytes = (estimate.quota || 0) - (estimate.usage || 0);
+                
+                storageAvailable.textContent = `Available: ${tempManager.formatBytes(availableBytes)}`;
+                
+                // Calculate percentage - show how much of available space will be used
+                // Protect against division by zero
+                let usagePercent = 0;
+                if (availableBytes > 0) {
+                    usagePercent = Math.min(100, Math.round((requiredWithBuffer / availableBytes) * 100));
+                } else {
+                    usagePercent = 100; // No space available
+                }
+                storageFill.style.width = `${usagePercent}%`;
+                
+                // Check if sufficient
+                if (availableBytes < requiredWithBuffer) {
+                    // Insufficient storage - show as full/red
+                    storageFill.style.width = '100%';
+                    storageFill.style.backgroundColor = '#ef4444';
+                    storageWarning.style.display = 'block';
+                    storageWarningText.textContent = `Insufficient storage space. Please free up ${tempManager.formatBytes(requiredWithBuffer - availableBytes)} before downloading.`;
+                    downloadBtn.disabled = true;
+                    downloadBtn.textContent = 'Insufficient Storage';
+                } else if (availableBytes < requiredWithBuffer * 1.5) {
+                    // Low storage warning
+                    storageFill.style.backgroundColor = '#f59e0b';
+                    storageWarning.style.display = 'block';
+                    storageWarningText.textContent = 'Storage space is tight. Consider freeing up space for optimal performance.';
+                } else {
+                    // Sufficient storage
+                    storageFill.style.backgroundColor = '#10b981';
+                    storageWarning.style.display = 'none';
+                }
+                
+            } catch (error) {
+                console.error('Error checking storage:', error);
+                storageAvailable.textContent = 'Unable to check storage';
+                storageWarning.style.display = 'block';
+                storageWarningText.textContent = 'Could not verify storage space. Download may fail if insufficient space available.';
+                storageFill.style.width = '50%';
+                storageFill.style.backgroundColor = '#f59e0b';
+            }
+        }
         
         // Check browser compatibility
         function checkBrowserCompatibility() {
