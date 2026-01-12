@@ -1,3 +1,4 @@
+const logger = require('./logger');
 const axios = require("axios");
 const AiInterface = require("./ai-interface");
 const { InferenceClient } = require("@huggingface/inference");
@@ -124,7 +125,7 @@ class ExternalLLMClient extends AiInterface {
                 response_time: responseTime,
             };
         } catch (error) {
-            console.error(`Error generating response from ${modelName}:`, error.message);
+            logger.error(`Error generating response from ${modelName}:`, error.message);
             throw new Error(`External AI model error (${modelName}): ${error.message}`);
         }
     }
