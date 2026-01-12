@@ -6,6 +6,12 @@
  * that indicate non-functional demo implementations.
  * 
  * CRITICAL: These tests must FAIL if demo code is introduced to prevent regressions.
+ * 
+ * STRENGTHENED (Issue #75): Enhanced detection to catch:
+ * - All TODO comments in offline mode implementations
+ * - Incomplete implementations with "actual" placeholders
+ * - Unfinished code paths in critical offline functionality
+ * - Any TODO comments indicating missing features
  */
 
 const fs = require('fs');
@@ -25,6 +31,16 @@ describe('Anti-Demo Validation Tests', () => {
         'TODO: Replace with actual',
         'TODO: Load actual',
         'TODO: Implement actual',
+        'TODO: Use actual',
+        'TODO: Initialize actual',
+        'TODO: Process actual',
+        'TODO: Generate actual',
+        'TODO: Complete actual',
+        'TODO: Create actual',
+        'TODO: Download actual',
+        'TODO: Check actual',
+        'TODO: Scan actual',
+        'TODO: Free actual',
         'This is a demo',
         'demo mode',
         'placeholder implementation',
@@ -91,18 +107,39 @@ describe('Anti-Demo Validation Tests', () => {
         const content = fs.readFileSync(filePath, 'utf8');
         const lines = content.split('\n');
         const violations = [];
+        const seenLines = new Set(); // Track unique violations by file:line
         
         lines.forEach((line, lineNumber) => {
             const lowerLine = line.toLowerCase();
+            const lineKey = `${filePath}:${lineNumber + 1}`;
             
+            // Skip if we've already flagged this line
+            if (seenLines.has(lineKey)) {
+                return;
+            }
+            
+            // Check for TODO comments in offline mode files (comprehensive catch)
+            if (filePath.includes('offline') && /TODO:.*(?:actual|load|process|implement|generate|initialize|download|use|create|query|check|scan|free|complete)/i.test(line)) {
+                violations.push({
+                    file: filePath,
+                    line: lineNumber + 1,
+                    term: 'TODO comment in offline implementation',
+                    content: line.trim()
+                });
+                seenLines.add(lineKey);
+                return;
+            }
+            
+            // Check prohibited terms
             PROHIBITED_TERMS.forEach(term => {
-                if (lowerLine.includes(term.toLowerCase())) {
+                if (lowerLine.includes(term.toLowerCase()) && !seenLines.has(lineKey)) {
                     violations.push({
                         file: filePath,
                         line: lineNumber + 1,
                         term: term,
                         content: line.trim()
                     });
+                    seenLines.add(lineKey);
                 }
             });
         });
@@ -303,7 +340,10 @@ describe('Anti-Demo Validation Tests', () => {
                 'Simulated delays instead of real processing',
                 'Hardcoded demo data instead of real databases',
                 'TODO comments in production code paths',
-                'Mock implementations in non-test files'
+                'Mock implementations in non-test files',
+                'Incomplete offline mode implementations (Issue #75)',
+                'TODO comments indicating missing features (Issue #75)',
+                'Unfinished code with "actual" placeholders (Issue #75)'
             ];
             
             // This test always passes but documents the purpose
@@ -314,6 +354,7 @@ describe('Anti-Demo Validation Tests', () => {
             preventedIssues.forEach(issue => {
                 console.log(`  ❌ ${issue}`);
             });
+            console.log('\n✨ Strengthened to catch offline mode TODOs (Issue #75)');
             console.log('');
         });
     });
