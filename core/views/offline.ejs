@@ -191,6 +191,14 @@
         let packageStatusCache = null;
         let packageStatusCacheTime = 0;
         const CACHE_DURATION = 60000; // Cache for 60 seconds
+        
+        // localStorage keys constants to avoid duplication and typos
+        const STORAGE_KEYS = {
+            OFFLINE_INSTALLED: 'offlineInstalled',
+            PACKAGE_TYPE: 'offlinePackageType',
+            INSTALL_DATE: 'offlineInstallDate',
+            LIBRARIES_LOADED: 'offlineLibrariesLoaded'
+        };
 
         // Initialize when page loads
         document.addEventListener('DOMContentLoaded', function() {
@@ -270,7 +278,7 @@
             await checkInstalledPackages();
             
             // Check if offline components are already installed
-            if (localStorage.getItem('offlineInstalled') === 'true') {
+            if (localStorage.getItem(STORAGE_KEYS.OFFLINE_INSTALLED) === 'true') {
                 document.getElementById('downloadSection').style.display = 'none';
                 
                 // Initialize the integration manager - it will handle showing sections
@@ -301,9 +309,9 @@
                 const installedPackages = [];
                 
                 // Check localStorage for installation info
-                const isInstalled = localStorage.getItem('offlineInstalled') === 'true';
-                const packageType = localStorage.getItem('offlinePackageType') || 'unknown';
-                const installDate = localStorage.getItem('offlineInstallDate');
+                const isInstalled = localStorage.getItem(STORAGE_KEYS.OFFLINE_INSTALLED) === 'true';
+                const packageType = localStorage.getItem(STORAGE_KEYS.PACKAGE_TYPE) || 'unknown';
+                const installDate = localStorage.getItem(STORAGE_KEYS.INSTALL_DATE);
                 
                 if (isInstalled) {
                     // Get package details
@@ -372,7 +380,7 @@
                     components.wikipedia.status = wikiDb ? 'installed' : 'not installed';
                     
                     // Libraries are loaded dynamically, so check localStorage
-                    components.libraries.status = localStorage.getItem('offlineLibrariesLoaded') === 'true' ? 'installed' : 'not installed';
+                    components.libraries.status = localStorage.getItem(STORAGE_KEYS.LIBRARIES_LOADED) === 'true' ? 'installed' : 'not installed';
                 } catch (e) {
                     console.error('Error checking components:', e);
                 }
@@ -501,10 +509,15 @@
 
         // Format bytes to human readable format
         function formatBytes(bytes) {
+            // Validate input
+            if (typeof bytes !== 'number' || isNaN(bytes) || bytes < 0) {
+                return 'Unknown';
+            }
             if (bytes === 0) return '0 Bytes';
+            
             const k = 1024;
             const sizes = ['Bytes', 'KB', 'MB', 'GB'];
-            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            const i = Math.min(Math.floor(Math.log(bytes) / Math.log(k)), sizes.length - 1);
             return Math.round((bytes / Math.pow(k, i)) * 100) / 100 + ' ' + sizes[i];
         }
 
@@ -575,9 +588,9 @@
                     
                     // Save installation info after successful download
                     // Libraries are considered loaded since download completed successfully
-                    localStorage.setItem('offlinePackageType', selectedPackage);
-                    localStorage.setItem('offlineInstallDate', new Date().toISOString());
-                    localStorage.setItem('offlineLibrariesLoaded', 'true');
+                    localStorage.setItem(STORAGE_KEYS.PACKAGE_TYPE, selectedPackage);
+                    localStorage.setItem(STORAGE_KEYS.INSTALL_DATE, new Date().toISOString());
+                    localStorage.setItem(STORAGE_KEYS.LIBRARIES_LOADED, 'true');
                     
                     // Initialize offline mode after download
                     setTimeout(() => {
@@ -655,7 +668,7 @@
             
             // Let the integration manager handle showing sections via checkInitializationComplete
             integrationManager.initialize().then(() => {
-                localStorage.setItem('offlineInstalled', 'true');
+                localStorage.setItem(STORAGE_KEYS.OFFLINE_INSTALLED, 'true');
             });
         }
 
@@ -790,10 +803,10 @@
         function clearAllCache() {
             if (confirm('This will remove all downloaded AI models and Wikipedia data. Are you sure?')) {
                 // Clear localStorage
-                localStorage.removeItem('offlineInstalled');
-                localStorage.removeItem('offlinePackageType');
-                localStorage.removeItem('offlineInstallDate');
-                localStorage.removeItem('offlineLibrariesLoaded');
+                localStorage.removeItem(STORAGE_KEYS.OFFLINE_INSTALLED);
+                localStorage.removeItem(STORAGE_KEYS.PACKAGE_TYPE);
+                localStorage.removeItem(STORAGE_KEYS.INSTALL_DATE);
+                localStorage.removeItem(STORAGE_KEYS.LIBRARIES_LOADED);
                 
                 // Clear IndexedDB (simplified)
                 if ('indexedDB' in window) {
