@@ -367,17 +367,18 @@ describe('DownloadManager', () => {
     test('should add 20% buffer to storage requirement', async () => {
       const manager = new DownloadManager('minimal');
       const requiredBytes = manager.getPackageSizeInBytes();
+      const requiredWithBuffer = requiredBytes * 1.2;
       
       global.navigator.storage = {
         estimate: jest.fn().mockResolvedValue({
           quota: 1000 * 1024 * 1024,
-          usage: 1000 * 1024 * 1024 - requiredBytes // Exactly enough without buffer
+          usage: 1000 * 1024 * 1024 - requiredBytes - 1 // Just slightly more than required but less than buffer
         })
       };
 
       const result = await manager.checkStorageSpace();
       
-      // Should fail because we need 20% buffer
+      // Should fail because available (requiredBytes + 1) < requiredWithBuffer (requiredBytes * 1.2)
       expect(result.sufficient).toBe(false);
     });
 

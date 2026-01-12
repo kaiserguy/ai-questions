@@ -237,19 +237,14 @@ class DownloadManager {
      * @returns {number} Size in bytes
      */
     getPackageSizeInBytes() {
-        switch (this.packageType) {
-            case 'minimal':
-                // Libraries (5MB) + AI Model (150MB) + Wikipedia (20MB)
-                return (5 + 150 + 20) * 1024 * 1024;
-            case 'standard':
-                // Libraries (5MB) + AI Model (500MB) + Wikipedia (50MB)
-                return (5 + 500 + 50) * 1024 * 1024;
-            case 'full':
-                // Libraries (5MB) + AI Model (1500MB) + Wikipedia (200MB)
-                return (5 + 1500 + 200) * 1024 * 1024;
-            default:
-                return 200 * 1024 * 1024; // Default 200MB
-        }
+        // Libraries are approximately 5MB
+        const librariesSize = 5 * 1024 * 1024;
+        
+        // Get model and wikipedia sizes from existing methods
+        const modelSize = this.getModelSize();
+        const wikiSize = this.getWikiSize();
+        
+        return librariesSize + modelSize + wikiSize;
     }
     
     /**

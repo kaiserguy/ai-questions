@@ -36,9 +36,10 @@
                     <div class="option-title">🎯 Minimal Performance</div>
                     <div class="option-description">Essential AI capabilities with basic Wikipedia content</div>
                     <div class="option-specs">
-                        • AI Model: Phi-3 Mini (500MB)<br>
-                        • Wikipedia: Simple English (50MB)<br>
-                        • Total: ~550MB
+                        • AI Model: TinyBERT (150MB)<br>
+                        • Wikipedia: Subset (20MB)<br>
+                        • Libraries: Core JS (5MB)<br>
+                        • Total: ~175MB
                     </div>
                 </div>
                 
@@ -46,19 +47,21 @@
                     <div class="option-title">⚡ Standard Performance</div>
                     <div class="option-description">Balanced performance with comprehensive Wikipedia</div>
                     <div class="option-specs">
-                        • AI Model: Phi-3 Medium (1.2GB)<br>
-                        • Wikipedia: Full English (2.5GB)<br>
-                        • Total: ~3.7GB
+                        • AI Model: Phi-3 Mini (500MB)<br>
+                        • Wikipedia: Simple English (50MB)<br>
+                        • Libraries: Core JS (5MB)<br>
+                        • Total: ~555MB
                     </div>
                 </div>
                 
-                <div class="option-card" data-package="premium">
-                    <div class="option-title">🚀 Premium Performance</div>
-                    <div class="option-description">Maximum capabilities with multilingual support</div>
+                <div class="option-card" data-package="full">
+                    <div class="option-title">🚀 Full Performance</div>
+                    <div class="option-description">Maximum capabilities with extended Wikipedia</div>
                     <div class="option-specs">
-                        • AI Model: Phi-3 Large (2.8GB)<br>
-                        • Wikipedia: Multilingual (8GB)<br>
-                        • Total: ~10.8GB
+                        • AI Model: Multiple Models (1.5GB)<br>
+                        • Wikipedia: Extended (200MB)<br>
+                        • Libraries: Core JS (5MB)<br>
+                        • Total: ~1.7GB
                     </div>
                 </div>
             </div>
@@ -289,13 +292,15 @@
                 
                 storageAvailable.textContent = `Available: ${tempManager.formatBytes(availableBytes)}`;
                 
-                // Calculate percentage
+                // Calculate percentage - show how much of available space will be used
+                // Cap at 100% for visual purposes
                 const usagePercent = Math.min(100, Math.round((requiredWithBuffer / availableBytes) * 100));
                 storageFill.style.width = `${usagePercent}%`;
                 
                 // Check if sufficient
                 if (availableBytes < requiredWithBuffer) {
-                    // Insufficient storage
+                    // Insufficient storage - show as full/red
+                    storageFill.style.width = '100%';
                     storageFill.style.backgroundColor = '#ef4444';
                     storageWarning.style.display = 'block';
                     storageWarningText.textContent = `Insufficient storage space. Please free up ${tempManager.formatBytes(requiredWithBuffer - availableBytes)} before downloading.`;
