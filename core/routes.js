@@ -2,14 +2,28 @@ const express = require("express");
 const cron = require("node-cron");
 const crypto = require("crypto");
 
-// Generate a random debug token on startup if DEBUG_TOKEN is not set
-const DEBUG_TOKEN = process.env.DEBUG_TOKEN || (() => {
+// Debug token configuration - DISABLED in production for security
+// In production, debug endpoints require explicit DEBUG_TOKEN env var
+const IS_PRODUCTION = process.env.NODE_ENV === 'production';
+const DEBUG_TOKEN = (() => {
+    // In production, only use explicit env var (no auto-generation)
+    if (IS_PRODUCTION) {
+        if (process.env.DEBUG_TOKEN) {
+            // Log warning about debug mode being enabled in production
+            console.warn('[SECURITY WARNING] Debug endpoints enabled in production via DEBUG_TOKEN env var');
+            return process.env.DEBUG_TOKEN;
+        }
+        return null; // Debug disabled in production without explicit token
+    }
+    
+    // In development, use env var or generate random token
+    if (process.env.DEBUG_TOKEN) {
+        return process.env.DEBUG_TOKEN;
+    }
+    
     const token = crypto.randomBytes(32).toString('hex');
-    console.log('\n===========================================')
-    console.log('DEBUG TOKEN GENERATED (for development):')
-    console.log(`   ${token}`)
-    console.log('   Set DEBUG_TOKEN env var to use a custom token')
-    console.log('===========================================\n')
+    console.log('\n[DEV] Debug token generated:', token.substring(0, 8) + '...');
+    console.log('[DEV] Set DEBUG_TOKEN env var for persistent token\n');
     return token;
 })();
 
@@ -129,10 +143,10 @@ module.exports = (db, ai, wikipedia, config) => {
 
     // API to get current user info
     router.get('/api/user', (req, res) => {
-        // Check for debug token first
+        // Check for debug token first (only works if DEBUG_TOKEN is set)
         const debugToken = req.headers['x-debug-token'] || req.query.debug_token;
         
-        if (debugToken === DEBUG_TOKEN) {
+        if (DEBUG_TOKEN && debugToken === DEBUG_TOKEN) {
             return res.json({
                 id: 999999,
                 name: 'Debug User',
