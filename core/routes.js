@@ -719,6 +719,155 @@ module.exports = (db, ai, wikipedia, config) => {
         }
     });
 
+    // Toggle schedule active/inactive
+    router.post("/api/schedules/:id/toggle", ensureAuthenticated, async (req, res) => {
+        const { id } = req.params;
+        const userId = req.user ? req.user.id : null;
+        if (!userId) return res.status(401).json({ error: "Authentication required." });
+
+        try {
+            const result = await db.toggleScheduleActive(id, userId);
+            if (result.success) {
+                res.json(result.schedule);
+            } else {
+                res.status(404).json({ error: "Schedule not found or not authorized." });
+            }
+        } catch (error) {
+            console.error("Error toggling schedule:", error);
+            res.status(500).json({ error: "Failed to toggle schedule." });
+        }
+    });
+
+    // Execute schedule manually
+    router.post("/api/schedules/:id/execute", ensureAuthenticated, async (req, res) => {
+        const { id } = req.params;
+        const userId = req.user ? req.user.id : null;
+        if (!userId) return res.status(401).json({ error: "Authentication required." });
+
+        try {
+            // Get schedule with question details
+            const schedule = await db.getQuestionScheduleById(id, userId);
+            if (!schedule) {
+                return res.status(404).json({ error: "Schedule not found or not authorized." });
+            }
+
+            // Get the personal question
+            const question = await db.getPersonalQuestionById(schedule.question_id, userId);
+            if (!question) {
+                return res.status(404).json({ error: "Personal question not found." });
+            }
+
+            // Create execution record
+            const execution = await db.createScheduleExecution(id, schedule.selected_models || []);
+            
+            let successCount = 0;
+            let failureCount = 0;
+            const errors = [];
+            
+            // Execute for each selected model
+            const models = schedule.selected_models || [];
+            for (const modelId of models) {
+                try {
+                    // Generate answer using AI
+                    const answer = await ai.generateAnswer(question.question, modelId, question.context || '');
+                    
+                    // Save the answer
+                    const date = new Date();
+                    await db.saveAnswer(
+                        question.question,
+                        question.context || '',
+                        answer,
+                        modelId,
+                        null, // modelName
+                        null, // confidence
+                        date,
+                        userId,
+                        true, // isPersonal
+                        schedule.id,
+                        execution.id
+                    );
+                    
+                    successCount++;
+                } catch (error) {
+                    console.error(`Error executing model ${modelId}:`, error);
+                    errors.push(`${modelId}: ${error.message}`);
+                    failureCount++;
+                }
+            }
+            
+            // Update execution record
+            const status = failureCount > 0 ? (successCount > 0 ? 'partial' : 'failed') : 'completed';
+            await db.updateScheduleExecution(
+                execution.id,
+                successCount,
+                failureCount,
+                status,
+                errors.join('; ')
+            );
+            
+            // Update schedule's last run date and calculate next run
+            const nextRunDate = calculateNextRunDate(schedule.frequency_type, schedule.frequency_value, schedule.frequency_unit);
+            await db.updateScheduleNextRun(schedule.id, nextRunDate);
+            
+            res.json({
+                execution_id: execution.id,
+                success_count: successCount,
+                failure_count: failureCount,
+                errors: errors,
+                status: status
+            });
+        } catch (error) {
+            console.error("Error executing schedule:", error);
+            res.status(500).json({ error: "Failed to execute schedule." });
+        }
+    });
+
+    // Get execution history for a schedule
+    router.get("/api/schedules/:id/executions", ensureAuthenticated, async (req, res) => {
+        const { id } = req.params;
+        const userId = req.user ? req.user.id : null;
+        if (!userId) return res.status(401).json({ error: "Authentication required." });
+
+        try {
+            const executions = await db.getScheduledExecutions(id, userId);
+            res.json(executions);
+        } catch (error) {
+            console.error("Error fetching execution history:", error);
+            res.status(500).json({ error: "Failed to fetch execution history." });
+        }
+    });
+
+    // Helper function to calculate next run date
+    function calculateNextRunDate(frequency_type, frequency_value, frequency_unit) {
+        const now = new Date();
+        let nextRun = new Date(now);
+        
+        switch (frequency_type) {
+            case 'daily':
+                nextRun.setDate(now.getDate() + 1);
+                break;
+            case 'weekly':
+                nextRun.setDate(now.getDate() + 7);
+                break;
+            case 'monthly':
+                nextRun.setMonth(now.getMonth() + 1);
+                break;
+            case 'custom':
+                if (frequency_unit === 'hours') {
+                    nextRun.setHours(now.getHours() + parseInt(frequency_value));
+                } else if (frequency_unit === 'days') {
+                    nextRun.setDate(now.getDate() + parseInt(frequency_value));
+                } else if (frequency_unit === 'weeks') {
+                    nextRun.setDate(now.getDate() + (parseInt(frequency_value) * 7));
+                }
+                break;
+            default:
+                nextRun.setDate(now.getDate() + 1);
+        }
+        
+        return nextRun;
+    }
+
     router.get("/schedule-executions/:id", ensureAuthenticated, async (req, res) => {
         const { id } = req.params;
         const userId = req.user ? req.user.id : null;

@@ -387,6 +387,37 @@ class PgDatabase extends DatabaseInterface {
         return { success: true };
     }
 
+    async toggleScheduleActive(scheduleId, userId) {
+        const result = await this.pool.query(
+            `UPDATE question_schedules SET is_active = NOT is_active, updated_at = CURRENT_TIMESTAMP 
+             WHERE id = $1 AND user_id = $2 RETURNING *`,
+            [scheduleId, userId]
+        );
+        if (result.rows.length === 0) {
+            return { success: false };
+        }
+        return { success: true, schedule: result.rows[0] };
+    }
+
+    async createScheduleExecution(scheduleId, modelsExecuted) {
+        const result = await this.pool.query(
+            `INSERT INTO scheduled_executions (schedule_id, models_executed, execution_status)
+             VALUES ($1, $2, 'running') RETURNING *`,
+            [scheduleId, modelsExecuted]
+        );
+        return result.rows[0];
+    }
+
+    async updateScheduleExecution(executionId, successCount, failureCount, status, errorDetails) {
+        await this.pool.query(
+            `UPDATE scheduled_executions 
+             SET success_count = $1, failure_count = $2, execution_status = $3, error_details = $4
+             WHERE id = $5`,
+            [successCount, failureCount, status, errorDetails, executionId]
+        );
+        return { success: true };
+    }
+
     async getUserApiKeys(userId) {
         const result = await this.pool.query(
             `SELECT provider, created_at FROM user_api_keys WHERE user_id = $1 ORDER BY created_at DESC`,
