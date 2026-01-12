@@ -24,6 +24,28 @@ class OfflineIntegrationManager {
     }
     
     /**
+     * Initialize the offline mode (for existing installations)
+     * This shows the UI even if AI models aren't fully loaded (prototype mode)
+     */
+    async initialize() {
+        this.updateStatus('Initializing offline mode...');
+        
+        // Set a default package type if not set
+        if (!this.packageType) {
+            this.packageType = 'minimal';
+        }
+        
+        // Try to initialize components if they exist
+        try {
+            await this.initializeComponents();
+        } catch (error) {
+            // If initialization fails, still show the UI in prototype mode
+            console.log('Component initialization failed, showing prototype UI:', error);
+            this.checkInitializationComplete();
+        }
+    }
+    
+    /**
      * Set the package type
      */
     setPackageType(packageType) {
@@ -132,27 +154,31 @@ class OfflineIntegrationManager {
      */
     checkInitializationComplete() {
         // Check if both managers exist and are ready
-        const aiReady = this.aiModelManager && this.aiModelManager.isReady();
-        const wikiReady = this.wikipediaManager && this.wikipediaManager.isReady();
+        const aiReady = this.aiModelManager && typeof this.aiModelManager.isReady === 'function' && this.aiModelManager.isReady();
+        const wikiReady = this.wikipediaManager && typeof this.wikipediaManager.isReady === 'function' && this.wikipediaManager.isReady();
+        
+        // Show UI even if managers aren't ready (prototype mode)
+        // This allows users to see the interface and get helpful error messages
+        const progressSection = document.getElementById('progressSection');
+        const chatSection = document.getElementById('chatSection');
+        const wikiSection = document.getElementById('wikiSection');
+        
+        if (progressSection) progressSection.style.display = 'none';
+        if (chatSection) chatSection.style.display = 'block';
+        if (wikiSection) wikiSection.style.display = 'block';
         
         if (aiReady && wikiReady) {
             this.initialized = true;
             this.isInitialized = true;
             this.updateStatus('All components initialized successfully');
-            
-            // Show the chat and wiki sections (only if DOM elements exist)
-            const progressSection = document.getElementById('progressSection');
-            const chatSection = document.getElementById('chatSection');
-            const wikiSection = document.getElementById('wikiSection');
-            
-            if (progressSection) progressSection.style.display = 'none';
-            if (chatSection) chatSection.style.display = 'block';
-            if (wikiSection) wikiSection.style.display = 'block';
-            
             return true;
+        } else {
+            // Prototype mode - show UI but mark as not fully initialized
+            this.initialized = false;
+            this.isInitialized = false;
+            this.updateStatus('Prototype mode: UI shown but AI models not fully initialized');
+            return false;
         }
-        
-        return false;
     }
     
     /**
@@ -384,6 +410,7 @@ class OfflineIntegrationManager {
 // Make available globally for browser
 if (typeof window !== 'undefined') {
     window.OfflineIntegrationManager = OfflineIntegrationManager;
+    window.IntegrationManager = OfflineIntegrationManager; // Alias for backward compatibility
 }
 // Make available for Node.js/testing
 if (typeof module !== 'undefined' && module.exports) {
