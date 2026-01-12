@@ -1015,21 +1015,64 @@ header {
     padding: 20px;
 }
 
-.offline-page .header {
-    text-align: center;
-    color: white;
+.offline-page header {
+    border-bottom: 1px solid rgba(255, 255, 255, 0.2);
     margin-bottom: 40px;
+    padding-bottom: 20px;
 }
 
-.offline-page .header h1 {
-    font-size: 3rem;
+.offline-page .header-content {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 20px;
+}
+
+.offline-page .header-left {
+    flex: 1;
+    color: white;
+}
+
+.offline-page .header-left h1 {
+    font-size: 2.5rem;
     margin-bottom: 10px;
     text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+    color: white;
 }
 
-.offline-page .header p {
-    font-size: 1.2rem;
+.offline-page .header-left p {
+    font-size: 1.1rem;
     opacity: 0.9;
+    color: white;
+}
+
+.offline-page .header-nav {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    flex-shrink: 0;
+}
+
+.offline-page .nav-link {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 16px;
+    background: rgba(255, 255, 255, 0.95);
+    color: #667eea;
+    text-decoration: none;
+    border-radius: 6px;
+    font-weight: 500;
+    transition: transform 0.2s, box-shadow 0.2s;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+}
+
+.offline-page .nav-link:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+    background: white;
+    color: #667eea;
+    text-decoration: none;
 }
 
 .offline-page .status-card {
