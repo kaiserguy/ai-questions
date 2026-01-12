@@ -521,17 +521,27 @@ class DownloadManager {
     /**
      * Download a resource with progress tracking using real HTTP requests
      */
-    async downloadResource(name, url, progressCallback = null) {
+    async downloadResource(name, url, progressCallback = null, retryCount = 0) {
+        const MAX_RETRIES = 3;
+        const TIMEOUT_MS = 30000; // 30 second timeout
+        
         return new Promise(async (resolve, reject) => {
             if (this.aborted) {
                 reject(new Error('Download aborted'));
                 return;
             }
             
-            console.log(`Downloading ${name} from ${url}...`);
+            console.log(`Downloading ${name} from ${url}... (attempt ${retryCount + 1}/${MAX_RETRIES + 1})`);
+            
+            // Create abort controller for timeout
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => {
+                controller.abort();
+            }, TIMEOUT_MS);
             
             try {
-                const response = await fetch(url);
+                const response = await fetch(url, { signal: controller.signal });
+                clearTimeout(timeoutId);
                 
                 if (!response.ok) {
                     throw new Error(`HTTP ${response.status}: ${response.statusText}`);
@@ -585,8 +595,37 @@ class DownloadManager {
                 resolve(result);
                 
             } catch (error) {
+                clearTimeout(timeoutId);
                 console.error(`Failed to download ${name}:`, error);
-                reject(error);
+                
+                // Check if we should retry
+                if (retryCount < MAX_RETRIES && !this.aborted) {
+                    const isTimeout = error.name === 'AbortError';
+                    const errorType = isTimeout ? 'timeout' : 'error';
+                    console.log(`Download ${errorType} for ${name}, retrying in 2 seconds...`);
+                    
+                    // Notify about retry
+                    if (this.onProgress) {
+                        this.onProgress(`Retry ${retryCount + 1}/${MAX_RETRIES} for ${name}...`);
+                    }
+                    
+                    // Backoff delay before retry (2 seconds)
+                    await this.delay(2000);
+                    
+                    // Retry with incremented count
+                    try {
+                        const result = await this.downloadResource(name, url, progressCallback, retryCount + 1);
+                        resolve(result);
+                    } catch (retryError) {
+                        reject(retryError);
+                    }
+                } else {
+                    const isTimeout = error.name === 'AbortError';
+                    const errorMsg = isTimeout 
+                        ? `Download timed out after ${TIMEOUT_MS/1000}s (${MAX_RETRIES + 1} attempts)` 
+                        : error.message;
+                    reject(new Error(errorMsg));
+                }
             }
         });
     }
@@ -829,6 +868,23 @@ class DownloadManager {
     /**
      * Format bytes to human-readable size
      */
+    /**
+     * Utility delay for retry backoff
+     */
+    delay(ms) {
+        return new Promise(resolve => {
+            const start = Date.now();
+            const check = () => {
+                if (Date.now() - start >= ms) {
+                    resolve();
+                } else {
+                    requestAnimationFrame(check);
+                }
+            };
+            check();
+        });
+    }
+    
     formatBytes(bytes) {
         if (bytes === 0) return '0 Bytes';
         const k = 1024;
