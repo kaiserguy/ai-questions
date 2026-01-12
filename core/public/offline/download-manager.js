@@ -26,6 +26,41 @@ class DownloadManager {
             libraries: { status: 'pending', progress: 0 }
         };
         this.aborted = false;
+        this.onError = null;
+        this.downloadState = null;
+        this.errorCategories = {
+            network: {
+                patterns: ['network', 'fetch', 'connection', 'timeout', 'offline', 'ECONNREFUSED'],
+                message: 'Connection lost during download',
+                recovery: 'Check your internet connection and try again.',
+                actions: ['retry', 'cancel']
+            },
+            storage: {
+                patterns: ['quota', 'storage', 'disk', 'space', 'IndexedDB'],
+                message: 'Not enough storage space',
+                recovery: 'Free up storage space and try again.',
+                actions: ['clear_cache', 'cancel']
+            },
+            server: {
+                patterns: ['500', '502', '503', '504', 'server'],
+                message: 'Server temporarily unavailable',
+                recovery: 'The server is experiencing issues. Please try again later.',
+                actions: ['retry_later', 'cancel']
+            },
+            notFound: {
+                patterns: ['404', 'not found'],
+                message: 'Resource not found',
+                recovery: 'The requested file could not be found. Try a different package.',
+                actions: ['change_package', 'cancel']
+            },
+            permission: {
+                patterns: ['403', 'forbidden', 'permission', 'access'],
+                message: 'Access denied',
+                recovery: 'You do not have permission to download this resource.',
+                actions: ['cancel']
+            }
+        };
+        this.lastSaveTime = 0;
         this.onProgressUpdate = null;
         this.onResourceUpdate = null;
         this.onComplete = null;
@@ -732,6 +767,11 @@ class DownloadManager {
         if (this.onProgressUpdate) {
             this.onProgressUpdate(null, this.calculateTotalProgress());
         }
+        
+        // Save state periodically during download
+        if (status === 'downloading') {
+            this.saveDownloadState();
+        }
     }
     
     /**
@@ -833,7 +873,239 @@ class DownloadManager {
      */
     abort() {
         this.aborted = true;
+        this.clearDownloadState();
         console.log('Download aborted');
+    }
+    
+    /**
+     * Pause the download process
+     */
+    pause() {
+        this.paused = true;
+        this.saveDownloadState();
+        console.log('Download paused');
+    }
+    
+    /**
+     * Resume the download process
+     */
+    resume() {
+        this.paused = false;
+        console.log('Download resumed');
+    }
+    
+    /**
+     * Check if download is paused
+     */
+    isPaused() {
+        return this.paused;
+    }
+    
+    /**
+     * Save download state to IndexedDB for persistence
+     */
+    async saveDownloadState() {
+        const now = Date.now();
+        // Only save every 5 seconds to avoid excessive writes
+        if (now - this.lastSaveTime < 5000) return;
+        this.lastSaveTime = now;
+        
+        try {
+            await this.initializeStorage();
+            const state = {
+                key: 'downloadState',
+                packageType: this.packageType,
+                progress: this.progress,
+                resources: JSON.parse(JSON.stringify(this.resources)),
+                timestamp: now,
+                paused: this.paused
+            };
+            
+            const transaction = this.db.transaction(['metadata'], 'readwrite');
+            const store = transaction.objectStore('metadata');
+            store.put(state);
+            console.log('Download state saved:', state.progress + '%');
+        } catch (error) {
+            console.error('Failed to save download state:', error);
+        }
+    }
+    
+    /**
+     * Load download state from IndexedDB
+     */
+    async loadDownloadState() {
+        try {
+            await this.initializeStorage();
+            return new Promise((resolve, reject) => {
+                const transaction = this.db.transaction(['metadata'], 'readonly');
+                const store = transaction.objectStore('metadata');
+                const request = store.get('downloadState');
+                
+                request.onsuccess = () => {
+                    const state = request.result;
+                    if (state && state.packageType === this.packageType) {
+                        // Check if state is less than 24 hours old
+                        const age = Date.now() - state.timestamp;
+                        if (age < 24 * 60 * 60 * 1000) {
+                            resolve(state);
+                        } else {
+                            resolve(null);
+                        }
+                    } else {
+                        resolve(null);
+                    }
+                };
+                request.onerror = () => reject(request.error);
+            });
+        } catch (error) {
+            console.error('Failed to load download state:', error);
+            return null;
+        }
+    }
+    
+    /**
+     * Clear download state from IndexedDB
+     */
+    async clearDownloadState() {
+        try {
+            await this.initializeStorage();
+            const transaction = this.db.transaction(['metadata'], 'readwrite');
+            const store = transaction.objectStore('metadata');
+            store.delete('downloadState');
+            console.log('Download state cleared');
+        } catch (error) {
+            console.error('Failed to clear download state:', error);
+        }
+    }
+    
+    /**
+     * Check for interrupted download and offer to resume
+     */
+    async checkForInterruptedDownload() {
+        const state = await this.loadDownloadState();
+        if (state && state.progress > 0 && state.progress < 100) {
+            return {
+                hasInterrupted: true,
+                progress: state.progress,
+                resources: state.resources,
+                timestamp: state.timestamp,
+                packageType: state.packageType
+            };
+        }
+        return { hasInterrupted: false };
+    }
+    
+    /**
+     * Resume from saved state
+     */
+    async resumeFromState(state) {
+        if (!state) return false;
+        
+        this.progress = state.progress;
+        this.resources = state.resources;
+        this.paused = false;
+        
+        console.log('Resuming download from', state.progress + '%');
+        return true;
+    }
+    
+    /**
+     * Setup beforeunload warning during active download
+     */
+    setupBeforeUnloadWarning() {
+        if (typeof window === 'undefined') return;
+        
+        this.beforeUnloadHandler = (e) => {
+            if (this.isDownloading() && !this.paused) {
+                e.preventDefault();
+                e.returnValue = 'Download in progress. Are you sure you want to leave?';
+                return e.returnValue;
+            }
+        };
+        window.addEventListener('beforeunload', this.beforeUnloadHandler);
+    }
+    
+    /**
+     * Remove beforeunload warning
+     */
+    removeBeforeUnloadWarning() {
+        if (typeof window === 'undefined' || !this.beforeUnloadHandler) return;
+        window.removeEventListener('beforeunload', this.beforeUnloadHandler);
+    }
+    
+    /**
+     * Check if download is in progress
+     */
+    isDownloading() {
+        return Object.values(this.resources).some(r => r.status === 'downloading');
+    }
+    
+    /**
+     * Get storage usage information
+     */
+    async getStorageUsage() {
+        if (typeof navigator === 'undefined' || !navigator.storage) {
+            return { used: 0, quota: 0, percent: 0 };
+        }
+        
+        try {
+            const estimate = await navigator.storage.estimate();
+            return {
+                used: estimate.usage || 0,
+                quota: estimate.quota || 0,
+                percent: estimate.quota ? Math.round((estimate.usage / estimate.quota) * 100) : 0,
+                usedFormatted: this.formatBytes(estimate.usage || 0),
+                quotaFormatted: this.formatBytes(estimate.quota || 0)
+            };
+        } catch (error) {
+            console.error('Failed to get storage estimate:', error);
+            return { used: 0, quota: 0, percent: 0 };
+        }
+    }
+    
+    /**
+     * Categorize an error and provide recovery guidance
+     */
+    categorizeError(error) {
+        const errorString = (error.message || error.toString()).toLowerCase();
+        
+        for (const [category, config] of Object.entries(this.errorCategories)) {
+            if (config.patterns.some(pattern => errorString.includes(pattern.toLowerCase()))) {
+                return {
+                    category,
+                    message: config.message,
+                    recovery: config.recovery,
+                    actions: config.actions,
+                    originalError: error.message || error.toString()
+                };
+            }
+        }
+        
+        // Default unknown error
+        return {
+            category: 'unknown',
+            message: 'An unexpected error occurred',
+            recovery: 'Please try again. If the problem persists, contact support.',
+            actions: ['retry', 'cancel'],
+            originalError: error.message || error.toString()
+        };
+    }
+    
+    /**
+     * Handle error with categorization
+     */
+    handleError(error, resource = null) {
+        const categorized = this.categorizeError(error);
+        
+        if (resource) {
+            this.updateResource(resource, 'error', 0);
+        }
+        
+        if (this.onError) {
+            this.onError(categorized);
+        }
+        
+        return categorized;
     }
 }
 
