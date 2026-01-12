@@ -1040,6 +1040,22 @@ header {
     box-shadow: 0 10px 30px rgba(0,0,0,0.1);
 }
 
+.offline-page .prototype-warning {
+    background: #fff3cd;
+    border-left: 4px solid #ffc107;
+    margin-bottom: 20px;
+}
+
+.offline-page .prototype-warning p {
+    margin: 0;
+    font-weight: 500;
+}
+
+.offline-page .prototype-warning a {
+    color: #0066cc;
+    text-decoration: underline;
+}
+
 .offline-page .status-indicator {
     display: flex;
     align-items: center;
