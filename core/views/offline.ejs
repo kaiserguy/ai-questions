@@ -269,10 +269,12 @@
             storageWarning.style.display = 'none';
             
             try {
-                // Create temporary download manager to get package size
-                const tempManager = new DownloadManager(packageType);
-                const requiredBytes = tempManager.getPackageSizeInBytes();
+                // Get package size using static method (no need to instantiate)
+                const requiredBytes = DownloadManager.getPackageSizeInBytesStatic(packageType);
                 const requiredWithBuffer = requiredBytes * 1.2; // Add 20% buffer
+                
+                // Create temporary manager just for formatting helper
+                const tempManager = new DownloadManager(packageType);
                 
                 storageRequired.textContent = `Required: ${tempManager.formatBytes(requiredWithBuffer)} (including 20% buffer)`;
                 
@@ -293,8 +295,13 @@
                 storageAvailable.textContent = `Available: ${tempManager.formatBytes(availableBytes)}`;
                 
                 // Calculate percentage - show how much of available space will be used
-                // Cap at 100% for visual purposes
-                const usagePercent = Math.min(100, Math.round((requiredWithBuffer / availableBytes) * 100));
+                // Protect against division by zero
+                let usagePercent = 0;
+                if (availableBytes > 0) {
+                    usagePercent = Math.min(100, Math.round((requiredWithBuffer / availableBytes) * 100));
+                } else {
+                    usagePercent = 100; // No space available
+                }
                 storageFill.style.width = `${usagePercent}%`;
                 
                 // Check if sufficient

@@ -364,21 +364,34 @@ describe('DownloadManager', () => {
       expect(fullManager.getPackageSizeInBytes()).toBe(1705 * 1024 * 1024);
     });
 
+    test('should calculate package sizes using static method', () => {
+      expect(DownloadManager.getPackageSizeInBytesStatic('minimal')).toBe(175 * 1024 * 1024);
+      expect(DownloadManager.getPackageSizeInBytesStatic('standard')).toBe(555 * 1024 * 1024);
+      expect(DownloadManager.getPackageSizeInBytesStatic('full')).toBe(1705 * 1024 * 1024);
+    });
+
+    test('should use class constant for library size', () => {
+      expect(DownloadManager.LIBRARIES_SIZE_MB).toBe(5);
+    });
+
     test('should add 20% buffer to storage requirement', async () => {
       const manager = new DownloadManager('minimal');
       const requiredBytes = manager.getPackageSizeInBytes();
       const requiredWithBuffer = requiredBytes * 1.2;
       
+      // Create a scenario where available space is just above required but below buffered requirement
+      const smallMargin = 1024; // 1KB margin - above required but definitely below 20% buffer
+      
       global.navigator.storage = {
         estimate: jest.fn().mockResolvedValue({
           quota: 1000 * 1024 * 1024,
-          usage: 1000 * 1024 * 1024 - requiredBytes - 1 // Just slightly more than required but less than buffer
+          usage: 1000 * 1024 * 1024 - requiredBytes - smallMargin
         })
       };
 
       const result = await manager.checkStorageSpace();
       
-      // Should fail because available (requiredBytes + 1) < requiredWithBuffer (requiredBytes * 1.2)
+      // Should fail because available (requiredBytes + smallMargin) < requiredWithBuffer (requiredBytes * 1.2)
       expect(result.sufficient).toBe(false);
     });
 

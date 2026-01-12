@@ -3,6 +3,9 @@
  * Handles downloading and tracking of offline resources
  */
 class DownloadManager {
+    // Constants for package sizes
+    static LIBRARIES_SIZE_MB = 5; // Core JavaScript libraries size in MB
+    
     constructor(packageType) {
         // Validate packageType parameter
         if (!packageType) {
@@ -237,12 +240,40 @@ class DownloadManager {
      * @returns {number} Size in bytes
      */
     getPackageSizeInBytes() {
-        // Libraries are approximately 5MB
-        const librariesSize = 5 * 1024 * 1024;
+        // Libraries size from constant
+        const librariesSize = DownloadManager.LIBRARIES_SIZE_MB * 1024 * 1024;
         
         // Get model and wikipedia sizes from existing methods
         const modelSize = this.getModelSize();
         const wikiSize = this.getWikiSize();
+        
+        return librariesSize + modelSize + wikiSize;
+    }
+    
+    /**
+     * Get package size in bytes (static version for use without instantiation)
+     * @param {string} packageType - Package type (minimal, standard, full)
+     * @returns {number} Size in bytes
+     */
+    static getPackageSizeInBytesStatic(packageType) {
+        const librariesSize = DownloadManager.LIBRARIES_SIZE_MB * 1024 * 1024;
+        
+        // Model sizes based on package type
+        const modelSizes = {
+            'minimal': 150 * 1024 * 1024,
+            'standard': 500 * 1024 * 1024,
+            'full': 1500 * 1024 * 1024
+        };
+        
+        // Wikipedia sizes based on package type
+        const wikiSizes = {
+            'minimal': 20 * 1024 * 1024,
+            'standard': 50 * 1024 * 1024,
+            'full': 200 * 1024 * 1024
+        };
+        
+        const modelSize = modelSizes[packageType] || modelSizes['standard'];
+        const wikiSize = wikiSizes[packageType] || wikiSizes['standard'];
         
         return librariesSize + modelSize + wikiSize;
     }
