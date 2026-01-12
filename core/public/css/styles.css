@@ -1502,3 +1502,49 @@ header {
     }
 }
 
+/* Accessibility Styles - Issue #25 */
+
+/* Screen reader only text - visually hidden but accessible */
+.sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border-width: 0;
+}
+
+/* Focus visible for keyboard navigation */
+.sr-only:focus {
+    position: static;
+    width: auto;
+    height: auto;
+    padding: inherit;
+    margin: inherit;
+    overflow: visible;
+    clip: auto;
+    white-space: normal;
+}
+
+/* Ensure focus indicators are visible */
+button:focus,
+a:focus,
+input:focus,
+select:focus,
+textarea:focus {
+    outline: 2px solid #0066cc;
+    outline-offset: 2px;
+}
+
+/* High contrast focus for better visibility */
+@media (prefers-contrast: high) {
+    button:focus,
+    a:focus {
+        outline: 3px solid currentColor;
+        outline-offset: 3px;
+    }
+}
+
