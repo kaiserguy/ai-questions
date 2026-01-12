@@ -60,7 +60,8 @@ describe('API Answers History Route Tests', () => {
 
         test('should have error message for missing parameter', () => {
             // Updated to check for new centralized error handling
-            expect(routesContent).toContain('createValidationError') || expect(routesContent).toContain('Question parameter is required');
+            const hasValidation = routesContent.includes('createValidationError') || routesContent.includes('Question parameter is required');
+            expect(hasValidation).toBe(true);
         });
     });
 
@@ -103,7 +104,8 @@ describe('API Answers History Route Tests', () => {
         });
 
         test('should include question in 404 response', () => {
-            expect(routesContent).toContain('question: question') || expect(routesContent).toContain('Question');
+            const hasQuestionInResponse = routesContent.includes('question: question') || routesContent.includes('Question');
+            expect(hasQuestionInResponse).toBe(true);
         });
 
         test('should return 200 with empty array for questions with no history', () => {

@@ -116,7 +116,7 @@ describe('API Answers Route Integration Tests', () => {
       const routesPath = path.join(__dirname, '../../core/routes.js');
       const routesContent = fs.readFileSync(routesPath, 'utf8');
       
-      // Find the answers route
+      // Find the answers route - updated regex to match asyncHandler closing
       const answersRouteMatch = routesContent.match(/router\.get\("\/api\/answers"[\s\S]*?}\)\);/);
       expect(answersRouteMatch).toBeTruthy();
       const answersRouteCode = answersRouteMatch[0];
