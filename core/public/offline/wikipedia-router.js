@@ -11,7 +11,7 @@ class OfflineWikipediaRouter {
 
     setupRouting() {
         // Handle Wikipedia article URLs
-        if (window.location.pathname.startsWith('/offline/wikipedia/article/')) {
+        if (window.location.pathname.startsWith('/offline-resources/wikipedia/article/')) {
             this.handleArticleRoute();
         }
     }
@@ -329,7 +329,7 @@ class OfflineWikipediaRouter {
 }
 
 // Auto-initialize if we're on a Wikipedia article page
-if (window.location.pathname.startsWith('/offline/wikipedia/article/')) {
+if (window.location.pathname.startsWith('/offline-resources/wikipedia/article/')) {
     document.addEventListener('DOMContentLoaded', () => {
         // Wait for Wikipedia manager to be available
         const checkWikipedia = setInterval(() => {

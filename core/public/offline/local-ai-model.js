@@ -6,7 +6,7 @@
 class LocalAIModel {
     constructor(options = {}) {
         this.options = {
-            modelPath: '/offline/models/',
+            modelPath: '/offline-resources/models/',
             useWebGPU: true,
             useWebGL: true,
             useFallbacks: true,

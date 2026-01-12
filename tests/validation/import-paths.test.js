@@ -110,7 +110,7 @@ describe('Import Path Validation', () => {
             
             // Check that offline resource routes are imported and mounted
             expect(content).toContain('require("../core/offline-resource-routes")');
-            expect(content).toContain("app.use('/offline', offlineResourceRoutes)");
+            expect(content).toContain("app.use('/offline-resources', offlineResourceRoutes)");
         });
 
         test('should verify offline resource routes are properly mounted in local app', () => {
@@ -120,7 +120,7 @@ describe('Import Path Validation', () => {
             // Check that offline resource routes are imported and mounted
             // Local app uses a different import pattern
             expect(content).toContain("require('../core/offline-resource-routes')");
-            expect(content).toContain("app.use('/offline', offlineResourceRoutes)");
+            expect(content).toContain("app.use('/offline-resources', offlineResourceRoutes)");
         });
     });
 

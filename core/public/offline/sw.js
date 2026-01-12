@@ -4,9 +4,9 @@ const STATIC_CACHE_NAME = 'ai-questions-static-v1';
 
 // URLs to cache for offline functionality
 const STATIC_URLS = [
-    '/offline/',
-    '/offline/app.js',
-    '/offline/manifest.json'
+    '/offline-resources/',
+    '/offline-resources/app.js',
+    '/offline-resources/manifest.json'
 ];
 
 // Install event - cache static assets
@@ -60,7 +60,7 @@ self.addEventListener('fetch', (event) => {
     }
     
     // Handle offline page requests
-    if (url.pathname.startsWith('/offline/')) {
+    if (url.pathname.startsWith('/offline-resources/')) {
         event.respondWith(handleOfflineRequest(request));
         return;
     }
@@ -117,7 +117,7 @@ async function handleOfflineRequest(request) {
         }
         
         // If no cache, return offline fallback
-        if (url.pathname === '/offline/' || url.pathname === '/offline') {
+        if (url.pathname === '/offline-resources/' || url.pathname === '/offline') {
             return new Response(getOfflineFallbackHTML(), {
                 headers: { 'Content-Type': 'text/html' }
             });
@@ -317,8 +317,8 @@ self.addEventListener('push', (event) => {
     
     const options = {
         body: 'You have a scheduled AI question ready!',
-        icon: '/offline/icon-192.png',
-        badge: '/offline/badge-72.png',
+        icon: '/offline-resources/icon-192.png',
+        badge: '/offline-resources/badge-72.png',
         tag: 'ai-questions-notification',
         requireInteraction: true,
         actions: [
@@ -346,7 +346,7 @@ self.addEventListener('notificationclick', (event) => {
     
     if (event.action === 'open') {
         event.waitUntil(
-            clients.openWindow('/offline/')
+            clients.openWindow('/offline-resources/')
         );
     }
 });

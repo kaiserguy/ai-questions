@@ -51,8 +51,8 @@ describe('Deployment Validation', () => {
             const localContent = fs.readFileSync(localAppPath, 'utf8');
             
             // Both apps should mount offline routes
-            expect(hostedContent).toContain("app.use('/offline', offlineResourceRoutes)");
-            expect(localContent).toContain("app.use('/offline', offlineResourceRoutes)");
+            expect(hostedContent).toContain("app.use('/offline-resources', offlineResourceRoutes)");
+            expect(localContent).toContain("app.use('/offline-resources', offlineResourceRoutes)");
         });
     });
 
