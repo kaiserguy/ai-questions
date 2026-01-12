@@ -325,26 +325,52 @@ async function fetchWithFeedback(url, options = {}, feedbackOptions = {}) {
         showLoading = true,
         successMessage = null,
         errorMessage = 'Request failed',
+        retries = 0,
+        retryDelay = 1000,
         ...handlerOptions
     } = feedbackOptions;
 
     const action = async () => {
-        const response = await fetch(url, {
-            method,
-            headers: {
-                'Content-Type': 'application/json',
-                ...headers
-            },
-            body: body ? JSON.stringify(body) : null,
-            ...fetchOptions
-        });
+        let lastError;
+        
+        for (let attempt = 0; attempt <= retries; attempt++) {
+            try {
+                const response = await fetch(url, {
+                    method,
+                    headers: {
+                        'Content-Type': 'application/json',
+                        ...headers
+                    },
+                    body: body ? JSON.stringify(body) : null,
+                    ...fetchOptions
+                });
 
-        if (!response.ok) {
-            const errorData = await response.json().catch(() => ({}));
-            throw new Error(errorData.error || errorData.message || `HTTP ${response.status}`);
+                if (!response.ok) {
+                    const errorData = await response.json().catch(() => ({}));
+                    const errorMsg = errorData.error?.message || errorData.error || errorData.message || `HTTP ${response.status}`;
+                    const error = new Error(errorMsg);
+                    error.statusCode = response.status;
+                    error.errorData = errorData;
+                    throw error;
+                }
+
+                return await response.json();
+            } catch (error) {
+                lastError = error;
+                
+                // Don't retry on client errors (4xx) or if no retries left
+                if (error.statusCode && error.statusCode >= 400 && error.statusCode < 500) {
+                    throw error;
+                }
+                
+                if (attempt < retries) {
+                    await new Promise(resolve => setTimeout(resolve, retryDelay * (attempt + 1)));
+                    continue;
+                }
+            }
         }
-
-        return await response.json();
+        
+        throw lastError;
     };
 
     if (showLoading) {
@@ -356,6 +382,49 @@ async function fetchWithFeedback(url, options = {}, feedbackOptions = {}) {
     } else {
         return action();
     }
+}
+
+/**
+ * Retry an async operation with exponential backoff
+ */
+async function retryWithBackoff(fn, options = {}) {
+    const {
+        maxRetries = 3,
+        initialDelay = 1000,
+        maxDelay = 10000,
+        backoffFactor = 2,
+        onRetry = null
+    } = options;
+
+    let lastError;
+    
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+        try {
+            return await fn();
+        } catch (error) {
+            lastError = error;
+            
+            if (attempt < maxRetries) {
+                const delay = Math.min(initialDelay * Math.pow(backoffFactor, attempt), maxDelay);
+                
+                if (onRetry) {
+                    onRetry(attempt + 1, delay, error);
+                }
+                
+                await new Promise(resolve => setTimeout(resolve, delay));
+            }
+        }
+    }
+    
+    throw lastError;
+}
+
+/**
+ * Show error with retry option
+ */
+function showErrorWithRetry(message, retryCallback, title = 'Error') {
+    const toastEl = toast.error(`${message} <button onclick="(${retryCallback.toString()})(); this.closest('.toast').remove();" style="margin-left: 10px; padding: 4px 8px; border: none; background: rgba(255,255,255,0.2); color: white; border-radius: 4px; cursor: pointer;">Retry</button>`, title, 0);
+    return toastEl;
 }
 
 // Export for use in other scripts
