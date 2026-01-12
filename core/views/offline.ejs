@@ -278,14 +278,23 @@
             }
         }
 
+        // Helper function to show/hide package section
+        function showPackageSection(packages) {
+            if (packages && packages.length > 0) {
+                displayInstalledPackages(packages);
+                document.getElementById('installedPackagesSection').style.display = 'block';
+            } else {
+                document.getElementById('installedPackagesSection').style.display = 'none';
+            }
+        }
+
         // Check and display installed packages with caching
         async function checkInstalledPackages() {
             try {
                 // Use cached data if available and fresh (within 60 seconds)
                 const now = Date.now();
                 if (packageStatusCache && (now - packageStatusCacheTime) < CACHE_DURATION) {
-                    displayInstalledPackages(packageStatusCache);
-                    document.getElementById('installedPackagesSection').style.display = packageStatusCache.length > 0 ? 'block' : 'none';
+                    showPackageSection(packageStatusCache);
                     return;
                 }
                 
@@ -326,12 +335,7 @@
                 packageStatusCacheTime = now;
                 
                 // Display the installed packages
-                if (installedPackages.length > 0) {
-                    displayInstalledPackages(installedPackages);
-                    document.getElementById('installedPackagesSection').style.display = 'block';
-                } else {
-                    document.getElementById('installedPackagesSection').style.display = 'none';
-                }
+                showPackageSection(installedPackages);
             } catch (error) {
                 console.error('Error checking installed packages:', error);
             }
@@ -382,21 +386,31 @@
             return new Promise((resolve) => {
                 try {
                     const request = indexedDB.open(dbName);
+                    let resolved = false;
                     
                     request.onsuccess = () => {
-                        request.result.close();
-                        resolve(true);
+                        if (!resolved) {
+                            resolved = true;
+                            request.result.close();
+                            resolve(true);
+                        }
                     };
                     
                     request.onerror = () => {
-                        resolve(false);
+                        if (!resolved) {
+                            resolved = true;
+                            resolve(false);
+                        }
                     };
                     
                     request.onupgradeneeded = (event) => {
                         // Database is being created (doesn't exist yet)
                         // Abort the transaction to prevent creating it
-                        event.target.transaction.abort();
-                        resolve(false);
+                        if (!resolved) {
+                            resolved = true;
+                            event.target.transaction.abort();
+                            resolve(false);
+                        }
                     };
                 } catch (e) {
                     resolve(false);
@@ -432,10 +446,21 @@
                 const details = document.createElement('div');
                 details.className = 'package-details';
                 
-                details.innerHTML = `
-                    <div><strong>Install Date:</strong> ${pkg.installDate}</div>
-                    <div><strong>Storage Used:</strong> ${pkg.size || 'Unknown'}</div>
-                `;
+                // Create detail elements safely without innerHTML
+                const installDateDiv = document.createElement('div');
+                const installDateLabel = document.createElement('strong');
+                installDateLabel.textContent = 'Install Date: ';
+                installDateDiv.appendChild(installDateLabel);
+                installDateDiv.appendChild(document.createTextNode(pkg.installDate));
+                
+                const storageDiv = document.createElement('div');
+                const storageLabel = document.createElement('strong');
+                storageLabel.textContent = 'Storage Used: ';
+                storageDiv.appendChild(storageLabel);
+                storageDiv.appendChild(document.createTextNode(pkg.size || 'Unknown'));
+                
+                details.appendChild(installDateDiv);
+                details.appendChild(storageDiv);
                 
                 // Components status
                 if (pkg.components) {
