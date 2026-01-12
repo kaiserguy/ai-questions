@@ -90,9 +90,12 @@
             
             const rect = this.getBoundingClientRect();
             const touch = e.touches[0];
-            const x = touch.clientX - rect.left;
-            const y = touch.clientY - rect.top;
+            const size = Math.max(rect.width, rect.height);
+            const x = touch.clientX - rect.left - size / 2;
+            const y = touch.clientY - rect.top - size / 2;
             
+            ripple.style.width = size + 'px';
+            ripple.style.height = size + 'px';
             ripple.style.left = x + 'px';
             ripple.style.top = y + 'px';
             
@@ -110,7 +113,7 @@
     function preventDoubleTapZoom(element) {
         let lastTap = 0;
         element.addEventListener('touchend', function(e) {
-            const currentTime = new Date().getTime();
+            const currentTime = performance.now();
             const tapLength = currentTime - lastTap;
             if (tapLength < 500 && tapLength > 0) {
                 e.preventDefault();
