@@ -1750,3 +1750,125 @@ header {
         display: flex;
     }
 }
+
+
+/* Download Controls */
+.download-controls {
+    display: flex;
+    gap: 0.75rem;
+    margin: 1rem 0;
+    justify-content: center;
+}
+
+.control-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 1rem;
+    border: none;
+    border-radius: 6px;
+    font-size: 0.9rem;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.pause-btn {
+    background: #f59e0b;
+    color: white;
+}
+
+.pause-btn:hover {
+    background: #d97706;
+}
+
+.resume-btn {
+    background: #10b981;
+    color: white;
+}
+
+.resume-btn:hover {
+    background: #059669;
+}
+
+.cancel-btn {
+    background: #ef4444;
+    color: white;
+}
+
+.cancel-btn:hover {
+    background: #dc2626;
+}
+
+/* Storage Monitor */
+.storage-monitor {
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    padding: 1rem;
+    margin: 1rem 0;
+}
+
+.storage-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.5rem;
+}
+
+.storage-title {
+    font-weight: 600;
+    color: #334155;
+}
+
+.storage-summary {
+    font-size: 0.875rem;
+    color: #64748b;
+}
+
+.storage-bar {
+    height: 8px;
+    background: #e2e8f0;
+    border-radius: 4px;
+    overflow: hidden;
+    margin-bottom: 0.5rem;
+}
+
+.storage-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #3b82f6, #8b5cf6);
+    border-radius: 4px;
+    transition: width 0.3s ease;
+}
+
+.storage-fill.warning {
+    background: linear-gradient(90deg, #f59e0b, #ef4444);
+}
+
+.storage-details {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.75rem;
+    color: #64748b;
+}
+
+.storage-warning {
+    margin-top: 0.5rem;
+    padding: 0.5rem;
+    background: #fef3c7;
+    border: 1px solid #f59e0b;
+    border-radius: 4px;
+    color: #92400e;
+    font-size: 0.875rem;
+    text-align: center;
+}
+
+@media (max-width: 768px) {
+    .download-controls {
+        flex-direction: column;
+    }
+    
+    .storage-details {
+        flex-direction: column;
+        gap: 0.25rem;
+    }
+}
