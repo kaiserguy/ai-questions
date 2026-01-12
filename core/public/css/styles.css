@@ -6,6 +6,11 @@ body {
     max-width: 800px;
     margin: 0 auto;
     padding: 20px;
+    /* Enable smooth scrolling for touch devices */
+    -webkit-overflow-scrolling: touch;
+    /* Prevent text size adjustment on orientation change */
+    -webkit-text-size-adjust: 100%;
+    -ms-text-size-adjust: 100%;
 }
 
 /* Header Styles */
@@ -98,11 +103,14 @@ header {
     background-color: #4285f4;
     color: white;
     border: none;
-    padding: 8px 16px;
+    padding: 10px 18px; /* Increased for touch */
     border-radius: 4px;
     cursor: pointer;
     text-decoration: none;
     font-size: 0.9em;
+    min-height: 44px;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
 }
 
 .auth-button:hover {
@@ -149,11 +157,21 @@ header {
 
 /* Button Styles */
 .btn-small {
-    padding: 4px 8px;
+    padding: 8px 12px; /* Increased for better touch targets */
     font-size: 0.8em;
     border: none;
     border-radius: 3px;
     cursor: pointer;
+    /* Minimum touch target size for accessibility */
+    min-height: 44px;
+    min-width: 44px;
+    /* Disable text selection on buttons */
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    user-select: none;
+    /* Remove tap highlight on mobile */
+    -webkit-tap-highlight-color: transparent;
 }
 
 .btn-primary {
@@ -187,15 +205,26 @@ header {
     background-color: #d32f2f;
     color: white;
     border: none;
-    padding: 10px 20px;
+    padding: 12px 24px; /* Increased for better touch */
     border-radius: 4px;
     cursor: pointer;
     font-size: 1em;
     margin-top: 10px;
+    min-height: 44px;
+    min-width: 120px;
+    -webkit-tap-highlight-color: transparent;
+    transition: background-color 0.2s, transform 0.1s;
+    /* Add touch feedback */
+    touch-action: manipulation;
 }
 
 .ask-button:hover {
     background-color: #b71c1c;
+}
+
+.ask-button:active {
+    transform: scale(0.97);
+    background-color: #a71c1c;
 }
 
 .trash-button {
@@ -959,6 +988,11 @@ header {
 
 /* Responsive styles */
 @media (max-width: 768px) {
+    body {
+        padding: 10px;
+        font-size: 16px; /* Prevent zoom on input focus on iOS */
+    }
+    
     .header-content {
         flex-direction: column;
         align-items: stretch;
@@ -967,6 +1001,8 @@ header {
     .header-nav {
         justify-content: space-between;
         margin-top: 15px;
+        flex-wrap: wrap;
+        gap: 10px;
     }
     
     .nav-text {
@@ -974,7 +1010,14 @@ header {
     }
     
     .nav-link {
-        padding: 8px 12px;
+        padding: 10px 14px; /* Larger touch targets */
+        flex: 1;
+        justify-content: center;
+        min-width: 44px;
+    }
+    
+    .nav-icon {
+        font-size: 20px;
     }
     
     .models-list {
@@ -984,11 +1027,205 @@ header {
     .schedule-modal-content {
         width: 95%;
         margin: 10px;
+        padding: 20px;
+        max-height: 90vh;
     }
     
     .model-stats {
         flex-direction: column;
         gap: 5px;
+    }
+    
+    /* Touch-friendly form inputs */
+    .form-group input,
+    .form-group textarea,
+    .form-group select,
+    .model-selector select {
+        font-size: 16px; /* Prevent zoom on iOS */
+        padding: 12px;
+        min-height: 44px;
+    }
+    
+    /* Stack action buttons vertically on mobile */
+    .personal-question-actions {
+        flex-direction: column;
+        gap: 8px;
+    }
+    
+    .personal-question-actions button {
+        width: 100%;
+        min-height: 44px;
+    }
+    
+    /* Improve meta information display */
+    .meta {
+        flex-direction: column;
+        gap: 8px;
+        align-items: flex-start;
+    }
+    
+    /* Better spacing for question cards */
+    .question-card {
+        padding: 15px;
+        margin-bottom: 20px;
+    }
+    
+    /* Improve history items on mobile */
+    .history-item {
+        padding: 15px 10px;
+    }
+    
+    /* Modal actions stack vertically */
+    .schedule-modal-actions {
+        flex-direction: column-reverse;
+    }
+    
+    .schedule-btn {
+        width: 100%;
+        min-height: 44px;
+    }
+    
+    /* Notification positioning */
+    .notification-container {
+        left: 10px;
+        right: 10px;
+        top: 10px;
+        max-width: none;
+    }
+    
+    /* AI response actions */
+    .ai-response-actions {
+        flex-direction: column;
+    }
+    
+    .response-action-btn {
+        width: 100%;
+        min-height: 44px;
+        padding: 12px;
+    }
+    
+    /* Welcome section improvements */
+    #welcome-section,
+    #offline-version-section {
+        padding: 20px 15px;
+        margin: 15px 0;
+    }
+    
+    /* Offline version grid */
+    #offline-version-section > div > div {
+        grid-template-columns: 1fr !important;
+        gap: 15px;
+    }
+}
+
+/* Small mobile devices (320px - 480px) */
+@media (max-width: 480px) {
+    body {
+        padding: 5px;
+    }
+    
+    h1 {
+        font-size: 1.5em;
+    }
+    
+    h2 {
+        font-size: 1.3em;
+    }
+    
+    h3 {
+        font-size: 1.1em;
+    }
+    
+    .question {
+        font-size: 1.1em;
+    }
+    
+    .context {
+        font-size: 0.85em;
+    }
+    
+    .answer {
+        padding: 12px;
+        font-size: 0.9em;
+    }
+    
+    /* Reduce padding on cards */
+    .question-card,
+    .personal-questions-section,
+    .add-question-form {
+        padding: 12px;
+    }
+    
+    /* Smaller buttons on very small screens */
+    .btn-small {
+        font-size: 0.75em;
+        padding: 10px;
+    }
+    
+    /* User info adjustments */
+    .user-info {
+        flex-wrap: wrap;
+        gap: 8px;
+    }
+    
+    .user-avatar {
+        width: 28px;
+        height: 28px;
+    }
+    
+    /* Analytics and export controls */
+    .analytics-export-controls > div {
+        grid-template-columns: 1fr !important;
+    }
+    
+    /* Reduce modal padding */
+    .schedule-modal-content {
+        padding: 15px;
+    }
+}
+
+/* Tablet landscape (768px - 1024px) */
+@media (min-width: 769px) and (max-width: 1024px) {
+    body {
+        max-width: 900px;
+        padding: 25px;
+    }
+    
+    .models-list {
+        grid-template-columns: repeat(2, 1fr);
+    }
+    
+    .download-options {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+/* Touch device specific improvements */
+@media (hover: none) and (pointer: coarse) {
+    /* Larger touch targets for touch-only devices */
+    button,
+    a.nav-link,
+    a.auth-button,
+    .trash-button {
+        min-height: 48px;
+        padding: 12px 16px;
+    }
+    
+    /* Remove hover effects on touch devices */
+    .nav-link:hover,
+    .auth-button:hover,
+    .ask-button:hover,
+    .btn-primary:hover,
+    .btn-secondary:hover {
+        transform: none;
+        box-shadow: none;
+    }
+    
+    /* Add active/pressed states instead */
+    button:active,
+    a:active {
+        opacity: 0.8;
+        transform: scale(0.98);
     }
 }
 
@@ -1485,8 +1722,20 @@ header {
 
 /* Responsive design for offline page */
 @media (max-width: 768px) {
+    .offline-page body {
+        padding: 10px;
+    }
+    
+    .offline-page .container {
+        padding: 10px;
+    }
+    
     .offline-page .header h1 {
         font-size: 2rem;
+    }
+    
+    .offline-page .header p {
+        font-size: 1rem;
     }
 
     .offline-page .download-options {
@@ -1499,6 +1748,115 @@ header {
 
     .offline-page .component-status {
         grid-template-columns: 1fr;
+    }
+    
+    .offline-page .status-card,
+    .offline-page .download-section,
+    .offline-page .feature-card {
+        padding: 20px 15px;
+    }
+    
+    .offline-page .download-btn {
+        padding: 14px 20px;
+        font-size: 1rem;
+        min-height: 48px;
+    }
+    
+    .offline-page .option-card {
+        padding: 15px;
+    }
+    
+    /* Chat interface improvements */
+    .offline-page .chat-container {
+        height: 300px;
+        padding: 15px;
+    }
+    
+    .offline-page .message {
+        max-width: 85%;
+        font-size: 0.9em;
+    }
+    
+    .offline-page .chat-input-container {
+        flex-direction: column;
+    }
+    
+    .offline-page .chat-input,
+    .offline-page .wiki-search-input {
+        font-size: 16px; /* Prevent iOS zoom */
+        padding: 14px;
+        min-height: 48px;
+    }
+    
+    .offline-page .send-btn,
+    .offline-page .stop-btn,
+    .offline-page .wiki-search-btn {
+        width: 100%;
+        min-height: 48px;
+        padding: 14px 20px;
+    }
+    
+    .offline-page .wiki-search-container {
+        flex-direction: column;
+    }
+    
+    /* Analytics export on mobile */
+    .analytics-export-controls > div {
+        grid-template-columns: 1fr !important;
+    }
+    
+    .analytics-export-controls button {
+        width: 100%;
+    }
+}
+
+/* Small mobile for offline page */
+@media (max-width: 480px) {
+    .offline-page .header h1 {
+        font-size: 1.5rem;
+    }
+    
+    .offline-page .header p {
+        font-size: 0.9rem;
+    }
+    
+    .offline-page .option-title {
+        font-size: 1rem;
+    }
+    
+    .offline-page .option-description {
+        font-size: 0.85rem;
+    }
+    
+    .offline-page .feature-icon {
+        font-size: 2.5rem;
+    }
+    
+    .offline-page .feature-title {
+        font-size: 1.1rem;
+    }
+    
+    .offline-page .chat-container {
+        height: 250px;
+    }
+}
+
+/* Touch-specific improvements for offline page */
+@media (hover: none) and (pointer: coarse) {
+    .offline-page .option-card {
+        min-height: 48px;
+        touch-action: manipulation;
+    }
+    
+    .offline-page button,
+    .offline-page .download-btn {
+        -webkit-tap-highlight-color: transparent;
+        touch-action: manipulation;
+    }
+    
+    .offline-page .wiki-result {
+        min-height: 60px;
+        padding: 18px 15px;
     }
 }
 
