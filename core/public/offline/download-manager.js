@@ -26,8 +26,40 @@ class DownloadManager {
             libraries: { status: 'pending', progress: 0 }
         };
         this.aborted = false;
-        this.paused = false;
+        this.onError = null;
         this.downloadState = null;
+        this.errorCategories = {
+            network: {
+                patterns: ['network', 'fetch', 'connection', 'timeout', 'offline', 'ECONNREFUSED'],
+                message: 'Connection lost during download',
+                recovery: 'Check your internet connection and try again.',
+                actions: ['retry', 'cancel']
+            },
+            storage: {
+                patterns: ['quota', 'storage', 'disk', 'space', 'IndexedDB'],
+                message: 'Not enough storage space',
+                recovery: 'Free up storage space and try again.',
+                actions: ['clear_cache', 'cancel']
+            },
+            server: {
+                patterns: ['500', '502', '503', '504', 'server'],
+                message: 'Server temporarily unavailable',
+                recovery: 'The server is experiencing issues. Please try again later.',
+                actions: ['retry_later', 'cancel']
+            },
+            notFound: {
+                patterns: ['404', 'not found'],
+                message: 'Resource not found',
+                recovery: 'The requested file could not be found. Try a different package.',
+                actions: ['change_package', 'cancel']
+            },
+            permission: {
+                patterns: ['403', 'forbidden', 'permission', 'access'],
+                message: 'Access denied',
+                recovery: 'You do not have permission to download this resource.',
+                actions: ['cancel']
+            }
+        };
         this.lastSaveTime = 0;
         this.onProgressUpdate = null;
         this.onResourceUpdate = null;
@@ -1029,6 +1061,51 @@ class DownloadManager {
             console.error('Failed to get storage estimate:', error);
             return { used: 0, quota: 0, percent: 0 };
         }
+    }
+    
+    /**
+     * Categorize an error and provide recovery guidance
+     */
+    categorizeError(error) {
+        const errorString = (error.message || error.toString()).toLowerCase();
+        
+        for (const [category, config] of Object.entries(this.errorCategories)) {
+            if (config.patterns.some(pattern => errorString.includes(pattern.toLowerCase()))) {
+                return {
+                    category,
+                    message: config.message,
+                    recovery: config.recovery,
+                    actions: config.actions,
+                    originalError: error.message || error.toString()
+                };
+            }
+        }
+        
+        // Default unknown error
+        return {
+            category: 'unknown',
+            message: 'An unexpected error occurred',
+            recovery: 'Please try again. If the problem persists, contact support.',
+            actions: ['retry', 'cancel'],
+            originalError: error.message || error.toString()
+        };
+    }
+    
+    /**
+     * Handle error with categorization
+     */
+    handleError(error, resource = null) {
+        const categorized = this.categorizeError(error);
+        
+        if (resource) {
+            this.updateResource(resource, 'error', 0);
+        }
+        
+        if (this.onError) {
+            this.onError(categorized);
+        }
+        
+        return categorized;
     }
 }
 
