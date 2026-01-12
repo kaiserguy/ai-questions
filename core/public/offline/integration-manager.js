@@ -40,7 +40,7 @@ class OfflineIntegrationManager {
             await this.initializeComponents();
         } catch (error) {
             // If initialization fails, still show the UI in prototype mode
-            console.log('Component initialization failed, showing prototype UI:', error);
+            console.error('Component initialization failed, showing prototype UI:', error);
             this.checkInitializationComplete();
         }
     }
@@ -149,13 +149,22 @@ class OfflineIntegrationManager {
     }
     
     /**
+     * Helper method to check if a manager is ready
+     * @param {Object} manager - The manager to check
+     * @returns {boolean} True if manager exists and is ready
+     */
+    isManagerReady(manager) {
+        return manager && typeof manager.isReady === 'function' && manager.isReady();
+    }
+    
+    /**
      * Check if all components are initialized
      * @returns {boolean} True if all components are ready
      */
     checkInitializationComplete() {
         // Check if both managers exist and are ready
-        const aiReady = this.aiModelManager && typeof this.aiModelManager.isReady === 'function' && this.aiModelManager.isReady();
-        const wikiReady = this.wikipediaManager && typeof this.wikipediaManager.isReady === 'function' && this.wikipediaManager.isReady();
+        const aiReady = this.isManagerReady(this.aiModelManager);
+        const wikiReady = this.isManagerReady(this.wikipediaManager);
         
         // Show UI even if managers aren't ready (prototype mode)
         // This allows users to see the interface and get helpful error messages
@@ -275,7 +284,8 @@ class OfflineIntegrationManager {
      * Update status and notify listeners
      */
     updateStatus(message, status = 'info') {
-        console.log(`[OfflineIntegrationManager] ${message}`);
+        const logMethod = status === 'error' ? console.error : status === 'warning' ? console.warn : console.log;
+        logMethod(`[OfflineIntegrationManager] ${message}`);
         
         if (this.onStatusUpdate) {
             this.onStatusUpdate(message, status);
