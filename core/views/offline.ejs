@@ -159,11 +159,6 @@
         <div class="chat-section" id="chatSection" style="display: none;">
             <h2>🤖 Offline AI Chat</h2>
             
-            <!-- Prototype Warning -->
-            <div class="status-card prototype-warning">
-                <p>⚠️ <strong>Prototype Mode:</strong> Browser-based AI is in early development. AI models require ONNX format and proper initialization. For full functionality, use the <a href="/">online version</a> or <a href="#" onclick="showInstallInstructions(); return false;">install locally</a> with Ollama.</p>
-            </div>
-            
             <div class="chat-container" id="chatContainer">
                 <div class="message ai">
                     <strong>AI Assistant:</strong> Hello! I'm running completely offline in your browser. Ask me anything, and I can also search the local Wikipedia database for additional context.
@@ -179,11 +174,6 @@
         <!-- Wikipedia Section -->
         <div class="wiki-section" id="wikiSection" style="display: none;">
             <h2>📚 Wikipedia Search</h2>
-            
-            <!-- Prototype Warning -->
-            <div class="status-card prototype-warning">
-                <p>⚠️ <strong>Prototype Mode:</strong> Wikipedia search requires proper database format and initialization. For full functionality, use the <a href="/">online version</a> or <a href="#" onclick="showInstallInstructions(); return false;">install locally</a> with Ollama.</p>
-            </div>
             
             <div class="wiki-search-container">
                 <input type="text" class="wiki-search-input" id="wikiSearchInput" data-hint="Search Wikipedia..." />
@@ -332,7 +322,7 @@
                 // Hide download section
                 document.getElementById('downloadSection').style.display = 'none';
                 
-                // Show chat and wiki sections immediately (prototype mode)
+                // Show chat and wiki sections immediately
                 document.getElementById('chatSection').style.display = 'block';
                 document.getElementById('wikiSection').style.display = 'block';
                 

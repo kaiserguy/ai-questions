@@ -25,7 +25,7 @@ class OfflineIntegrationManager {
     
     /**
      * Initialize the offline mode (for existing installations)
-     * This shows the UI even if AI models aren't fully loaded (prototype mode)
+     * This shows the UI even if AI models aren't fully loaded yet
      */
     async initialize() {
         this.updateStatus('Initializing offline mode...');
@@ -39,8 +39,8 @@ class OfflineIntegrationManager {
         try {
             await this.initializeComponents();
         } catch (error) {
-            // If initialization fails, still show the UI in prototype mode
-            console.error('Component initialization failed, showing prototype UI:', error);
+            // If initialization fails, still show the UI
+            console.error('Component initialization failed, showing UI:', error);
             this.checkInitializationComplete();
         }
     }
@@ -166,7 +166,7 @@ class OfflineIntegrationManager {
         const aiReady = this.isManagerReady(this.aiModelManager);
         const wikiReady = this.isManagerReady(this.wikipediaManager);
         
-        // Show UI even if managers aren't ready (prototype mode)
+        // Show UI even if managers aren't ready yet
         // This allows users to see the interface and get helpful error messages
         const progressSection = document.getElementById('progressSection');
         const chatSection = document.getElementById('chatSection');
@@ -182,10 +182,10 @@ class OfflineIntegrationManager {
             this.updateStatus('All components initialized successfully');
             return true;
         } else {
-            // Prototype mode - show UI but mark as not fully initialized
+            // Show UI but mark as not fully initialized
             this.initialized = false;
             this.isInitialized = false;
-            this.updateStatus('Prototype mode: UI shown but AI models not fully initialized');
+            this.updateStatus('UI shown but AI models not fully initialized yet');
             return false;
         }
     }

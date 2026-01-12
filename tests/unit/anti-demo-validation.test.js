@@ -22,11 +22,13 @@ describe('Anti-Demo Validation Tests', () => {
         'placeholder',
         'fake',
         'mock', // except in test files
+        'prototype',
         'TODO: Replace with actual',
         'TODO: Load actual',
         'TODO: Implement actual',
         'This is a demo',
         'demo mode',
+        'prototype mode',
         'placeholder implementation',
         'simulated response',
         'fake response'
