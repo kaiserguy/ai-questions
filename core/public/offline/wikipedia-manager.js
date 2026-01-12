@@ -18,8 +18,8 @@ class WikipediaManager {
         
         this.packageType = packageType;
         this.database = null;
-        this.sqlDB = null; // sql.js database instance
-        this.searchIndex = null; // lunr.js search index
+        this.sqlDB = null; // Reserved for future sql.js database instance (production use)
+        this.searchIndex = null; // lunr.js search index (built when lunr is available)
         this.ready = false;
         this.loading = false;
         this.initialized = false; // Alias for tests
@@ -228,7 +228,8 @@ class WikipediaManager {
     }
     
     /**
-     * Initialize empty database structure for testing/MVP
+     * Initialize empty database structure for MVP/testing
+     * Production will load real Wikipedia data from compressed database
      * @private
      */
     async _initializeEmptyDatabase() {
@@ -248,10 +249,11 @@ class WikipediaManager {
     
     /**
      * Build lunr.js search index
+     * Note: lunr must be loaded globally in browser (via script tag in offline.ejs)
      * @private
      */
     async _buildSearchIndex() {
-        // Check if lunr is available (browser environment)
+        // Check if lunr is available (browser environment with global lunr object)
         if (typeof lunr === 'undefined') {
             console.warn('[WikipediaManager] Lunr.js not available, search will use fallback');
             return;
