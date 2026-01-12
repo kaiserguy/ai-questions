@@ -107,7 +107,7 @@ describe('API Answers Route Integration Tests', () => {
       const answersRouteCode = answersRouteMatch[0];
       expect(answersRouteCode).toContain('try');
       expect(answersRouteCode).toContain('catch');
-      expect(answersRouteCode).toContain('console.error');
+      expect(answersRouteCode).toContain('logger.error');
     });
 
     test('/api/answers route should not expose sensitive error details', () => {

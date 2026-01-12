@@ -150,8 +150,8 @@ describe('API Answers History Route Tests', () => {
             expect(routesContent).toContain('req.app.get(\'logger\')');
         });
 
-        test('should fallback to console.error if logger not available', () => {
-            expect(routesContent).toContain('console.error(');
+        test('should fallback to logger.error if logger not available', () => {
+            expect(routesContent).toContain('logger.error(');
         });
 
         test('should return 500 status on error', () => {
@@ -197,7 +197,7 @@ describe('API Answers History Route Tests', () => {
                 routesContent.indexOf('router.get("/api/answers/history"') + 2000
             );
             
-            // console.error is ok, console.log is not
+            // logger.error is ok, console.log is not
             const hasConsoleLog = routeSection.includes('console.log(');
             expect(hasConsoleLog).toBe(false);
         });
