@@ -93,7 +93,7 @@ const validationRules = {
             .trim()
             .notEmpty().withMessage('Model ID is required')
             .isLength({ min: 1, max: 100 }).withMessage('Model ID must be between 1 and 100 characters')
-            .matches(/^[a-zA-Z0-9\-_:\/]+$/).withMessage('Invalid model ID format')
+            .matches(/^[a-zA-Z0-9\-_]+(?::[a-zA-Z0-9\-_]+)?(?:\/[a-zA-Z0-9\-_]+)*$/).withMessage('Invalid model ID format')
             .customSanitizer(value => sanitizeInput(value))
     ],
     
@@ -112,7 +112,7 @@ const validationRules = {
             .trim()
             .notEmpty().withMessage('API key is required')
             .isLength({ min: 10, max: 500 }).withMessage('API key must be between 10 and 500 characters')
-            .matches(/^[a-zA-Z0-9\-_\.]+$/).withMessage('Invalid API key format')
+            .matches(/^[a-zA-Z0-9\-_\.\/\+=]+$/).withMessage('Invalid API key format')
             // Note: We don't sanitize API keys to preserve their exact format
     ],
     

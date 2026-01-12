@@ -13,13 +13,16 @@ const helmet = require('helmet');
  */
 function setupSecurityHeaders(app, config = {}) {
     // Use Helmet with custom configuration
-    app.use(helmet({
+     app.use(helmet({
         contentSecurityPolicy: {
             directives: {
                 defaultSrc: ["'self'"],
                 scriptSrc: [
                     "'self'",
-                    "'unsafe-inline'", // Required for inline scripts (consider removing in production)
+                    "'unsafe-inline'", // TODO: Replace with nonce-based CSP for production
+                    // Note: 'unsafe-inline' weakens XSS protection but is currently required
+                    // for inline scripts in EJS templates. Consider refactoring to use
+                    // external scripts with CSP nonces or hashes in production.
                     "https://cdn.jsdelivr.net",
                     "https://unpkg.com"
                 ],
@@ -165,19 +168,30 @@ class RateLimiter {
  * SQL Injection Protection Middleware
  * Logs warnings if potential SQL injection patterns are detected
  */
+
+// Pre-compiled regex patterns for better performance
+const SQL_INJECTION_PATTERNS = [
+    /(\bselect\b|\bunion\b|\binsert\b|\bupdate\b|\bdelete\b|\bdrop\b|\bcreate\b|\balter\b|\bexec\b|\bexecute\b).*(\bfrom\b|\binto\b|\bwhere\b|\btable\b)/gi,
+    /(\bor\b|\band\b)\s+(\d+\s*=\s*\d+|\btrue\b|\bfalse\b)/gi,
+    /(--|;|\/\*|\*\/|xp_|sp_)/gi
+];
+
 function sqlInjectionProtection(req, res, next) {
-    const sqlInjectionPatterns = [
-        /(\bselect\b|\bunion\b|\binsert\b|\bupdate\b|\bdelete\b|\bdrop\b|\bcreate\b|\balter\b|\bexec\b|\bexecute\b).*(\bfrom\b|\binto\b|\bwhere\b|\btable\b)/gi,
-        /(\bor\b|\band\b)\s+(\d+\s*=\s*\d+|\btrue\b|\bfalse\b)/gi,
-        /(--|;|\/\*|\*\/|xp_|sp_)/gi
-    ];
     
     const checkValue = (value, path = '') => {
         if (typeof value === 'string') {
-            for (const pattern of sqlInjectionPatterns) {
+            for (const pattern of SQL_INJECTION_PATTERNS) {
                 if (pattern.test(value)) {
-                    console.warn(`[SECURITY WARNING] Potential SQL injection attempt detected in ${path}:`, value.substring(0, 100));
+                    // Log only metadata, not the actual input content to avoid exposing sensitive data
+                    console.warn(`[SECURITY WARNING] Potential SQL injection attempt detected`, {
+                        ip: req.ip || req.connection.remoteAddress,
+                        path: req.path,
+                        field: path,
+                        timestamp: new Date().toISOString(),
+                        userAgent: req.get('user-agent')
+                    });
                     // Note: We're just logging for now. In production, consider blocking the request.
+                    break; // Only log once per field
                 }
             }
         } else if (typeof value === 'object' && value !== null) {
