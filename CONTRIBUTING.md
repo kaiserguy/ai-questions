@@ -67,7 +67,7 @@ LOCAL_MODE=true PORT=3000 node local-app.js
 
 #### Hosted/Cloud Version
 ```bash
-node core/hosted-index.cjs
+node hosted/hosted-app.js
 ```
 
 ## Code Style and Standards
@@ -86,6 +86,26 @@ node core/hosted-index.cjs
 - **Version-specific features**: Use `hosted/` or `local/` directories
 - **Tests**: Mirror the source structure in `tests/`
 - **Documentation**: Keep docs updated with code changes
+
+### Architecture
+
+#### Entry Points
+
+- **Hosted Version**: `hosted/hosted-app.js`
+- **Local Version**: `local/local-app.js`
+
+#### Core Modules
+
+- `core/routes.js` - Common routes (API endpoints)
+- `core/pg-db.js` - PostgreSQL database layer
+- `local/local-database.js` - SQLite database layer
+- `core/external-llm-client.js` - External AI client
+- `core/app.js` - Express app configuration
+
+#### Archived Code
+
+- `archive/legacy-code/` - Legacy code kept for reference only
+- Do not use files in this directory
 
 ### Database Changes
 
