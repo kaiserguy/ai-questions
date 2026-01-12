@@ -306,6 +306,20 @@ module.exports = (db, ai, wikipedia, config) => {
         }
     });
 
+    // API to get latest answers
+    router.get("/api/answers", ensureAuthenticated, async (req, res) => {
+        try {
+            const limit = parseInt(req.query.limit) || 10;
+            const latestAnswers = await db.getLatestAnswers(limit);
+            res.json(latestAnswers);
+        } catch (error) {
+            console.error("Error in answers API route:", error);
+            res.status(500).json({ 
+                error: "Failed to get latest answers"
+            });
+        }
+    });
+
     // API to save user model preferences
     router.post("/api/user/model-preferences", ensureAuthenticated, async (req, res) => {
         const { modelId, isEnabled, displayOrder } = req.body;
