@@ -18,7 +18,7 @@ class MockDatabase {
         model: 'gpt-4',
         model_name: 'GPT-4',
         confidence: 0.95,
-        created_at: new Date('2024-01-01'),
+        date: new Date('2024-01-01'),
         user_id: 1,
         is_personal: false,
         prompt_version: '1.0'
@@ -31,7 +31,7 @@ class MockDatabase {
         model: 'gpt-3.5',
         model_name: 'GPT-3.5',
         confidence: 0.88,
-        created_at: new Date('2024-01-02'),
+        date: new Date('2024-01-02'),
         user_id: 1,
         is_personal: false,
         prompt_version: '1.0'
@@ -64,7 +64,7 @@ describe('API Answers Route Integration Tests', () => {
       expect(results[0]).toHaveProperty('id');
       expect(results[0]).toHaveProperty('question');
       expect(results[0]).toHaveProperty('answer');
-      expect(results[0]).toHaveProperty('created_at');
+      expect(results[0]).toHaveProperty('date');
       expect(results[0]).toHaveProperty('is_personal');
     });
 
@@ -152,7 +152,7 @@ describe('API Answers Route Integration Tests', () => {
   });
 
   describe('Database Query Consistency', () => {
-    test('pg-db getLatestAnswers returns created_at field', () => {
+    test('pg-db getLatestAnswers returns date field', () => {
       const pgDbPath = path.join(__dirname, '../../core/pg-db.js');
       const pgDbContent = fs.readFileSync(pgDbPath, 'utf8');
       
@@ -160,14 +160,14 @@ describe('API Answers Route Integration Tests', () => {
       expect(methodMatch).toBeTruthy();
       
       const methodCode = methodMatch[0];
-      // Should alias date as created_at for consistency
-      expect(methodCode).toContain('created_at');
+      // Should return date field to match template expectations
+      expect(methodCode).toContain('date');
       expect(methodCode).toContain('is_personal = false');
       expect(methodCode).toContain('ORDER BY');
       expect(methodCode).toContain('LIMIT');
     });
 
-    test('local-database getLatestAnswers returns created_at field', () => {
+    test('local-database getLatestAnswers aliases created_at as date', () => {
       const localDbPath = path.join(__dirname, '../../local/local-database.js');
       const localDbContent = fs.readFileSync(localDbPath, 'utf8');
       
@@ -175,7 +175,8 @@ describe('API Answers Route Integration Tests', () => {
       expect(methodMatch).toBeTruthy();
       
       const methodCode = methodMatch[0];
-      expect(methodCode).toContain('created_at');
+      // Should alias created_at as date to match template expectations
+      expect(methodCode).toContain('created_at as date');
       expect(methodCode).toContain('is_personal');
       expect(methodCode).toContain('ORDER BY');
       expect(methodCode).toContain('LIMIT');
@@ -217,7 +218,7 @@ describe('API Answers Route Integration Tests', () => {
       expect(localMatch[0]).toContain('context');
     });
 
-    test('PostgreSQL query should use date column aliased as created_at', () => {
+    test('PostgreSQL query should use date column without alias', () => {
       const pgDbPath = path.join(__dirname, '../../core/pg-db.js');
       const pgDbContent = fs.readFileSync(pgDbPath, 'utf8');
       
@@ -225,12 +226,13 @@ describe('API Answers Route Integration Tests', () => {
       expect(methodMatch).toBeTruthy();
       
       const methodCode = methodMatch[0];
-      // PostgreSQL uses 'date' column but aliases it as 'created_at'
-      expect(methodCode).toContain('date as created_at');
+      // PostgreSQL uses 'date' column to match template expectations
+      expect(methodCode).toContain('date');
+      expect(methodCode).not.toContain('date as created_at');
       expect(methodCode).toContain('ORDER BY date DESC');
     });
 
-    test('SQLite query should use created_at column directly', () => {
+    test('SQLite query should alias created_at as date', () => {
       const localDbPath = path.join(__dirname, '../../local/local-database.js');
       const localDbContent = fs.readFileSync(localDbPath, 'utf8');
       
@@ -238,8 +240,8 @@ describe('API Answers Route Integration Tests', () => {
       expect(methodMatch).toBeTruthy();
       
       const methodCode = methodMatch[0];
-      // SQLite has 'created_at' column natively
-      expect(methodCode).toContain('a.created_at');
+      // SQLite has 'created_at' column but aliases it as 'date' to match PostgreSQL
+      expect(methodCode).toContain('a.created_at as date');
       expect(methodCode).toContain('ORDER BY a.created_at DESC');
     });
   });

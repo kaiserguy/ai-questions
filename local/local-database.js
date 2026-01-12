@@ -132,9 +132,10 @@ class LocalDatabase {
         // Missing fields (model_name, confidence, prompt_version, is_personal) are
         // provided as defaults to match PostgreSQL API response structure
         // All answers in local DB are non-personal (personal ones are in personal_questions table)
+        // SQLite uses 'created_at' but we alias it as 'date' to match PostgreSQL and template expectations
         const result = await this.query(`
             SELECT a.id, q.question, q.context, a.answer, a.model, 
-                   a.created_at, a.user_id, a.question_id,
+                   a.created_at as date, a.user_id, a.question_id,
                    NULL as model_name, NULL as confidence, NULL as prompt_version,
                    false as is_personal
             FROM answers a 
