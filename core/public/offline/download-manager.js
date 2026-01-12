@@ -135,7 +135,7 @@ class DownloadManager {
             // Check if resources are actually available before starting
             const resourcesAvailable = await this.checkResourcesExist();
             if (!resourcesAvailable) {
-                throw new Error('RESOURCES_NOT_AVAILABLE: Offline mode downloads are currently unavailable. The required AI models and Wikipedia databases are not yet hosted. Please use the online version or install locally with Ollama for full functionality.');
+                throw new Error('Offline mode downloads are currently unavailable. The required AI models and Wikipedia databases are not yet hosted. Please use the online version or install locally with Ollama for full functionality.');
             }
             
             // Check package availability first
@@ -165,12 +165,13 @@ class DownloadManager {
     }
     
     /**
-     * Check if offline resources actually exist on the server
+     * Check if offline resources actually exist on the server or CDN
      */
     async checkResourcesExist() {
         try {
-            // Try to check if at least one library file exists
-            const response = await fetch('/offline-resources/libs/transformers.js', { method: 'HEAD' });
+            // Check availability of the transformers library on the CDN
+            // Using CDN check because local resources are not currently hosted
+            const response = await fetch('https://cdn.jsdelivr.net/npm/@xenova/transformers@2.17.2/dist/transformers.min.js', { method: 'HEAD' });
             return response.ok;
         } catch (error) {
             console.log('Resource check failed:', error);
@@ -231,7 +232,9 @@ class DownloadManager {
         // Initialize storage first
         await this.initializeStorage();
         
-        // Libraries to download - Use CDN URLs directly
+        // Libraries to download
+        // Use CDN URLs as primary source since local resources are not currently hosted
+        // This allows downloads to work when CDN resources are available
         const libraries = [
             { 
                 name: 'transformers.js', 
@@ -306,7 +309,11 @@ class DownloadManager {
         this.updateResource('aiModel', 'downloading', 0);
         
         try {
-            // Model URLs based on package type - Use CDN URLs directly
+            // Model URLs based on package type
+            // Use CDN URLs as primary source since local resources are not currently hosted
+            // Note: These URLs point to large model files (hundreds of MB to GB)
+            // TODO: Consider using pre-converted ONNX format models to reduce size and ensure compatibility
+            // Current formats (pytorch_model.bin, model.safetensors) may need conversion for ONNX Runtime Web
             const modelUrls = {
                 'minimal': {
                     name: 'TinyBERT',
@@ -369,7 +376,9 @@ class DownloadManager {
         this.updateResource('wikipedia', 'downloading', 0);
         
         try {
-            // Wikipedia database URLs based on package type - Use CDN URLs directly
+            // Wikipedia database URLs based on package type
+            // Use CDN URLs as primary source since local resources are not currently hosted
+            // This allows downloads to work when CDN resources are available
             const wikiUrls = {
                 'minimal': {
                     name: 'Wikipedia-Subset-20MB',
