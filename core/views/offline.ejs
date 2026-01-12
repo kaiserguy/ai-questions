@@ -188,6 +188,9 @@
         let integrationManager = null;
         let downloadManager = null;
         let selectedPackage = 'minimal';
+        let packageStatusCache = null;
+        let packageStatusCacheTime = 0;
+        const CACHE_DURATION = 60000; // Cache for 60 seconds
 
         // Initialize when page loads
         document.addEventListener('DOMContentLoaded', function() {
@@ -275,9 +278,17 @@
             }
         }
 
-        // Check and display installed packages
+        // Check and display installed packages with caching
         async function checkInstalledPackages() {
             try {
+                // Use cached data if available and fresh (within 60 seconds)
+                const now = Date.now();
+                if (packageStatusCache && (now - packageStatusCacheTime) < CACHE_DURATION) {
+                    displayInstalledPackages(packageStatusCache);
+                    document.getElementById('installedPackagesSection').style.display = packageStatusCache.length > 0 ? 'block' : 'none';
+                    return;
+                }
+                
                 const installedPackages = [];
                 
                 // Check localStorage for installation info
@@ -309,6 +320,10 @@
                     
                     installedPackages.push(packageInfo);
                 }
+                
+                // Cache the results
+                packageStatusCache = installedPackages;
+                packageStatusCacheTime = now;
                 
                 // Display the installed packages
                 if (installedPackages.length > 0) {
@@ -367,7 +382,6 @@
             return new Promise((resolve) => {
                 try {
                     const request = indexedDB.open(dbName);
-                    let dbExists = false;
                     
                     request.onsuccess = () => {
                         request.result.close();
@@ -534,7 +548,8 @@
                     document.getElementById('progressText').textContent = 'Download Complete!';
                     document.getElementById('progressDetails').textContent = 'Initializing offline mode...';
                     
-                    // Save installation info
+                    // Save installation info after successful download
+                    // Libraries are considered loaded since download completed successfully
                     localStorage.setItem('offlinePackageType', selectedPackage);
                     localStorage.setItem('offlineInstallDate', new Date().toISOString());
                     localStorage.setItem('offlineLibrariesLoaded', 'true');
