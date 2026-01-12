@@ -36,7 +36,7 @@
             const touch = e.changedTouches[0];
             this.touchStartX = touch.pageX;
             this.touchStartY = touch.pageY;
-            this.startTime = new Date().getTime();
+            this.startTime = performance.now();
         }
         
         handleTouchMove(e) {
@@ -46,7 +46,7 @@
         }
         
         handleTouchEnd(e) {
-            const elapsedTime = new Date().getTime() - this.startTime;
+            const elapsedTime = performance.now() - this.startTime;
             
             if (elapsedTime <= this.options.allowedTime) {
                 const distX = this.touchEndX - this.touchStartX;
@@ -175,7 +175,7 @@
                 
                 setTimeout(() => {
                     location.reload();
-                }, 500);
+                }, 300); // Faster reload for better UX
             } else {
                 refreshIndicator.style.top = '-60px';
             }
@@ -241,7 +241,9 @@
             const observer = new MutationObserver(mutations => {
                 mutations.forEach(mutation => {
                     mutation.addedNodes.forEach(node => {
-                        if (node.classList && node.classList.contains('notification')) {
+                        if (node.nodeType === Node.ELEMENT_NODE && 
+                            node.classList && 
+                            node.classList.contains('notification')) {
                             makeNotificationSwipeable(node);
                         }
                     });
@@ -293,8 +295,9 @@
             }
         }
         
-        /* Improve touch scrolling */
-        * {
+        /* Improve touch scrolling on scrollable containers */
+        .container, .modal, .schedule-modal-content, .chat-container, 
+        .wiki-results, .history-section, .personal-questions-section {
             -webkit-overflow-scrolling: touch;
         }
         

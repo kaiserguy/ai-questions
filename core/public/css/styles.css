@@ -990,7 +990,6 @@ header {
 @media (max-width: 768px) {
     body {
         padding: 10px;
-        font-size: 16px; /* Prevent zoom on input focus on iOS */
     }
     
     .header-content {
@@ -1040,7 +1039,13 @@ header {
     .form-group input,
     .form-group textarea,
     .form-group select,
-    .model-selector select {
+    .model-selector select,
+    input[type="text"],
+    input[type="email"],
+    input[type="password"],
+    input[type="date"],
+    textarea,
+    select {
         font-size: 16px; /* Prevent zoom on iOS */
         padding: 12px;
         min-height: 44px;
@@ -1201,7 +1206,7 @@ header {
 }
 
 /* Touch device specific improvements */
-@media (hover: none) and (pointer: coarse) {
+@media (hover: none) and (pointer: coarse) and (any-hover: none) {
     /* Larger touch targets for touch-only devices */
     button,
     a.nav-link,
