@@ -1,3 +1,4 @@
+const logger = require('./logger');
 // Enhanced offline package routes with server-side caching
 const OfflineResourceCache = require('./offline-resource-cache');
 
@@ -5,7 +6,7 @@ function addOfflinePackageRoutes(app) {
     const cache = new OfflineResourceCache();
     
     // Cache is initialized in constructor, no need to call init()
-    console.log('✅ Offline resource cache ready');
+    logger.info('✅ Offline resource cache ready');
 
     // Check package availability
     app.get('/api/offline/packages/availability', async (req, res) => {
@@ -80,7 +81,7 @@ function addOfflinePackageRoutes(app) {
             });
             
         } catch (error) {
-            console.error('Error checking package availability:', error);
+            logger.error('Error checking package availability:', error);
             res.status(500).json({
                 success: false,
                 error: 'Failed to check package availability'
@@ -91,7 +92,7 @@ function addOfflinePackageRoutes(app) {
     // Build minimal package
     app.post('/api/offline/packages/build', async (req, res) => {
         try {
-            console.log('📦 Building minimal package...');
+            logger.info('📦 Building minimal package...');
             
             const manifest = await cache.buildMinimalPackage();
             
@@ -111,7 +112,7 @@ function addOfflinePackageRoutes(app) {
             });
             
         } catch (error) {
-            console.error('Error building package:', error);
+            logger.error('Error building package:', error);
             res.status(500).json({
                 success: false,
                 error: 'Failed to build package: ' + error.message
@@ -141,7 +142,7 @@ function addOfflinePackageRoutes(app) {
             const fileStream = fs.createReadStream(filePath);
             
             fileStream.on('error', (error) => {
-                console.error('Error streaming file:', error);
+                logger.error('Error streaming file:', error);
                 if (!res.headersSent) {
                     res.status(500).json({
                         success: false,
@@ -153,7 +154,7 @@ function addOfflinePackageRoutes(app) {
             fileStream.pipe(res);
             
         } catch (error) {
-            console.error('Error serving cached file:', error);
+            logger.error('Error serving cached file:', error);
             res.status(500).json({
                 success: false,
                 error: 'Failed to serve file'
@@ -217,7 +218,7 @@ function addOfflinePackageRoutes(app) {
             });
             
         } catch (error) {
-            console.error('Error getting manifest:', error);
+            logger.error('Error getting manifest:', error);
             res.status(500).json({
                 success: false,
                 error: 'Failed to get manifest'
@@ -236,7 +237,7 @@ function addOfflinePackageRoutes(app) {
             });
             
         } catch (error) {
-            console.error('Error cleaning cache:', error);
+            logger.error('Error cleaning cache:', error);
             res.status(500).json({
                 success: false,
                 error: 'Failed to clean cache'

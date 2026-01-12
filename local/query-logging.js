@@ -1,3 +1,4 @@
+const logger = require('../core/logger');
         // Query logging system for Wikipedia searches
         let queryLogs = [];
         let queryLogVisible = false;
@@ -170,7 +171,7 @@
                 }
             })
             .catch(error => {
-                console.error('Chat error:', error);
+                logger.error('Chat error:', error);
                 
                 // Log error
                 addQueryLog('error', `Network error: ${error.message}`);

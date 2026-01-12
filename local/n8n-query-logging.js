@@ -1,3 +1,4 @@
+const logger = require('../core/logger');
 /**
  * Modified query-logging.js to use n8n Chat Integration
  * Handles client-side chat interactions and query logging
@@ -216,7 +217,7 @@ document.addEventListener('DOMContentLoaded', function() {
             addQueryLog('info', `Displayed Wikipedia article: ${article.title}`);
             
         } catch (error) {
-            console.error('Error fetching Wikipedia article:', error);
+            logger.error('Error fetching Wikipedia article:', error);
             showNotification('Error', 'Failed to load Wikipedia article', 'error');
             addQueryLog('error', `Error fetching Wikipedia article: ${error.message}`);
         }
@@ -378,7 +379,7 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         })
         .catch(error => {
-            console.error('Chat error:', error);
+            logger.error('Chat error:', error);
             
             // Log error
             addQueryLog('error', `Network error: ${error.message}`);

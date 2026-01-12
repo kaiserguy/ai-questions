@@ -1,3 +1,4 @@
+const logger = require('./logger');
 const { Pool } = require("pg");
 const DatabaseInterface = require("./db-interface");
 
@@ -25,7 +26,7 @@ class PgDatabase extends DatabaseInterface {
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 )
             `);
-            console.log("Users table created/verified");
+            logger.info("Users table created/verified");
 
             // Create user API keys table
             await this.pool.query(`
@@ -40,7 +41,7 @@ class PgDatabase extends DatabaseInterface {
                     UNIQUE(user_id, provider)
                 )
             `);
-            console.log("User API keys table created/verified");
+            logger.info("User API keys table created/verified");
 
             // Create user model preferences table
             await this.pool.query(`
@@ -55,7 +56,7 @@ class PgDatabase extends DatabaseInterface {
                     UNIQUE(user_id, model_id)
                 )
             `);
-            console.log("User model preferences table created/verified");
+            logger.info("User model preferences table created/verified");
 
             // Create personal_questions table
             await this.pool.query(`
@@ -69,7 +70,7 @@ class PgDatabase extends DatabaseInterface {
                     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 )
             `);
-            console.log("Personal questions table created/verified");
+            logger.info("Personal questions table created/verified");
 
             // Create answers table with all columns
             await this.pool.query(`
@@ -88,14 +89,14 @@ class PgDatabase extends DatabaseInterface {
                     prompt_version VARCHAR(10) DEFAULT '1.0'
                 )
             `);
-            console.log("Answers table created/verified");
+            logger.info("Answers table created/verified");
 
             // Create scheduling tables
             await this.createSchedulingTables();
 
-            console.log("Database initialization completed successfully");
+            logger.info("Database initialization completed successfully");
         } catch (err) {
-            console.error("Error during database initialization:", err);
+            logger.error("Error during database initialization:", err);
             throw err;
         }
     }
@@ -152,9 +153,9 @@ class PgDatabase extends DatabaseInterface {
                 )
             `);
 
-            console.log("Scheduling tables created successfully");
+            logger.info("Scheduling tables created successfully");
         } catch (err) {
-            console.error("Error creating scheduling tables:", err);
+            logger.error("Error creating scheduling tables:", err);
             throw err;
         }
     }
