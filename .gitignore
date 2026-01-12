@@ -8,4 +8,6 @@ local/__pycache__/*
 local/wikipedia_data/*
 **.log
 .env
-logs/
+logs/*.log
+logs/exceptions.log
+logs/rejections.log
