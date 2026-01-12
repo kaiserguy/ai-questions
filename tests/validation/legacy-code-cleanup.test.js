@@ -90,7 +90,7 @@ describe('Legacy Code Cleanup Tests (Issue #36)', () => {
             }
 
             const files = fs.readdirSync(coreDir)
-                .filter(f => (f.endsWith('.js') || f.endsWith('.cjs')) && !f.includes('test'))
+                .filter(f => (f.endsWith('.js') || f.endsWith('.cjs')) && !f.endsWith('.test.js') && !f.endsWith('.test.cjs'))
                 .map(f => path.join(coreDir, f));
 
             files.forEach(file => {
@@ -109,7 +109,7 @@ describe('Legacy Code Cleanup Tests (Issue #36)', () => {
             }
 
             const files = fs.readdirSync(hostedDir)
-                .filter(f => (f.endsWith('.js') || f.endsWith('.cjs')) && !f.includes('test'))
+                .filter(f => (f.endsWith('.js') || f.endsWith('.cjs')) && !f.endsWith('.test.js') && !f.endsWith('.test.cjs'))
                 .map(f => path.join(hostedDir, f));
 
             files.forEach(file => {
@@ -128,7 +128,7 @@ describe('Legacy Code Cleanup Tests (Issue #36)', () => {
             }
 
             const files = fs.readdirSync(localDir)
-                .filter(f => (f.endsWith('.js') || f.endsWith('.cjs')) && !f.includes('test'))
+                .filter(f => (f.endsWith('.js') || f.endsWith('.cjs')) && !f.endsWith('.test.js') && !f.endsWith('.test.cjs'))
                 .map(f => path.join(localDir, f));
 
             files.forEach(file => {
