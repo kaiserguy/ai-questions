@@ -390,12 +390,46 @@ class DownloadManager {
      * Initialize IndexedDB storage for offline data
      */
     async initializeStorage() {
-        return new Promise((resolve) => {
-            // TODO: Initialize actual IndexedDB storage
-            setTimeout(() => {
-                console.log('Storage initialized');
+        if (this.db) {
+            return Promise.resolve();
+        }
+        
+        return new Promise((resolve, reject) => {
+            const request = indexedDB.open('OfflineAI', 2);
+            
+            request.onerror = (event) => {
+                console.error('IndexedDB error:', event.target.error);
+                reject(event.target.error);
+            };
+            
+            request.onsuccess = (event) => {
+                this.db = event.target.result;
+                console.log('IndexedDB storage initialized');
                 resolve();
-            }, 500);
+            };
+            
+            request.onupgradeneeded = (event) => {
+                const db = event.target.result;
+                
+                // Create object stores if they don't exist
+                if (!db.objectStoreNames.contains('libraries')) {
+                    db.createObjectStore('libraries', { keyPath: 'name' });
+                }
+                if (!db.objectStoreNames.contains('models')) {
+                    db.createObjectStore('models', { keyPath: 'name' });
+                }
+                if (!db.objectStoreNames.contains('wikipedia')) {
+                    db.createObjectStore('wikipedia', { keyPath: 'name' });
+                }
+                if (!db.objectStoreNames.contains('cache')) {
+                    db.createObjectStore('cache', { keyPath: 'url' });
+                }
+                if (!db.objectStoreNames.contains('metadata')) {
+                    db.createObjectStore('metadata', { keyPath: 'key' });
+                }
+                
+                console.log('IndexedDB stores created');
+            };
         });
     }
     
@@ -403,26 +437,50 @@ class DownloadManager {
      * Initialize AI models
      */
     async initializeAIModels() {
-        return new Promise((resolve) => {
-            // TODO: Initialize actual AI models
-            setTimeout(() => {
-                console.log('AI models initialized');
-                resolve();
-            }, 1000);
-        });
+        try {
+            // Initialize the LocalAI model system if available
+            if (typeof window !== 'undefined' && window.localAI) {
+                await window.localAI.initialize();
+                console.log('AI models initialized via LocalAI');
+            } else {
+                console.log('LocalAI not available, models will load on demand');
+            }
+            return true;
+        } catch (error) {
+            console.error('Failed to initialize AI models:', error);
+            return false;
+        }
     }
     
     /**
      * Initialize Wikipedia database
      */
     async initializeWikipedia() {
-        return new Promise((resolve) => {
-            // TODO: Initialize actual Wikipedia database
-            setTimeout(() => {
-                console.log('Wikipedia database initialized');
-                resolve();
-            }, 800);
-        });
+        try {
+            // Check if Wikipedia data exists in IndexedDB
+            if (!this.db) {
+                await this.initializeStorage();
+            }
+            
+            const hasWikipedia = await this.fileExists('wikipedia-index');
+            if (hasWikipedia) {
+                console.log('Wikipedia database found in IndexedDB');
+                // Initialize SQL.js if available for querying
+                if (typeof initSqlJs !== 'undefined') {
+                    const SQL = await initSqlJs({
+                        locateFile: file => `/offline-resources/libs/${file}`
+                    });
+                    this.sqlDb = SQL;
+                    console.log('SQL.js initialized for Wikipedia queries');
+                }
+            } else {
+                console.log('Wikipedia database not yet downloaded');
+            }
+            return true;
+        } catch (error) {
+            console.error('Failed to initialize Wikipedia:', error);
+            return false;
+        }
     }
     
     /**

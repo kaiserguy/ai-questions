@@ -325,12 +325,59 @@ class OfflineIntegrationManager {
      * Check for existing installation in IndexedDB
      */
     static async checkExistingInstallation() {
-        // For now, return false to avoid initialization issues
-        // TODO: Check IndexedDB for existing data
-        return {
-            installed: false,
-            packageType: 'standard' // Default package type
-        };
+        return new Promise((resolve) => {
+            if (typeof indexedDB === 'undefined') {
+                resolve({ installed: false, packageType: 'standard' });
+                return;
+            }
+            
+            const request = indexedDB.open('OfflineAI', 2);
+            
+            request.onerror = () => {
+                resolve({ installed: false, packageType: 'standard' });
+            };
+            
+            request.onsuccess = (event) => {
+                const db = event.target.result;
+                
+                // Check if metadata store exists and has installation info
+                if (!db.objectStoreNames.contains('metadata')) {
+                    db.close();
+                    resolve({ installed: false, packageType: 'standard' });
+                    return;
+                }
+                
+                const transaction = db.transaction(['metadata'], 'readonly');
+                const store = transaction.objectStore('metadata');
+                const getRequest = store.get('installation');
+                
+                getRequest.onsuccess = () => {
+                    const data = getRequest.result;
+                    db.close();
+                    
+                    if (data && data.installed) {
+                        resolve({
+                            installed: true,
+                            packageType: data.packageType || 'standard',
+                            installedAt: data.installedAt,
+                            version: data.version
+                        });
+                    } else {
+                        resolve({ installed: false, packageType: 'standard' });
+                    }
+                };
+                
+                getRequest.onerror = () => {
+                    db.close();
+                    resolve({ installed: false, packageType: 'standard' });
+                };
+            };
+            
+            request.onupgradeneeded = (event) => {
+                // Database doesn't exist yet, so not installed
+                event.target.transaction.abort();
+            };
+        });
     }
 }
 
