@@ -490,6 +490,117 @@ module.exports = (db, ai, wikipedia, config) => {
         }
     });
 
+    // API route to get answers for a personal question
+    router.get("/api/personal-questions/:id/answers", ensureAuthenticated, async (req, res) => {
+        const { id } = req.params;
+        const userId = req.user ? req.user.id : null;
+        if (!userId) return res.status(401).json({ error: "Authentication required." });
+
+        try {
+            const answers = await db.getPersonalQuestionAnswers(id, userId);
+            if (answers === null) {
+                return res.status(404).json({ error: "Personal question not found or not authorized." });
+            }
+            res.json(answers);
+        } catch (error) {
+            console.error("Error fetching personal question answers:", error);
+            res.status(500).json({ error: "Failed to fetch answers." });
+        }
+    });
+
+    // API route to get schedule for a personal question
+    router.get("/api/personal-questions/:id/schedule", ensureAuthenticated, async (req, res) => {
+        const { id } = req.params;
+        const userId = req.user ? req.user.id : null;
+        if (!userId) return res.status(401).json({ error: "Authentication required." });
+
+        try {
+            // Get all schedules for this user and filter by question_id
+            const schedules = await db.getQuestionSchedules(userId);
+            const schedule = schedules.find(s => s.question_id === parseInt(id));
+            
+            if (!schedule) {
+                return res.status(404).json({ error: "Schedule not found for this personal question." });
+            }
+            
+            res.json(schedule);
+        } catch (error) {
+            console.error("Error fetching personal question schedule:", error);
+            res.status(500).json({ error: "Failed to fetch schedule." });
+        }
+    });
+
+    // API route to delete schedule for a personal question
+    router.delete("/api/personal-questions/:id/schedule", ensureAuthenticated, async (req, res) => {
+        const { id } = req.params;
+        const userId = req.user ? req.user.id : null;
+        if (!userId) return res.status(401).json({ error: "Authentication required." });
+
+        try {
+            // Get all schedules for this user and find the one for this question
+            const schedules = await db.getQuestionSchedules(userId);
+            const schedule = schedules.find(s => s.question_id === parseInt(id));
+            
+            if (!schedule) {
+                return res.status(404).json({ error: "Schedule not found for this personal question." });
+            }
+            
+            const result = await db.deleteQuestionSchedule(schedule.id, userId);
+            if (result.success) {
+                res.json({ success: true, message: "Schedule deleted." });
+            } else {
+                res.status(404).json({ error: "Schedule not found or not authorized." });
+            }
+        } catch (error) {
+            console.error("Error deleting personal question schedule:", error);
+            res.status(500).json({ error: "Failed to delete schedule." });
+        }
+    });
+
+    // API route to generate an answer for a personal question
+    router.post("/api/personal-questions/:id/ask", ensureAuthenticated, async (req, res) => {
+        const { id } = req.params;
+        const { model } = req.body;
+        const userId = req.user ? req.user.id : null;
+        if (!userId) return res.status(401).json({ error: "Authentication required." });
+
+        if (!model) {
+            return res.status(400).json({ error: "Model is required." });
+        }
+
+        try {
+            // Get the personal question
+            const question = await db.getPersonalQuestionById(id, userId);
+            if (!question) {
+                return res.status(404).json({ error: "Personal question not found or not authorized." });
+            }
+
+            // Generate answer using AI
+            const answer = await ai.generateAnswer(question.question, model, question.context || '');
+            
+            // Save answer to database
+            const date = new Date();
+            const savedAnswer = await db.saveAnswer(
+                question.question,
+                question.context || '',
+                answer,
+                model,
+                null, // modelName
+                null, // confidence
+                date,
+                userId,
+                id, // personalQuestionId
+                true, // isPersonal
+                null // promptVersion
+            );
+            
+            res.json(savedAnswer);
+        } catch (error) {
+            console.error("Error generating personal answer:", error);
+            res.status(500).json({ error: "Failed to generate answer." });
+        }
+    });
+
     router.get("/personal-question-history/:id", ensureAuthenticated, async (req, res) => {
         const { id } = req.params;
         const userId = req.user ? req.user.id : null;
