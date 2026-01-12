@@ -1,6 +1,14 @@
 const express = require("express");
 const cron = require("node-cron");
 const crypto = require("crypto");
+const {
+    asyncHandler,
+    createValidationError,
+    createNotFoundError,
+    createDatabaseError,
+    createAIServiceError,
+    logError
+} = require("./error-handler");
 
 // Generate a random debug token on startup if DEBUG_TOKEN is not set
 const DEBUG_TOKEN = process.env.DEBUG_TOKEN || (() => {
@@ -183,12 +191,12 @@ module.exports = (db, ai, wikipedia, config) => {
     });
 
     // API to generate a new answer
-    router.post("/api/generate-answer", ensureAuthenticated, async (req, res) => {
+    router.post("/api/generate-answer", ensureAuthenticated, asyncHandler(async (req, res) => {
         const { question, context, modelId } = req.body;
         const userId = req.user ? req.user.id : null;
 
         if (!question || !modelId) {
-            return res.status(400).json({ error: "Question and model ID are required." });
+            throw createValidationError("Question and model ID are required.");
         }
 
         try {
@@ -209,10 +217,18 @@ module.exports = (db, ai, wikipedia, config) => {
             );
             res.json({ success: true, answer: savedAnswer });
         } catch (error) {
-            console.error("Error generating or saving answer:", error);
-            res.status(500).json({ error: error.message });
+            logError(error, { operation: 'generate-answer', userId, modelId });
+            
+            if (error.message.includes('model') || error.message.includes('AI')) {
+                throw createAIServiceError(
+                    "Unable to generate answer with the selected model. Please try a different model or check your configuration.",
+                    error.message
+                );
+            }
+            
+            throw createDatabaseError('save the answer', error);
         }
-    });
+    }));
 
     // API to get answer history for a question
     router.get("/history", async (req, res) => {
@@ -232,16 +248,21 @@ module.exports = (db, ai, wikipedia, config) => {
     });
 
     // API to delete an answer
-    router.delete("/api/answers/:id", ensureAuthenticated, async (req, res) => {
+    router.delete("/api/answers/:id", ensureAuthenticated, asyncHandler(async (req, res) => {
         const { id } = req.params;
+        
+        if (!id || isNaN(id)) {
+            throw createValidationError("Valid answer ID is required.");
+        }
+        
         try {
             await db.deleteAnswer(id);
-            res.json({ success: true });
+            res.json({ success: true, message: "Answer deleted successfully." });
         } catch (error) {
-            console.error("Error deleting answer:", error);
-            res.status(500).json({ error: "Failed to delete answer." });
+            logError(error, { operation: 'delete-answer', answerId: id });
+            throw createDatabaseError('delete the answer', error);
         }
-    });
+    }));
 
     // Public API to get today's question (no authentication required)
     router.get('/api/question', (req, res) => {
@@ -262,15 +283,18 @@ module.exports = (db, ai, wikipedia, config) => {
     });
 
     // API to list available AI models
-    router.get("/api/models", ensureAuthenticated, async (req, res) => {
+    router.get("/api/models", ensureAuthenticated, asyncHandler(async (req, res) => {
         try {
             const modelsResponse = await ai.listModels(req.user ? req.user.id : null);
             res.json(modelsResponse.models);
         } catch (error) {
-            console.error("Error listing models:", error);
-            res.status(500).json({ error: "Failed to retrieve models." });
+            logError(error, { operation: 'list-models' });
+            throw createAIServiceError(
+                "Unable to retrieve available models. Please try again later.",
+                error.message
+            );
         }
-    });
+    }));
 
     // API route for /api/models/all (alias for /api/models)
     router.get("/api/models/all", ensureAuthenticated, async (req, res) => {
@@ -311,18 +335,23 @@ module.exports = (db, ai, wikipedia, config) => {
     });
 
     // API to get latest answers
-    router.get("/api/answers", ensureAuthenticated, async (req, res) => {
+    router.get("/api/answers", ensureAuthenticated, asyncHandler(async (req, res) => {
         try {
             const limit = parseInt(req.query.limit) || 10;
+            
+            if (limit < 1 || limit > 100) {
+                throw createValidationError("Limit must be between 1 and 100.");
+            }
+            
             const latestAnswers = await db.getLatestAnswers(limit);
             res.json(latestAnswers);
         } catch (error) {
-            console.error("Error in answers API route:", error);
-            res.status(500).json({ 
-                error: "Failed to get latest answers"
-            });
+            if (error.name === 'AppError') throw error;
+            
+            logError(error, { operation: 'get-latest-answers' });
+            throw createDatabaseError('retrieve latest answers', error);
         }
-    });
+    }));
 
     // API to save user model preferences
     router.post("/api/user/model-preferences", ensureAuthenticated, async (req, res) => {
@@ -378,24 +407,19 @@ module.exports = (db, ai, wikipedia, config) => {
     });
 
     // API route to get answer history for a specific question
-    router.get("/api/answers/history", ensureAuthenticated, async (req, res) => {
+    router.get("/api/answers/history", ensureAuthenticated, asyncHandler(async (req, res) => {
+        const question = req.query.question;
+        
+        if (!question) {
+            throw createValidationError('Question parameter is required.');
+        }
+        
         try {
-            const question = req.query.question;
-            
-            if (!question) {
-                return res.status(400).json({ 
-                    error: 'Missing required parameter: question' 
-                });
-            }
-            
             const history = await db.getHistory(question);
             
             // Distinguish between a non-existent question and questions with no history
             if (history === null || typeof history === 'undefined') {
-                return res.status(404).json({
-                    error: 'Question not found',
-                    question: question
-                });
+                throw createNotFoundError('Question');
             }
 
             if (Array.isArray(history) && history.length === 0) {
@@ -411,23 +435,12 @@ module.exports = (db, ai, wikipedia, config) => {
                 history: history
             });
         } catch (error) {
-            // Use application logger if available, fallback to console.error
-            const logger = req.app && typeof req.app.get === 'function'
-                ? req.app.get('logger')
-                : null;
-
-            if (logger && typeof logger.error === 'function') {
-                logger.error('Error in answers history API route:', error);
-            } else {
-                console.error('Error in answers history API route:', error);
-            }
-
-            res.status(500).json({ 
-                error: 'Failed to get answer history', 
-                message: error.message 
-            });
+            if (error.name === 'AppError') throw error;
+            
+            logError(error, { operation: 'get-answer-history', question });
+            throw createDatabaseError('retrieve answer history', error);
         }
-    });
+    }));
 
     // Personal Questions Routes
     router.get("/personal-questions", ensureAuthenticated, async (req, res) => {
@@ -890,39 +903,60 @@ module.exports = (db, ai, wikipedia, config) => {
     });
 
     // Wikipedia Routes
-    router.get("/api/wikipedia/search", ensureAuthenticated, async (req, res) => {
+    router.get("/api/wikipedia/search", ensureAuthenticated, asyncHandler(async (req, res) => {
         const { query } = req.query;
+        
+        if (!query) {
+            throw createValidationError("Search query is required.");
+        }
+        
         try {
             const results = await wikipedia.searchWikipedia(query);
             res.json(results);
         } catch (error) {
-            console.error("Wikipedia search error:", error);
-            res.status(500).json({ error: "Failed to perform Wikipedia search." });
+            logError(error, { operation: 'wikipedia-search', query });
+            throw createAIServiceError(
+                "Wikipedia search is temporarily unavailable. Please try again later.",
+                error.message
+            );
         }
-    });
+    }));
 
-    router.get("/api/wikipedia/context", ensureAuthenticated, async (req, res) => {
+    router.get("/api/wikipedia/context", ensureAuthenticated, asyncHandler(async (req, res) => {
         const { query, maxLength } = req.query;
+        
+        if (!query) {
+            throw createValidationError("Query parameter is required.");
+        }
+        
         try {
             const context = await wikipedia.getWikipediaContext(query, maxLength);
             res.json(context);
         } catch (error) {
-            console.error("Wikipedia context error:", error);
-            res.status(500).json({ error: "Failed to get Wikipedia context." });
+            logError(error, { operation: 'wikipedia-context', query });
+            throw createAIServiceError(
+                "Unable to retrieve Wikipedia context. Please try again.",
+                error.message
+            );
         }
-    });
+    }));
 
-    router.get("/api/wikipedia/stats", ensureAuthenticated, async (req, res) => {
+    router.get("/api/wikipedia/stats", ensureAuthenticated, asyncHandler(async (req, res) => {
         try {
             const stats = await wikipedia.getWikipediaStats();
             res.json(stats);
         } catch (error) {
-            console.error("Wikipedia stats error:", error);
-            res.status(500).json({ error: "Failed to get Wikipedia stats." });
+            logError(error, { operation: 'wikipedia-stats' });
+            // Return empty stats instead of error for non-critical operation
+            res.json({
+                available: false,
+                articleCount: 0,
+                error: "Stats temporarily unavailable"
+            });
         }
-    });
+    }));
 
-    router.get("/api/wikipedia/status", ensureAuthenticated, async (req, res) => {
+    router.get("/api/wikipedia/status", ensureAuthenticated, asyncHandler(async (req, res) => {
         try {
             const stats = await wikipedia.getWikipediaStats();
             res.json({
@@ -931,24 +965,37 @@ module.exports = (db, ai, wikipedia, config) => {
                 databaseSize: stats.databaseSize || 'Unknown'
             });
         } catch (error) {
-            console.error("Wikipedia status error:", error);
+            logError(error, { operation: 'wikipedia-status' });
             res.json({
                 available: false,
-                error: error.message
+                error: "Wikipedia database is not available. Please check the installation."
             });
         }
-    });
+    }));
 
-    router.get("/api/wikipedia/article", ensureAuthenticated, async (req, res) => {
+    router.get("/api/wikipedia/article", ensureAuthenticated, asyncHandler(async (req, res) => {
         const { title } = req.query;
+        
+        if (!title) {
+            throw createValidationError("Article title is required.");
+        }
+        
         try {
             const article = await wikipedia.getArticle(title);
+            if (!article) {
+                throw createNotFoundError(`Article "${title}"`);
+            }
             res.json({ article });
         } catch (error) {
-            console.error("Wikipedia article error:", error);
-            res.status(500).json({ error: "Failed to get Wikipedia article." });
+            if (error.name === 'AppError') throw error;
+            
+            logError(error, { operation: 'wikipedia-article', title });
+            throw createAIServiceError(
+                `Unable to retrieve the article "${title}". It may not exist or the Wikipedia service is unavailable.`,
+                error.message
+            );
         }
-    });
+    }));
 
     // ===== CONFIG PAGE ROUTE =====
     // Config page - accessible to both logged-in and guest users

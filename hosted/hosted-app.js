@@ -179,6 +179,10 @@ app.use('/offline-resources', offlineResourceRoutes);
 // Mount common routes
 app.use("/", commonRoutes(db, ai, wikipedia, PUBLIC_CONFIG));
 
+// Import and apply error handling middleware
+const { errorMiddleware } = require("../core/error-handler");
+app.use(errorMiddleware);
+
 // Serve offline HTML5 endpoint
 app.get("/offline", (req, res) => {
     res.render("offline", { 

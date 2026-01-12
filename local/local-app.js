@@ -70,6 +70,10 @@ app.use('/api/offline', offlinePackageRoutes);
 const offlineResourceRoutes = require('../core/offline-resource-routes');
 app.use('/offline-resources', offlineResourceRoutes);
 
+// Import and apply error handling middleware
+const { errorMiddleware } = require("../core/error-handler");
+app.use(errorMiddleware);
+
 // Add n8n specific routes
 app.get("/n8n-status", async (req, res) => {
     try {
