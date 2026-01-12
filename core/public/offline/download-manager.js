@@ -132,6 +132,12 @@ class DownloadManager {
         console.log(`Starting download of ${this.packageType} package`);
         
         try {
+            // Check if resources are actually available before starting
+            const resourcesAvailable = await this.checkResourcesExist();
+            if (!resourcesAvailable) {
+                throw new Error('RESOURCES_NOT_AVAILABLE: Offline mode downloads are currently unavailable. The required AI models and Wikipedia databases are not yet hosted. Please use the online version or install locally with Ollama for full functionality.');
+            }
+            
             // Check package availability first
             await this.checkPackageAvailability();
             
@@ -155,6 +161,20 @@ class DownloadManager {
             if (this.onError) {
                 this.onError(error.message);
             }
+        }
+    }
+    
+    /**
+     * Check if offline resources actually exist on the server
+     */
+    async checkResourcesExist() {
+        try {
+            // Try to check if at least one library file exists
+            const response = await fetch('/offline-resources/libs/transformers.js', { method: 'HEAD' });
+            return response.ok;
+        } catch (error) {
+            console.log('Resource check failed:', error);
+            return false;
         }
     }
     
@@ -211,17 +231,17 @@ class DownloadManager {
         // Initialize storage first
         await this.initializeStorage();
         
-        // Libraries to download with real URLs
+        // Libraries to download - Use CDN URLs directly
         const libraries = [
             { 
                 name: 'transformers.js', 
-                url: '/offline-resources/libs/transformers.js',
-                fallbackUrl: 'https://cdn.jsdelivr.net/npm/@xenova/transformers@2.17.2/dist/transformers.min.js'
+                url: 'https://cdn.jsdelivr.net/npm/@xenova/transformers@2.17.2/dist/transformers.min.js',
+                fallbackUrl: '/offline-resources/libs/transformers.js'
             },
             { 
                 name: 'sql-wasm.js', 
-                url: '/offline-resources/libs/sql-wasm.js',
-                fallbackUrl: 'https://cdn.jsdelivr.net/npm/sql.js@1.8.0/dist/sql-wasm.js'
+                url: 'https://cdn.jsdelivr.net/npm/sql.js@1.8.0/dist/sql-wasm.js',
+                fallbackUrl: '/offline-resources/libs/sql-wasm.js'
             }
         ];
         
@@ -286,22 +306,22 @@ class DownloadManager {
         this.updateResource('aiModel', 'downloading', 0);
         
         try {
-            // Model URLs based on package type
+            // Model URLs based on package type - Use CDN URLs directly
             const modelUrls = {
                 'minimal': {
                     name: 'TinyBERT',
-                    url: '/offline-resources/models/tinybert-uncased.bin',
-                    fallbackUrl: 'https://huggingface.co/prajjwal1/bert-tiny/resolve/main/pytorch_model.bin'
+                    url: 'https://huggingface.co/prajjwal1/bert-tiny/resolve/main/pytorch_model.bin',
+                    fallbackUrl: '/offline-resources/models/tinybert-uncased.bin'
                 },
                 'standard': {
                     name: 'Phi-3 Mini',
-                    url: '/offline-resources/models/phi3-mini.bin',
-                    fallbackUrl: 'https://huggingface.co/microsoft/Phi-3-mini-4k-instruct/resolve/main/model.safetensors'
+                    url: 'https://huggingface.co/microsoft/Phi-3-mini-4k-instruct/resolve/main/model.safetensors',
+                    fallbackUrl: '/offline-resources/models/phi3-mini.bin'
                 },
                 'full': {
                     name: 'Llama-3.2',
-                    url: '/offline-resources/models/llama-3.2.bin',
-                    fallbackUrl: 'https://huggingface.co/meta-llama/Llama-3.2-1B/resolve/main/model.safetensors'
+                    url: 'https://huggingface.co/meta-llama/Llama-3.2-1B/resolve/main/model.safetensors',
+                    fallbackUrl: '/offline-resources/models/llama-3.2.bin'
                 }
             };
             
@@ -349,22 +369,22 @@ class DownloadManager {
         this.updateResource('wikipedia', 'downloading', 0);
         
         try {
-            // Wikipedia database URLs based on package type
+            // Wikipedia database URLs based on package type - Use CDN URLs directly
             const wikiUrls = {
                 'minimal': {
                     name: 'Wikipedia-Subset-20MB',
-                    url: '/offline-resources/wikipedia/wikipedia-subset-20mb.db',
-                    fallbackUrl: 'https://dumps.wikimedia.org/other/kiwix/zim/wikipedia/wikipedia_en_top_2023-01.zim'
+                    url: 'https://dumps.wikimedia.org/other/kiwix/zim/wikipedia/wikipedia_en_top_2023-01.zim',
+                    fallbackUrl: '/offline-resources/wikipedia/wikipedia-subset-20mb.db'
                 },
                 'standard': {
                     name: 'Simple-Wikipedia-50MB',
-                    url: '/offline-resources/wikipedia/simple-wikipedia-50mb.db',
-                    fallbackUrl: 'https://dumps.wikimedia.org/other/kiwix/zim/wikipedia/wikipedia_en_simple_all_2023-01.zim'
+                    url: 'https://dumps.wikimedia.org/other/kiwix/zim/wikipedia/wikipedia_en_simple_all_2023-01.zim',
+                    fallbackUrl: '/offline-resources/wikipedia/simple-wikipedia-50mb.db'
                 },
                 'full': {
                     name: 'Extended-Wikipedia',
-                    url: '/offline-resources/wikipedia/extended-wikipedia.db',
-                    fallbackUrl: 'https://dumps.wikimedia.org/other/kiwix/zim/wikipedia/wikipedia_en_all_nopic_2023-01.zim'
+                    url: 'https://dumps.wikimedia.org/other/kiwix/zim/wikipedia/wikipedia_en_all_nopic_2023-01.zim',
+                    fallbackUrl: '/offline-resources/wikipedia/extended-wikipedia.db'
                 }
             };
             
