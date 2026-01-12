@@ -1502,3 +1502,141 @@ header {
     }
 }
 
+
+
+/* ===== COMPREHENSIVE RESPONSIVE DESIGN ===== */
+
+/* Mobile-first responsive improvements */
+
+/* Extra small devices (phones, 320px and up) */
+@media (max-width: 480px) {
+    .container {
+        padding: 10px;
+        max-width: 100%;
+    }
+    
+    .header h1 {
+        font-size: 1.5rem;
+    }
+    
+    .header p {
+        font-size: 0.9rem;
+    }
+    
+    /* Ensure buttons are touch-friendly (min 44x44px) */
+    button, .btn, .nav-link, a.btn {
+        min-height: 44px;
+        min-width: 44px;
+        padding: 12px 16px;
+    }
+    
+    /* Stack navigation vertically on very small screens */
+    .header-nav {
+        flex-wrap: wrap;
+        gap: 8px;
+    }
+    
+    /* Full-width cards */
+    .card, .status-card, .option-card {
+        width: 100%;
+        margin: 10px 0;
+    }
+    
+    /* Readable text sizes */
+    body {
+        font-size: 16px;
+        line-height: 1.5;
+    }
+    
+    /* Modal improvements */
+    .modal-content, .schedule-modal-content {
+        width: 95%;
+        max-height: 90vh;
+        margin: 5vh auto;
+        overflow-y: auto;
+    }
+    
+    /* Form inputs */
+    input, textarea, select {
+        font-size: 16px; /* Prevents iOS zoom */
+        width: 100%;
+        max-width: 100%;
+    }
+    
+    /* Tables scroll horizontally */
+    table {
+        display: block;
+        overflow-x: auto;
+        white-space: nowrap;
+    }
+}
+
+/* Small devices (large phones, 481px to 767px) */
+@media (min-width: 481px) and (max-width: 767px) {
+    .container {
+        padding: 15px;
+    }
+    
+    .header h1 {
+        font-size: 1.75rem;
+    }
+    
+    /* Two-column grid where appropriate */
+    .download-options, .features-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+/* Tablets (768px to 1024px) */
+@media (min-width: 768px) and (max-width: 1024px) {
+    .container {
+        padding: 20px;
+        max-width: 90%;
+    }
+    
+    /* Ensure touch targets remain accessible */
+    button, .btn, .nav-link {
+        min-height: 44px;
+    }
+}
+
+/* Large screens (1025px and up) */
+@media (min-width: 1025px) {
+    .container {
+        max-width: 1200px;
+        margin: 0 auto;
+    }
+}
+
+/* Print styles */
+@media print {
+    .header-nav, .btn, button, .modal, .toast-container {
+        display: none !important;
+    }
+    
+    body {
+        font-size: 12pt;
+        color: #000;
+        background: #fff;
+    }
+}
+
+/* Reduced motion for accessibility */
+@media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+    }
+}
+
+/* High contrast mode support */
+@media (prefers-contrast: high) {
+    .btn, button {
+        border: 2px solid currentColor;
+    }
+    
+    a {
+        text-decoration: underline;
+    }
+}
