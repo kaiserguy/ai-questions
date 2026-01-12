@@ -70,8 +70,9 @@ describe('Responsive Behavior Integration Tests', () => {
       for (const button of buttons) {
         const box = await button.boundingBox();
         if (box) {
-          // Minimum 44x44px for touch targets (WCAG guideline)
-          expect(box.height).toBeGreaterThanOrEqual(42); // Allow small tolerance
+          // Minimum 44x44px for touch targets (WCAG 2.1 guideline)
+          // Allow 2px tolerance for CSS rounding and border calculations
+          expect(box.height).toBeGreaterThanOrEqual(42);
           expect(box.width).toBeGreaterThanOrEqual(42);
         }
       }

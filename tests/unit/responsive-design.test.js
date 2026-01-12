@@ -158,22 +158,18 @@ describe('Responsive Design', () => {
       const css = fs.readFileSync(cssPath, 'utf8');
       
       // Input font size should be at least 16px to prevent zoom
-      // Check if there's a rule for input with font-size: 16px
-      const lines = css.split('\n');
-      let inMobileBreakpoint = false;
+      // Use a more robust approach: split by media queries and check within the mobile section
+      const mediaBlocks = css.split(/@media/);
       let foundInputRule = false;
       
-      for (let i = 0; i < lines.length; i++) {
-        if (lines[i].includes('@media (max-width: 480px)')) {
-          inMobileBreakpoint = true;
-        }
-        if (inMobileBreakpoint && (lines[i].includes('input,') || lines[i].includes('input '))) {
-          // Check next few lines for font-size: 16px
-          for (let j = i; j < i + 10 && j < lines.length; j++) {
-            if (lines[j].includes('font-size: 16px')) {
-              foundInputRule = true;
-              break;
-            }
+      for (const block of mediaBlocks) {
+        // Check if this is a mobile breakpoint (max-width: 480px or smaller)
+        if (block.includes('max-width: 480px') || block.includes('max-width: 374px')) {
+          // Check if this block contains input rules with 16px font-size
+          if ((block.includes('input,') || block.includes('input ')) && 
+              block.includes('font-size: 16px')) {
+            foundInputRule = true;
+            break;
           }
         }
       }

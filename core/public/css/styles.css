@@ -1776,10 +1776,10 @@ header {
 }
 
 /* Dark mode support (respects system preference) */
+/* Dark mode is disabled by default. To enable, see RESPONSIVE_DESIGN_GUIDE.md */
+/* Uncomment the CSS below and customize colors as needed for dark mode support */
+/*
 @media (prefers-color-scheme: dark) {
-    /* Only add dark mode styles if the user prefers dark mode */
-    /* This is commented out by default - uncomment to enable dark mode */
-    /*
     body {
         background-color: #1a1a1a;
         color: #e0e0e0;
@@ -1795,6 +1795,6 @@ header {
         color: #e0e0e0;
         border-color: #444;
     }
-    */
 }
+*/
 
