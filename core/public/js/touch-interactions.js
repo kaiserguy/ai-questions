@@ -6,14 +6,22 @@
 (function() {
     'use strict';
 
+    // Configuration constants
+    const SWIPE_THRESHOLD = 50;
+    const SWIPE_ALLOWED_TIME = 500;
+    const SWIPE_RESTRAINT = 100;
+    const PULL_REFRESH_THRESHOLD = 80;
+    const REFRESH_DELAY = 300;
+    const RIPPLE_DURATION = 600;
+
     // Touch gesture handler class
     class TouchGestureHandler {
         constructor(element, options = {}) {
             this.element = element;
             this.options = {
-                threshold: options.threshold || 50,
-                allowedTime: options.allowedTime || 500,
-                restraint: options.restraint || 100,
+                threshold: options.threshold || SWIPE_THRESHOLD,
+                allowedTime: options.allowedTime || SWIPE_ALLOWED_TIME,
+                restraint: options.restraint || SWIPE_RESTRAINT,
                 ...options
             };
             
@@ -72,13 +80,18 @@
 
     // Add haptic feedback for touch interactions (if supported)
     function addHapticFeedback(intensity = 'medium') {
-        if ('vibrate' in navigator) {
-            const patterns = {
-                light: 10,
-                medium: 20,
-                heavy: 30
-            };
-            navigator.vibrate(patterns[intensity] || 20);
+        try {
+            if ('vibrate' in navigator) {
+                const patterns = {
+                    light: 10,
+                    medium: 20,
+                    heavy: 30
+                };
+                navigator.vibrate(patterns[intensity] || 20);
+            }
+        } catch (error) {
+            // Silently fail if vibration API throws (e.g., in cross-origin iframes)
+            console.debug('Haptic feedback unavailable:', error);
         }
     }
 
@@ -103,7 +116,7 @@
             
             setTimeout(() => {
                 ripple.remove();
-            }, 600);
+            }, RIPPLE_DURATION);
             
             addHapticFeedback('light');
         }, { passive: true });
@@ -126,7 +139,6 @@
     function initPullToRefresh() {
         let startY = 0;
         let isPulling = false;
-        const threshold = 80;
         
         const refreshIndicator = document.createElement('div');
         refreshIndicator.id = 'pull-to-refresh-indicator';
@@ -160,9 +172,9 @@
             const currentY = e.touches[0].pageY;
             const diff = currentY - startY;
             
-            if (diff > 0 && diff < threshold * 2) {
+            if (diff > 0 && diff < PULL_REFRESH_THRESHOLD * 2) {
                 refreshIndicator.style.top = Math.min(diff - 60, 20) + 'px';
-                refreshIndicator.textContent = diff > threshold ? '↑ Release to refresh' : '↓ Pull to refresh';
+                refreshIndicator.textContent = diff > PULL_REFRESH_THRESHOLD ? '↑ Release to refresh' : '↓ Pull to refresh';
             }
         }, { passive: true });
         
@@ -172,13 +184,13 @@
             const endY = e.changedTouches[0].pageY;
             const diff = endY - startY;
             
-            if (diff > threshold) {
+            if (diff > PULL_REFRESH_THRESHOLD) {
                 refreshIndicator.textContent = '⟳ Refreshing...';
                 refreshIndicator.style.top = '20px';
                 
                 setTimeout(() => {
                     location.reload();
-                }, 300); // Faster reload for better UX
+                }, REFRESH_DELAY);
             } else {
                 refreshIndicator.style.top = '-60px';
             }
@@ -244,10 +256,10 @@
             const observer = new MutationObserver(mutations => {
                 mutations.forEach(mutation => {
                     mutation.addedNodes.forEach(node => {
-                        if (node.nodeType === Node.ELEMENT_NODE && 
-                            node.classList && 
-                            node.classList.contains('notification')) {
-                            makeNotificationSwipeable(node);
+                        if (node.nodeType === Node.ELEMENT_NODE) {
+                            if (node.classList && node.classList.contains('notification')) {
+                                makeNotificationSwipeable(node);
+                            }
                         }
                     });
                 });

@@ -1206,7 +1206,7 @@ header {
 }
 
 /* Touch device specific improvements */
-@media (hover: none) and (pointer: coarse) and (any-hover: none) {
+@media (hover: none) and (pointer: coarse) {
     /* Larger touch targets for touch-only devices */
     button,
     a.nav-link,
