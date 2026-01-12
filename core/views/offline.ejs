@@ -47,43 +47,63 @@
         </div>
 
         <!-- Prototype Notice -->
-        <div class="status-card" style="background: #fff3cd; border-left: 4px solid #ffc107;">
-            <p style="margin: 0; color: #856404;"><strong>⚠️ Prototype:</strong> Browser-based offline AI is in early development. Models shown below represent planned functionality. For full AI capabilities, use the <a href="/" style="color: #856404;">online version</a> or <a href="#install-locally" style="color: #856404;">install locally</a> with Ollama.</p>
+        <div class="status-card" style="background: #d1ecf1; border-left: 4px solid #0c5460;">
+            <p style="margin: 0; color: #0c5460;"><strong>✅ Browser-Based AI:</strong> This version uses Transformers.js with smaller, faster models (< 350MB) optimized for browser performance. Models download automatically on first use and are cached locally. Expected response time: 2-10 seconds depending on package.</p>
+        </div>
+
+        <!-- Memory Status -->
+        <div class="status-card" id="memoryStatusCard" style="display: none; background: #f8f9fa; border-left: 4px solid #6c757d;">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <div>
+                    <strong>💾 Memory Status:</strong>
+                    <span id="memoryStatus">Monitoring...</span>
+                </div>
+                <button class="control-btn" id="checkMemoryBtn" style="padding: 5px 15px; font-size: 14px;">
+                    Check Memory
+                </button>
+            </div>
+            <p id="memoryDetails" style="margin: 10px 0 0 0; font-size: 14px; color: #6c757d;">Memory usage will be monitored during AI operations</p>
         </div>
 
         <!-- Download Section -->
         <div class="download-section" id="downloadSection">
             <h2>📦 Choose Your Offline Package</h2>
-            <p>Select the package that best fits your needs and device capabilities. AI models are Phi-3 variants (compatible with Ollama):
+            <p>Select the package that best fits your needs and device capabilities. Models are browser-optimized using Transformers.js:</p>
             
             <div class="download-options" id="downloadOptions">
                 <div class="option-card" data-package="minimal">
-                    <div class="option-title">🎯 Minimal Performance</div>
+                    <div class="option-title">🎯 Minimal Package (Fastest)</div>
                     <div class="option-description">Essential AI capabilities with basic Wikipedia content</div>
                     <div class="option-specs">
-                        • AI Model: Phi-3 Mini (500MB)<br>
+                        • AI Model: DistilGPT-2 (82MB)<br>
+                        • Response Time: 2-5 seconds<br>
                         • Wikipedia: Simple English (50MB)<br>
-                        • Total: ~550MB
+                        • Total: ~132MB<br>
+                        • Recommended for: Mobile, low-end devices
                     </div>
                 </div>
                 
                 <div class="option-card" data-package="standard">
-                    <div class="option-title">⚡ Standard Performance</div>
+                    <div class="option-title">⚡ Standard Package (Balanced)</div>
                     <div class="option-description">Balanced performance with comprehensive Wikipedia</div>
                     <div class="option-specs">
-                        • AI Model: Phi-3 Medium (1.2GB)<br>
-                        • Wikipedia: Full English (2.5GB)<br>
-                        • Total: ~3.7GB
+                        • AI Model: GPT-2 (124MB)<br>
+                        • Response Time: 3-7 seconds<br>
+                        • Wikipedia: Full (500MB)<br>
+                        • Total: ~624MB<br>
+                        • Recommended for: Most users
                     </div>
                 </div>
                 
                 <div class="option-card" data-package="full">
-                    <div class="option-title">🚀 Premium Performance</div>
-                    <div class="option-description">Maximum capabilities with multilingual support</div>
+                    <div class="option-title">🚀 Full Package (Best Quality)</div>
+                    <div class="option-description">Maximum capabilities with enhanced AI</div>
                     <div class="option-specs">
-                        • AI Model: Phi-3 Large (2.8GB)<br>
-                        • Wikipedia: Multilingual (8GB)<br>
-                        • Total: ~10.8GB
+                        • AI Model: GPT-2 Medium (345MB)<br>
+                        • Response Time: 5-10 seconds<br>
+                        • Wikipedia: Full + Images (1GB)<br>
+                        • Total: ~1.35GB<br>
+                        • Recommended for: Desktop with 4GB+ RAM
                     </div>
                 </div>
             </div>
@@ -237,6 +257,20 @@
     </div>
 
     <!-- Load required scripts -->
+    <!-- Transformers.js library for browser-based AI inference -->
+    <script type="module">
+        // Import transformers.js from CDN
+        import { pipeline, env } from 'https://cdn.jsdelivr.net/npm/@xenova/transformers@2.17.2';
+        
+        // Make transformers available globally
+        window.transformers = { pipeline, env };
+        
+        // Dispatch event when transformers.js is loaded
+        window.dispatchEvent(new Event('transformers-loaded'));
+        console.log('[Offline] Transformers.js loaded successfully');
+    </script>
+    
+    <script src="ai-model-manager.js"></script>
     <script src="download-manager.js"></script>
     <script src="integration-manager.js"></script>
     <script src="offline-ai-chat.js"></script>
@@ -293,6 +327,12 @@
             // Clear cache button
             document.getElementById('clearCacheBtn').addEventListener('click', clearAllCache);
             
+            // Memory check button
+            const checkMemoryBtn = document.getElementById('checkMemoryBtn');
+            if (checkMemoryBtn) {
+                checkMemoryBtn.addEventListener('click', updateMemoryStatus);
+            }
+            
             // Download control buttons
             document.getElementById('pauseBtn').addEventListener('click', pauseDownload);
             document.getElementById('resumeBtn').addEventListener('click', resumeDownload);
@@ -310,21 +350,105 @@
             const statusDot = document.getElementById('statusDot');
             const statusText = document.getElementById('statusText');
             const statusDescription = document.getElementById('statusDescription');
+            const memoryStatusCard = document.getElementById('memoryStatusCard');
             
-            // Check for required features
-            const hasIndexedDB = 'indexedDB' in window;
-            const hasWebAssembly = 'WebAssembly' in window;
-            const hasServiceWorker = 'serviceWorker' in navigator;
-            const hasLocalStorage = 'localStorage' in window;
+            // Wait for transformers.js to load before checking full compatibility
+            if (!window.transformers) {
+                console.log('[Offline] Waiting for transformers.js to load...');
+                window.addEventListener('transformers-loaded', checkBrowserCompatibility, { once: true });
+                return;
+            }
             
-            if (hasIndexedDB && hasWebAssembly && hasServiceWorker && hasLocalStorage) {
-                statusDot.className = 'status-dot green';
-                statusText.textContent = 'Browser supports offline mode';
-                statusDescription.textContent = 'Your browser has all the required features for offline operation.';
-            } else {
-                statusDot.className = 'status-dot red';
-                statusText.textContent = 'Browser compatibility issues detected';
-                statusDescription.textContent = 'Your browser is missing some required features. Please use a modern browser like Chrome, Firefox, or Safari.';
+            // Create a temporary AIModelManager instance to check compatibility
+            try {
+                const tempManager = new AIModelManager('minimal');
+                const compatibility = tempManager.checkBrowserCompatibility();
+                const memoryStatus = tempManager.checkMemoryUsage();
+                
+                // Update status UI
+                if (compatibility.compatible) {
+                    statusDot.className = 'status-dot green';
+                    statusText.textContent = 'Browser fully compatible';
+                    
+                    let description = 'Your browser supports all required features for offline AI:';
+                    description += '<ul style="margin: 10px 0; padding-left: 20px;">';
+                    description += '<li>✅ WebAssembly for AI inference</li>';
+                    description += '<li>✅ IndexedDB for model caching</li>';
+                    description += '<li>✅ Cache API for offline resources</li>';
+                    if (compatibility.features.workers) {
+                        description += '<li>✅ Web Workers for non-blocking inference</li>';
+                    }
+                    description += '</ul>';
+                    
+                    if (compatibility.issues.length > 0) {
+                        description += '<p style="margin-top: 10px;"><strong>Optional features:</strong></p>';
+                        description += '<ul style="margin: 5px 0; padding-left: 20px; font-size: 14px; color: #6c757d;">';
+                        compatibility.issues.forEach(issue => {
+                            description += `<li>${issue}</li>`;
+                        });
+                        description += '</ul>';
+                    }
+                    
+                    statusDescription.innerHTML = description;
+                    
+                    // Show memory status
+                    if (memoryStatus.supported) {
+                        memoryStatusCard.style.display = 'block';
+                        updateMemoryStatus();
+                    }
+                } else {
+                    statusDot.className = 'status-dot red';
+                    statusText.textContent = 'Browser not compatible';
+                    
+                    let description = 'Your browser is missing required features:<ul style="margin: 10px 0; padding-left: 20px;">';
+                    compatibility.issues.forEach(issue => {
+                        description += `<li>❌ ${issue}</li>`;
+                    });
+                    description += '</ul>';
+                    description += '<p style="margin-top: 10px;">Please use a modern browser like Chrome (90+), Firefox (88+), or Safari (15+).</p>';
+                    
+                    statusDescription.innerHTML = description;
+                }
+            } catch (error) {
+                // Fallback to basic checks if AIModelManager is not available
+                console.error('[Offline] Error checking compatibility:', error);
+                
+                const hasIndexedDB = 'indexedDB' in window;
+                const hasWebAssembly = 'WebAssembly' in window;
+                const hasServiceWorker = 'serviceWorker' in navigator;
+                const hasLocalStorage = 'localStorage' in window;
+                
+                if (hasIndexedDB && hasWebAssembly && hasServiceWorker && hasLocalStorage) {
+                    statusDot.className = 'status-dot green';
+                    statusText.textContent = 'Browser supports offline mode';
+                    statusDescription.textContent = 'Your browser has all the required features for offline operation.';
+                } else {
+                    statusDot.className = 'status-dot red';
+                    statusText.textContent = 'Browser compatibility issues detected';
+                    statusDescription.textContent = 'Your browser is missing some required features. Please use a modern browser like Chrome, Firefox, or Safari.';
+                }
+            }
+        }
+        
+        // Update memory status display
+        function updateMemoryStatus() {
+            try {
+                const tempManager = new AIModelManager('minimal');
+                const memoryStatus = tempManager.checkMemoryUsage();
+                
+                const memoryStatusEl = document.getElementById('memoryStatus');
+                const memoryDetailsEl = document.getElementById('memoryDetails');
+                
+                if (memoryStatus.supported) {
+                    memoryStatusEl.textContent = `${memoryStatus.usedMB} MB / ${memoryStatus.totalMB} MB (${memoryStatus.usagePercent}%)`;
+                    memoryDetailsEl.textContent = memoryStatus.message;
+                    memoryDetailsEl.style.color = memoryStatus.warning ? '#dc3545' : '#6c757d';
+                } else {
+                    memoryStatusEl.textContent = 'Not supported';
+                    memoryDetailsEl.textContent = 'Memory monitoring not available in this browser';
+                }
+            } catch (error) {
+                console.error('[Offline] Error updating memory status:', error);
             }
         }
 
