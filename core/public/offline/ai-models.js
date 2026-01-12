@@ -20,33 +20,33 @@ class AIModelManager {
                     {
                         name: 'tinybert',
                         displayName: 'TinyBERT',
-                        path: '/offline/models/tinybert/',
+                        path: '/offline-resources/models/tinybert/',
                         type: 'bert',
                         quantized: true,
                         size: '67MB'
                     }
                 ],
-                tokenizerPath: '/offline/models/tinybert/tokenizer.json'
+                tokenizerPath: '/offline-resources/models/tinybert/tokenizer.json'
             },
             standard: {
                 models: [
                     {
                         name: 'phi3-mini',
                         displayName: 'Phi-3 Mini',
-                        path: '/offline/models/phi3-mini/',
+                        path: '/offline-resources/models/phi3-mini/',
                         type: 'causal-lm',
                         quantized: true,
                         size: '500MB'
                     }
                 ],
-                tokenizerPath: '/offline/models/phi3-mini/tokenizer.json'
+                tokenizerPath: '/offline-resources/models/phi3-mini/tokenizer.json'
             },
             full: {
                 models: [
                     {
                         name: 'phi3-mini',
                         displayName: 'Phi-3 Mini',
-                        path: '/offline/models/phi3-mini/',
+                        path: '/offline-resources/models/phi3-mini/',
                         type: 'causal-lm',
                         quantized: true,
                         size: '500MB'
@@ -54,13 +54,13 @@ class AIModelManager {
                     {
                         name: 'llama3-8b',
                         displayName: 'Llama 3 8B',
-                        path: '/offline/models/llama3-8b/',
+                        path: '/offline-resources/models/llama3-8b/',
                         type: 'causal-lm',
                         quantized: true,
                         size: '1GB'
                     }
                 ],
-                tokenizerPath: '/offline/models/phi3-mini/tokenizer.json'
+                tokenizerPath: '/offline-resources/models/phi3-mini/tokenizer.json'
             }
         };
     }

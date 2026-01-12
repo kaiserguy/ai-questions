@@ -180,12 +180,12 @@ class DownloadManager {
         const libraries = [
             { 
                 name: 'transformers.js', 
-                url: '/offline/libs/transformers.js',
+                url: '/offline-resources/libs/transformers.js',
                 fallbackUrl: 'https://cdn.jsdelivr.net/npm/@xenova/transformers@2.17.2/dist/transformers.min.js'
             },
             { 
                 name: 'sql-wasm.js', 
-                url: '/offline/libs/sql-wasm.js',
+                url: '/offline-resources/libs/sql-wasm.js',
                 fallbackUrl: 'https://cdn.jsdelivr.net/npm/sql.js@1.8.0/dist/sql-wasm.js'
             }
         ];
@@ -255,17 +255,17 @@ class DownloadManager {
             const modelUrls = {
                 'minimal': {
                     name: 'TinyBERT',
-                    url: '/offline/models/tinybert-uncased.bin',
+                    url: '/offline-resources/models/tinybert-uncased.bin',
                     fallbackUrl: 'https://huggingface.co/prajjwal1/bert-tiny/resolve/main/pytorch_model.bin'
                 },
                 'standard': {
                     name: 'Phi-3 Mini',
-                    url: '/offline/models/phi3-mini.bin',
+                    url: '/offline-resources/models/phi3-mini.bin',
                     fallbackUrl: 'https://huggingface.co/microsoft/Phi-3-mini-4k-instruct/resolve/main/model.safetensors'
                 },
                 'full': {
                     name: 'Llama-3.2',
-                    url: '/offline/models/llama-3.2.bin',
+                    url: '/offline-resources/models/llama-3.2.bin',
                     fallbackUrl: 'https://huggingface.co/meta-llama/Llama-3.2-1B/resolve/main/model.safetensors'
                 }
             };
@@ -318,17 +318,17 @@ class DownloadManager {
             const wikiUrls = {
                 'minimal': {
                     name: 'Wikipedia-Subset-20MB',
-                    url: '/offline/wikipedia/wikipedia-subset-20mb.db',
+                    url: '/offline-resources/wikipedia/wikipedia-subset-20mb.db',
                     fallbackUrl: 'https://dumps.wikimedia.org/other/kiwix/zim/wikipedia/wikipedia_en_top_2023-01.zim'
                 },
                 'standard': {
                     name: 'Simple-Wikipedia-50MB',
-                    url: '/offline/wikipedia/simple-wikipedia-50mb.db',
+                    url: '/offline-resources/wikipedia/simple-wikipedia-50mb.db',
                     fallbackUrl: 'https://dumps.wikimedia.org/other/kiwix/zim/wikipedia/wikipedia_en_simple_all_2023-01.zim'
                 },
                 'full': {
                     name: 'Extended-Wikipedia',
-                    url: '/offline/wikipedia/extended-wikipedia.db',
+                    url: '/offline-resources/wikipedia/extended-wikipedia.db',
                     fallbackUrl: 'https://dumps.wikimedia.org/other/kiwix/zim/wikipedia/wikipedia_en_all_nopic_2023-01.zim'
                 }
             };

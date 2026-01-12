@@ -99,14 +99,14 @@ class OfflineAppEnhanced {
             const cachedRequests = await cache.keys();
             
             const essentialScripts = [
-                '/offline/ai-models.js',
-                '/offline/wikipedia.js',
-                '/offline/app-enhanced.js',
-                '/offline/local-ai-model.js',
-                '/offline/libs/onnxruntime-web.min.js',
-                '/offline/enhanced-wikipedia-search.js',
-                '/offline/query-logger.js',
-                '/offline/wikipedia-content-parser.js'
+                '/offline-resources/ai-models.js',
+                '/offline-resources/wikipedia.js',
+                '/offline-resources/app-enhanced.js',
+                '/offline-resources/local-ai-model.js',
+                '/offline-resources/libs/onnxruntime-web.min.js',
+                '/offline-resources/enhanced-wikipedia-search.js',
+                '/offline-resources/query-logger.js',
+                '/offline-resources/wikipedia-content-parser.js'
             ];
             
             const availableScripts = essentialScripts.filter(script => 
@@ -130,9 +130,9 @@ class OfflineAppEnhanced {
         // Step 2: Check AI models
         try {
             const modelPaths = [
-                '/offline/models/tinyml-qa.onnx',
-                '/offline/models/tinyml-qa-vocab.json',
-                '/offline/models/tinyml-qa-config.json'
+                '/offline-resources/models/tinyml-qa.onnx',
+                '/offline-resources/models/tinyml-qa-vocab.json',
+                '/offline-resources/models/tinyml-qa-config.json'
             ];
             
             const modelChecks = await Promise.all(modelPaths.map(async path => {
@@ -412,7 +412,7 @@ class OfflineAppEnhanced {
     async registerServiceWorker() {
         if ('serviceWorker' in navigator) {
             try {
-                const registration = await navigator.serviceWorker.register('/offline/sw.js');
+                const registration = await navigator.serviceWorker.register('/offline-resources/sw.js');
                 console.log('Service Worker registered:', registration);
                 this.serviceWorker = registration;
                 

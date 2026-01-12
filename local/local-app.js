@@ -68,7 +68,7 @@ app.use('/api/offline', offlinePackageRoutes);
 
 // Add offline resource routes for serving libraries, models, and Wikipedia
 const offlineResourceRoutes = require('../core/offline-resource-routes');
-app.use('/offline', offlineResourceRoutes);
+app.use('/offline-resources', offlineResourceRoutes);
 
 // Add n8n specific routes
 app.get("/n8n-status", async (req, res) => {

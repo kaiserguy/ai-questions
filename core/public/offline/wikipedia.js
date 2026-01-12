@@ -15,17 +15,17 @@ class WikipediaManager {
         // Database configurations based on package type
         this.dbConfigs = {
             minimal: {
-                path: '/offline/wikipedia/minimal-wikipedia.sqlite',
+                path: '/offline-resources/wikipedia/minimal-wikipedia.sqlite',
                 size: '20MB',
                 articles: '~10,000 articles'
             },
             standard: {
-                path: '/offline/wikipedia/simple-wikipedia.sqlite',
+                path: '/offline-resources/wikipedia/simple-wikipedia.sqlite',
                 size: '50MB',
                 articles: '~100,000 articles'
             },
             full: {
-                path: '/offline/wikipedia/extended-wikipedia.sqlite',
+                path: '/offline-resources/wikipedia/extended-wikipedia.sqlite',
                 size: '200MB',
                 articles: '~500,000 articles'
             }

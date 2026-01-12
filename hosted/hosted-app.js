@@ -174,7 +174,7 @@ addOfflinePackageRoutes(app);
 
 // Add offline resource routes for serving libraries, models, and Wikipedia
 const offlineResourceRoutes = require("../core/offline-resource-routes");
-app.use('/offline', offlineResourceRoutes);
+app.use('/offline-resources', offlineResourceRoutes);
 
 // Mount common routes
 app.use("/", commonRoutes(db, ai, wikipedia, PUBLIC_CONFIG));

@@ -8,13 +8,13 @@ const STATIC_CACHE = 'static-v1';
 
 // Files to cache immediately
 const STATIC_FILES = [
-    '/offline/',
+    '/offline-resources/',
     '/css/styles.css',
-    '/offline/offline-ai-chat.js',
-    '/offline/ai-models.js',
-    '/offline/wikipedia.js',
-    '/offline/resource-monitor.js',
-    '/offline/integration-manager.js'
+    '/offline-resources/offline-ai-chat.js',
+    '/offline-resources/ai-models.js',
+    '/offline-resources/wikipedia.js',
+    '/offline-resources/resource-monitor.js',
+    '/offline-resources/integration-manager.js'
 ];
 
 // Install event - cache static files
@@ -65,7 +65,7 @@ self.addEventListener('fetch', (event) => {
     const url = new URL(event.request.url);
     
     // Handle offline resources
-    if (url.pathname.startsWith('/offline/')) {
+    if (url.pathname.startsWith('/offline-resources/')) {
         event.respondWith(handleOfflineRequest(event.request));
         return;
     }
