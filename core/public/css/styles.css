@@ -1037,13 +1037,11 @@ header {
     font-size: 2.5rem;
     margin-bottom: 10px;
     text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
-    color: white;
 }
 
 .offline-page .header-left p {
     font-size: 1.1rem;
     opacity: 0.9;
-    color: white;
 }
 
 .offline-page .header-nav {
