@@ -1,3 +1,4 @@
+const logger = require('../core/logger');
 /**
  * Enhanced n8n Integration Module
  * 
@@ -25,11 +26,11 @@ class N8nIntegration {
                 headers: this.getHeaders()
             });
             this.available = response.status === 200;
-            console.log('✅ n8n service is available');
+            logger.info('✅ n8n service is available');
             return true;
         } catch (error) {
             this.available = false;
-            console.log('⚠️ n8n service not available:', error.message);
+            logger.info('⚠️ n8n service not available:', error.message);
             return false;
         }
     }
@@ -62,7 +63,7 @@ class N8nIntegration {
                 version: response.data.version || 'unknown'
             };
         } catch (error) {
-            console.error('Error getting n8n status:', error.message);
+            logger.error('Error getting n8n status:', error.message);
             return { status: 'error', message: error.message };
         }
     }
@@ -87,7 +88,7 @@ class N8nIntegration {
                 }))
             };
         } catch (error) {
-            console.error('Error listing n8n workflows:', error.message);
+            logger.error('Error listing n8n workflows:', error.message);
             return { workflows: [] };
         }
     }
@@ -104,7 +105,7 @@ class N8nIntegration {
             
             return response.data;
         } catch (error) {
-            console.error(`Error getting n8n workflow ${id}:`, error.message);
+            logger.error(`Error getting n8n workflow ${id}:`, error.message);
             return null;
         }
     }
@@ -124,7 +125,7 @@ class N8nIntegration {
                 message: `Workflow ${id} activated successfully`
             };
         } catch (error) {
-            console.error(`Error activating n8n workflow ${id}:`, error.message);
+            logger.error(`Error activating n8n workflow ${id}:`, error.message);
             return { success: false, message: error.message };
         }
     }
@@ -144,7 +145,7 @@ class N8nIntegration {
                 message: `Workflow ${id} deactivated successfully`
             };
         } catch (error) {
-            console.error(`Error deactivating n8n workflow ${id}:`, error.message);
+            logger.error(`Error deactivating n8n workflow ${id}:`, error.message);
             return { success: false, message: error.message };
         }
     }
@@ -167,7 +168,7 @@ class N8nIntegration {
                 data: response.data.data
             };
         } catch (error) {
-            console.error(`Error executing n8n workflow ${id}:`, error.message);
+            logger.error(`Error executing n8n workflow ${id}:`, error.message);
             return { success: false, message: error.message };
         }
     }
@@ -197,7 +198,7 @@ class N8nIntegration {
                 }))
             };
         } catch (error) {
-            console.error(`Error getting n8n executions for workflow ${workflowId}:`, error.message);
+            logger.error(`Error getting n8n executions for workflow ${workflowId}:`, error.message);
             return { executions: [] };
         }
     }
@@ -214,7 +215,7 @@ class N8nIntegration {
             
             return response.data;
         } catch (error) {
-            console.error(`Error getting n8n execution ${id}:`, error.message);
+            logger.error(`Error getting n8n execution ${id}:`, error.message);
             return null;
         }
     }
@@ -235,7 +236,7 @@ class N8nIntegration {
                 name: response.data.name
             };
         } catch (error) {
-            console.error('Error importing n8n workflow:', error.message);
+            logger.error('Error importing n8n workflow:', error.message);
             return { success: false, message: error.message };
         }
     }
@@ -245,7 +246,7 @@ class N8nIntegration {
             const workflowData = JSON.parse(fs.readFileSync(filePath, 'utf8'));
             return await this.importWorkflow(workflowData);
         } catch (error) {
-            console.error(`Error importing n8n workflow from file ${filePath}:`, error.message);
+            logger.error(`Error importing n8n workflow from file ${filePath}:`, error.message);
             return { success: false, message: error.message };
         }
     }
@@ -278,7 +279,7 @@ class N8nIntegration {
                 results
             };
         } catch (error) {
-            console.error('Error importing default n8n workflows:', error.message);
+            logger.error('Error importing default n8n workflows:', error.message);
             return {
                 success: false,
                 message: error.message,

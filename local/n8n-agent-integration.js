@@ -1,3 +1,4 @@
+const logger = require('../core/logger');
 /**
  * n8n AI Agent Integration for Local AI Questions
  * Provides seamless integration between the AI Questions app and n8n workflows
@@ -108,13 +109,13 @@ class N8nAgentIntegration {
 
                 return result;
             } catch (error) {
-                console.error('AI Agent processing failed:', error);
+                logger.error('AI Agent processing failed:', error);
                 
                 // Fallback to direct Ollama processing
                 return this.fallbackToDirectOllama(question, context, preferences, error);
             }
         } catch (error) {
-            console.error('Error in processQuestion:', error);
+            logger.error('Error in processQuestion:', error);
             return {
                 success: false,
                 error: 'Failed to process question: ' + error.message,
@@ -154,7 +155,7 @@ class N8nAgentIntegration {
 
             return await response.json();
         } catch (error) {
-            console.error('Task automation failed:', error);
+            logger.error('Task automation failed:', error);
             return {
                 success: false,
                 error: error.message,
@@ -169,7 +170,7 @@ class N8nAgentIntegration {
      * This doesn't rely on the deprecated wikipedia_api module
      */
     async fallbackToDirectOllama(question, context, preferences, originalError) {
-        console.log('Falling back to direct Ollama processing...');
+        logger.info('Falling back to direct Ollama processing...');
         
         try {
             // Use local Ollama for response generation without Wikipedia context
@@ -208,7 +209,7 @@ class N8nAgentIntegration {
                 }
             };
         } catch (fallbackError) {
-            console.error('Direct Ollama fallback also failed:', fallbackError);
+            logger.error('Direct Ollama fallback also failed:', fallbackError);
             
             return {
                 success: false,
@@ -250,14 +251,14 @@ class N8nAgentIntegration {
      * Initialize the agent integration
      */
     async initialize() {
-        console.log('Initializing n8n AI Agent Integration...');
+        logger.info('Initializing n8n AI Agent Integration...');
         
         try {
             const status = await this.getAgentStatus();
-            console.log('AI Agent Status:', status);
+            logger.info('AI Agent Status:', status);
             return status;
         } catch (error) {
-            console.error('Error initializing n8n AI Agent Integration:', error);
+            logger.error('Error initializing n8n AI Agent Integration:', error);
             return {
                 available: false,
                 n8nConnected: false,

@@ -1,3 +1,4 @@
+const logger = require('./logger');
 const fs = require('fs');
 const path = require('path');
 const https = require('https');
@@ -56,7 +57,7 @@ class OfflineResourceCache {
     }
 
     async cacheMinimalPackageResources() {
-        console.log('Starting minimal package resource caching...');
+        logger.info('Starting minimal package resource caching...');
         
         const resources = [
             {
@@ -92,7 +93,7 @@ class OfflineResourceCache {
 
         for (const resource of resources) {
             try {
-                console.log(`Downloading ${resource.name}...`);
+                logger.info(`Downloading ${resource.name}...`);
                 
                 const filePath = await this.downloadFile(
                     resource.url, 
@@ -102,7 +103,7 @@ class OfflineResourceCache {
                     }
                 );
 
-                console.log(`\n${resource.name} downloaded successfully`);
+                logger.info(`\n${resource.name} downloaded successfully`);
 
                 // Verify file exists and get actual size
                 const stats = fs.statSync(filePath);
@@ -120,7 +121,7 @@ class OfflineResourceCache {
                 manifest.totalSize += stats.size;
 
             } catch (error) {
-                console.error(`\nFailed to download ${resource.name}:`, error.message);
+                logger.error(`\nFailed to download ${resource.name}:`, error.message);
                 
                 // Add to manifest as unavailable
                 manifest.resources.push({
@@ -137,8 +138,8 @@ class OfflineResourceCache {
 
         // Save manifest
         fs.writeFileSync(this.manifestPath, JSON.stringify(manifest, null, 2));
-        console.log('\nMinimal package caching complete!');
-        console.log(`Total cached size: ${this.formatBytes(manifest.totalSize)}`);
+        logger.info('\nMinimal package caching complete!');
+        logger.info(`Total cached size: ${this.formatBytes(manifest.totalSize)}`);
         
         return manifest;
     }

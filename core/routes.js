@@ -1,3 +1,4 @@
+const logger = require('./logger');
 const express = require("express");
 const cron = require("node-cron");
 const crypto = require("crypto");
@@ -5,11 +6,11 @@ const crypto = require("crypto");
 // Generate a random debug token on startup if DEBUG_TOKEN is not set
 const DEBUG_TOKEN = process.env.DEBUG_TOKEN || (() => {
     const token = crypto.randomBytes(32).toString('hex');
-    console.log('\n===========================================')
-    console.log('DEBUG TOKEN GENERATED (for development):')
-    console.log(`   ${token}`)
-    console.log('   Set DEBUG_TOKEN env var to use a custom token')
-    console.log('===========================================\n')
+    logger.info('\n===========================================')
+    logger.info('DEBUG TOKEN GENERATED (for development):')
+    logger.info(`   ${token}`)
+    logger.info('   Set DEBUG_TOKEN env var to use a custom token')
+    logger.info('===========================================\n')
     return token;
 })();
 
@@ -91,8 +92,8 @@ module.exports = (db, ai, wikipedia, config) => {
         let allModels = [];
         let latestAnswers = [];
         let indexFlavor = "hosted-index"
-        console.log(`[DEBUG] Config object:`, config);
-        console.log(`[DEBUG] config.isLocal:`, config.isLocal);
+        logger.info(`[DEBUG] Config object:`, config);
+        logger.info(`[DEBUG] config.isLocal:`, config.isLocal);
         if (config.isLocal) {
             indexFlavor = "local-index"
         }
@@ -113,10 +114,10 @@ module.exports = (db, ai, wikipedia, config) => {
             // Fetch latest answers for all questions
             latestAnswers = await db.getLatestAnswers();
         } catch (error) {
-            console.error("Error fetching data for main page:", error);
+            logger.error("Error fetching data for main page:", error);
         }
 
-        console.log(`[DEBUG] Rendering view: ${indexFlavor}, isLocal: ${config.isLocal}`);
+        logger.info(`[DEBUG] Rendering view: ${indexFlavor}, isLocal: ${config.isLocal}`);
         res.render(indexFlavor, {
             user: req.user,
             todayQuestion,
@@ -172,7 +173,7 @@ module.exports = (db, ai, wikipedia, config) => {
                 }
             }
         } catch (error) {
-            console.error("Error fetching daily question and answer:", error);
+            logger.error("Error fetching daily question and answer:", error);
         }
 
         if (answer) {
@@ -209,7 +210,7 @@ module.exports = (db, ai, wikipedia, config) => {
             );
             res.json({ success: true, answer: savedAnswer });
         } catch (error) {
-            console.error("Error generating or saving answer:", error);
+            logger.error("Error generating or saving answer:", error);
             res.status(500).json({ error: error.message });
         }
     });
@@ -224,7 +225,7 @@ module.exports = (db, ai, wikipedia, config) => {
             try {
                 history = await db.getHistory(questionText);
             } catch (error) {
-                console.error("Error fetching history:", error);
+                logger.error("Error fetching history:", error);
             }
         }
 
@@ -238,7 +239,7 @@ module.exports = (db, ai, wikipedia, config) => {
             await db.deleteAnswer(id);
             res.json({ success: true });
         } catch (error) {
-            console.error("Error deleting answer:", error);
+            logger.error("Error deleting answer:", error);
             res.status(500).json({ error: "Failed to delete answer." });
         }
     });
@@ -254,7 +255,7 @@ module.exports = (db, ai, wikipedia, config) => {
             }
             res.json(todayQuestion);
         } catch (error) {
-            console.error('Error in question API route:', error);
+            logger.error('Error in question API route:', error);
             res.status(500).json({ 
                 error: 'Failed to get question'
             });
@@ -267,7 +268,7 @@ module.exports = (db, ai, wikipedia, config) => {
             const modelsResponse = await ai.listModels(req.user ? req.user.id : null);
             res.json(modelsResponse.models);
         } catch (error) {
-            console.error("Error listing models:", error);
+            logger.error("Error listing models:", error);
             res.status(500).json({ error: "Failed to retrieve models." });
         }
     });
@@ -288,7 +289,7 @@ module.exports = (db, ai, wikipedia, config) => {
                 res.json(modelsResponse.models);
             }
         } catch (error) {
-            console.error("Error listing models:", error);
+            logger.error("Error listing models:", error);
             res.status(500).json({ error: "Failed to retrieve models." });
         }
     });
@@ -305,7 +306,7 @@ module.exports = (db, ai, wikipedia, config) => {
                 res.json([]);
             }
         } catch (error) {
-            console.error("Error listing Ollama models:", error);
+            logger.error("Error listing Ollama models:", error);
             res.json([]); // Return empty array instead of error for Ollama
         }
     });
@@ -317,7 +318,7 @@ module.exports = (db, ai, wikipedia, config) => {
             const latestAnswers = await db.getLatestAnswers(limit);
             res.json(latestAnswers);
         } catch (error) {
-            console.error("Error in answers API route:", error);
+            logger.error("Error in answers API route:", error);
             res.status(500).json({ 
                 error: "Failed to get latest answers"
             });
@@ -337,7 +338,7 @@ module.exports = (db, ai, wikipedia, config) => {
             const preference = await db.saveUserModelPreference(userId, modelId, isEnabled, displayOrder);
             res.json({ success: true, preference });
         } catch (error) {
-            console.error("Error saving model preference:", error);
+            logger.error("Error saving model preference:", error);
             res.status(500).json({ error: "Failed to save model preference." });
         }
     });
@@ -354,7 +355,7 @@ module.exports = (db, ai, wikipedia, config) => {
             const preferences = await db.getUserModelPreferences(userId);
             res.json({ success: true, preferences });
         } catch (error) {
-            console.error("Error retrieving model preferences:", error);
+            logger.error("Error retrieving model preferences:", error);
             res.status(500).json({ error: "Failed to retrieve model preferences." });
         }
     });
@@ -372,7 +373,7 @@ module.exports = (db, ai, wikipedia, config) => {
             const savedKey = await db.saveUserApiKey(userId, provider, apiKey);
             res.json({ success: true, savedKey });
         } catch (error) {
-            console.error("Error saving API key:", error);
+            logger.error("Error saving API key:", error);
             res.status(500).json({ error: "Failed to save API key." });
         }
     });
@@ -419,7 +420,7 @@ module.exports = (db, ai, wikipedia, config) => {
             if (logger && typeof logger.error === 'function') {
                 logger.error('Error in answers history API route:', error);
             } else {
-                console.error('Error in answers history API route:', error);
+                logger.error('Error in answers history API route:', error);
             }
 
             res.status(500).json({ 
@@ -438,7 +439,7 @@ module.exports = (db, ai, wikipedia, config) => {
             const personalQuestions = await db.getPersonalQuestions(userId);
             res.render("personal-questions", { user: req.user, personalQuestions, isLocal: config.isLocal });
         } catch (error) {
-            console.error("Error fetching personal questions:", error);
+            logger.error("Error fetching personal questions:", error);
             res.status(500).send("Error fetching personal questions");
         }
     });
@@ -452,7 +453,7 @@ module.exports = (db, ai, wikipedia, config) => {
             const newQuestion = await db.createPersonalQuestion(userId, question, context);
             res.json({ success: true, question: newQuestion });
         } catch (error) {
-            console.error("Error creating personal question:", error);
+            logger.error("Error creating personal question:", error);
             res.status(500).json({ error: "Failed to create personal question." });
         }
     });
@@ -471,7 +472,7 @@ module.exports = (db, ai, wikipedia, config) => {
                 res.status(404).json({ error: "Personal question not found or not authorized." });
             }
         } catch (error) {
-            console.error("Error updating personal question:", error);
+            logger.error("Error updating personal question:", error);
             res.status(500).json({ error: "Failed to update personal question." });
         }
     });
@@ -489,7 +490,7 @@ module.exports = (db, ai, wikipedia, config) => {
                 res.status(404).json({ error: "Personal question not found or not authorized." });
             }
         } catch (error) {
-            console.error("Error deleting personal question:", error);
+            logger.error("Error deleting personal question:", error);
             res.status(500).json({ error: "Failed to delete personal question." });
         }
     });
@@ -507,7 +508,7 @@ module.exports = (db, ai, wikipedia, config) => {
             }
             res.json(answers);
         } catch (error) {
-            console.error("Error fetching personal question answers:", error);
+            logger.error("Error fetching personal question answers:", error);
             res.status(500).json({ error: "Failed to fetch answers." });
         }
     });
@@ -529,7 +530,7 @@ module.exports = (db, ai, wikipedia, config) => {
             
             res.json(schedule);
         } catch (error) {
-            console.error("Error fetching personal question schedule:", error);
+            logger.error("Error fetching personal question schedule:", error);
             res.status(500).json({ error: "Failed to fetch schedule." });
         }
     });
@@ -556,7 +557,7 @@ module.exports = (db, ai, wikipedia, config) => {
                 res.status(404).json({ error: "Schedule not found or not authorized." });
             }
         } catch (error) {
-            console.error("Error deleting personal question schedule:", error);
+            logger.error("Error deleting personal question schedule:", error);
             res.status(500).json({ error: "Failed to delete schedule." });
         }
     });
@@ -600,7 +601,7 @@ module.exports = (db, ai, wikipedia, config) => {
             
             res.json(savedAnswer);
         } catch (error) {
-            console.error("Error generating personal answer:", error);
+            logger.error("Error generating personal answer:", error);
             res.status(500).json({ error: "Failed to generate answer." });
         }
     });
@@ -617,7 +618,7 @@ module.exports = (db, ai, wikipedia, config) => {
             const history = await db.getPersonalQuestionAnswers(id, userId);
             res.render("personal-question-history", { user: req.user, question, history, isLocal: config.isLocal });
         } catch (error) {
-            console.error("Error fetching personal question history:", error);
+            logger.error("Error fetching personal question history:", error);
             res.status(500).send("Error fetching personal question history");
         }
     });
@@ -648,7 +649,7 @@ module.exports = (db, ai, wikipedia, config) => {
             );
             res.json({ success: true, answer: savedAnswer });
         } catch (error) {
-            console.error("Error generating or saving personal answer:", error);
+            logger.error("Error generating or saving personal answer:", error);
             res.status(500).json({ error: error.message });
         }
     });
@@ -663,7 +664,7 @@ module.exports = (db, ai, wikipedia, config) => {
             const personalQuestions = await db.getPersonalQuestions(userId);
             res.render("schedules", { user: req.user, schedules, personalQuestions, isLocal: config.isLocal });
         } catch (error) {
-            console.error("Error fetching schedules:", error);
+            logger.error("Error fetching schedules:", error);
             res.status(500).send("Error fetching schedules");
         }
     });
@@ -679,7 +680,7 @@ module.exports = (db, ai, wikipedia, config) => {
             });
             res.json({ success: true, schedule: newSchedule });
         } catch (error) {
-            console.error("Error creating schedule:", error);
+            logger.error("Error creating schedule:", error);
             res.status(500).json({ error: "Failed to create schedule." });
         }
     });
@@ -700,7 +701,7 @@ module.exports = (db, ai, wikipedia, config) => {
                 res.status(404).json({ error: "Schedule not found or not authorized." });
             }
         } catch (error) {
-            console.error("Error updating schedule:", error);
+            logger.error("Error updating schedule:", error);
             res.status(500).json({ error: "Failed to update schedule." });
         }
     });
@@ -718,7 +719,7 @@ module.exports = (db, ai, wikipedia, config) => {
                 res.status(404).json({ error: "Schedule not found or not authorized." });
             }
         } catch (error) {
-            console.error("Error deleting schedule:", error);
+            logger.error("Error deleting schedule:", error);
             res.status(500).json({ error: "Failed to delete schedule." });
         }
     });
@@ -737,7 +738,7 @@ module.exports = (db, ai, wikipedia, config) => {
                 res.status(404).json({ error: "Schedule not found or not authorized." });
             }
         } catch (error) {
-            console.error("Error toggling schedule:", error);
+            logger.error("Error toggling schedule:", error);
             res.status(500).json({ error: "Failed to toggle schedule." });
         }
     });
@@ -793,7 +794,7 @@ module.exports = (db, ai, wikipedia, config) => {
                     
                     successCount++;
                 } catch (error) {
-                    console.error(`Error executing model ${modelId}:`, error);
+                    logger.error(`Error executing model ${modelId}:`, error);
                     errors.push(`${modelId}: ${error.message}`);
                     failureCount++;
                 }
@@ -821,7 +822,7 @@ module.exports = (db, ai, wikipedia, config) => {
                 status: status
             });
         } catch (error) {
-            console.error("Error executing schedule:", error);
+            logger.error("Error executing schedule:", error);
             res.status(500).json({ error: "Failed to execute schedule." });
         }
     });
@@ -836,7 +837,7 @@ module.exports = (db, ai, wikipedia, config) => {
             const executions = await db.getScheduledExecutions(id, userId);
             res.json(executions);
         } catch (error) {
-            console.error("Error fetching execution history:", error);
+            logger.error("Error fetching execution history:", error);
             res.status(500).json({ error: "Failed to fetch execution history." });
         }
     });
@@ -884,7 +885,7 @@ module.exports = (db, ai, wikipedia, config) => {
             const executions = await db.getScheduledExecutions(id, userId);
             res.render("schedule-executions", { user: req.user, schedule, executions, isLocal: config.isLocal });
         } catch (error) {
-            console.error("Error fetching schedule executions:", error);
+            logger.error("Error fetching schedule executions:", error);
             res.status(500).send("Error fetching schedule executions");
         }
     });
@@ -896,7 +897,7 @@ module.exports = (db, ai, wikipedia, config) => {
             const results = await wikipedia.searchWikipedia(query);
             res.json(results);
         } catch (error) {
-            console.error("Wikipedia search error:", error);
+            logger.error("Wikipedia search error:", error);
             res.status(500).json({ error: "Failed to perform Wikipedia search." });
         }
     });
@@ -907,7 +908,7 @@ module.exports = (db, ai, wikipedia, config) => {
             const context = await wikipedia.getWikipediaContext(query, maxLength);
             res.json(context);
         } catch (error) {
-            console.error("Wikipedia context error:", error);
+            logger.error("Wikipedia context error:", error);
             res.status(500).json({ error: "Failed to get Wikipedia context." });
         }
     });
@@ -917,7 +918,7 @@ module.exports = (db, ai, wikipedia, config) => {
             const stats = await wikipedia.getWikipediaStats();
             res.json(stats);
         } catch (error) {
-            console.error("Wikipedia stats error:", error);
+            logger.error("Wikipedia stats error:", error);
             res.status(500).json({ error: "Failed to get Wikipedia stats." });
         }
     });
@@ -931,7 +932,7 @@ module.exports = (db, ai, wikipedia, config) => {
                 databaseSize: stats.databaseSize || 'Unknown'
             });
         } catch (error) {
-            console.error("Wikipedia status error:", error);
+            logger.error("Wikipedia status error:", error);
             res.json({
                 available: false,
                 error: error.message
@@ -945,7 +946,7 @@ module.exports = (db, ai, wikipedia, config) => {
             const article = await wikipedia.getArticle(title);
             res.json({ article });
         } catch (error) {
-            console.error("Wikipedia article error:", error);
+            logger.error("Wikipedia article error:", error);
             res.status(500).json({ error: "Failed to get Wikipedia article." });
         }
     });
@@ -991,7 +992,7 @@ module.exports = (db, ai, wikipedia, config) => {
                 userPreferences: userPreferences
             });
         } catch (error) {
-            console.error("Error getting config models:", error);
+            logger.error("Error getting config models:", error);
             res.status(500).json({ error: "Failed to load model configuration" });
         }
     });
@@ -1017,7 +1018,7 @@ module.exports = (db, ai, wikipedia, config) => {
             
             res.json({ success: true });
         } catch (error) {
-            console.error("Error saving model preferences:", error);
+            logger.error("Error saving model preferences:", error);
             res.status(500).json({ error: "Failed to save model preferences" });
         }
     });
@@ -1033,7 +1034,7 @@ module.exports = (db, ai, wikipedia, config) => {
             const apiKeys = await db.getUserApiKeys(userId);
             res.json(apiKeys);
         } catch (error) {
-            console.error("Error getting API keys:", error);
+            logger.error("Error getting API keys:", error);
             res.status(500).json({ error: "Failed to load API keys" });
         }
     });
@@ -1061,7 +1062,7 @@ module.exports = (db, ai, wikipedia, config) => {
             await db.saveUserApiKey(userId, provider, apiKey);
             res.json({ success: true });
         } catch (error) {
-            console.error("Error saving API key:", error);
+            logger.error("Error saving API key:", error);
             res.status(500).json({ error: "Failed to save API key" });
         }
     });
@@ -1078,7 +1079,7 @@ module.exports = (db, ai, wikipedia, config) => {
             await db.deleteUserApiKey(userId, provider);
             res.json({ success: true });
         } catch (error) {
-            console.error("Error deleting API key:", error);
+            logger.error("Error deleting API key:", error);
             res.status(500).json({ error: "Failed to delete API key" });
         }
     });

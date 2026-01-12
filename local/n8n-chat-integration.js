@@ -1,3 +1,4 @@
+const logger = require('../core/logger');
 /**
  * n8n Chat Integration
  * Handles routing chat and Wikipedia requests through n8n workflows
@@ -18,15 +19,15 @@ const N8nChatIntegration = {
    * Initialize the n8n chat integration
    */
   initialize() {
-    console.log('Initializing n8n Chat Integration...');
+    logger.info('Initializing n8n Chat Integration...');
     // Check if n8n is available
     this.checkN8nAvailability()
       .then(available => {
-        console.log(`n8n availability: ${available ? 'Available' : 'Unavailable'}`);
+        logger.info(`n8n availability: ${available ? 'Available' : 'Unavailable'}`);
         this.isAvailable = available;
       })
       .catch(error => {
-        console.error('Error checking n8n availability:', error);
+        logger.error('Error checking n8n availability:', error);
         this.isAvailable = false;
       });
   },
@@ -44,7 +45,7 @@ const N8nChatIntegration = {
       });
       return response.ok;
     } catch (error) {
-      console.error('n8n availability check failed:', error);
+      logger.error('n8n availability check failed:', error);
       return false;
     }
   },
@@ -78,13 +79,13 @@ const N8nChatIntegration = {
         if (response.ok) {
           return await response.json();
         } else {
-          console.warn('n8n chat request failed, falling back to direct API');
+          logger.warn('n8n chat request failed, falling back to direct API');
         }
       }
 
       // Fall back to direct API if n8n is unavailable or request failed
       if (this.config.fallbackToDirectApi) {
-        console.log('Using direct API fallback for chat');
+        logger.info('Using direct API fallback for chat');
         const response = await fetch('/api/chat', {
           method: 'POST',
           headers: {
@@ -97,7 +98,7 @@ const N8nChatIntegration = {
 
       throw new Error('Chat request failed and no fallback available');
     } catch (error) {
-      console.error('Chat request error:', error);
+      logger.error('Chat request error:', error);
       throw error;
     }
   },
@@ -125,13 +126,13 @@ const N8nChatIntegration = {
         if (response.ok) {
           return await response.json();
         } else {
-          console.warn('n8n Wikipedia article request failed, falling back to direct API');
+          logger.warn('n8n Wikipedia article request failed, falling back to direct API');
         }
       }
 
       // Fall back to direct API if n8n is unavailable or request failed
       if (this.config.fallbackToDirectApi) {
-        console.log('Using direct API fallback for Wikipedia article');
+        logger.info('Using direct API fallback for Wikipedia article');
         const response = await fetch(`/api/wikipedia/article/${articleId}`, {
           method: 'GET',
           headers: {
@@ -143,7 +144,7 @@ const N8nChatIntegration = {
 
       throw new Error('Wikipedia article request failed and no fallback available');
     } catch (error) {
-      console.error('Wikipedia article request error:', error);
+      logger.error('Wikipedia article request error:', error);
       throw error;
     }
   }

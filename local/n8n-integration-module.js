@@ -1,3 +1,4 @@
+const logger = require('../core/logger');
 /**
  * Integration module for local-index.js
  * Connects the main application with n8n workflows
@@ -12,7 +13,7 @@ const WikipediaParserN8n = require('./wikipedia-parser-n8n');
  * @param {Object} app - Express application instance
  */
 function initializeN8nIntegration(app) {
-  console.log('Initializing n8n integration for chat and Wikipedia...');
+  logger.info('Initializing n8n integration for chat and Wikipedia...');
   
   // Initialize the n8n chat integration
   n8nChatIntegration.initialize();
@@ -42,7 +43,7 @@ function initializeN8nIntegration(app) {
       
       res.json(result);
     } catch (error) {
-      console.error('n8n chat error:', error);
+      logger.error('n8n chat error:', error);
       res.status(500).json({ 
         success: false, 
         error: error.message || 'Failed to process chat through n8n'
@@ -67,7 +68,7 @@ function initializeN8nIntegration(app) {
       
       res.json(result);
     } catch (error) {
-      console.error('n8n Wikipedia article error:', error);
+      logger.error('n8n Wikipedia article error:', error);
       res.status(500).json({ 
         success: false, 
         error: error.message || 'Failed to get Wikipedia article through n8n'
@@ -98,7 +99,7 @@ function initializeN8nIntegration(app) {
           return originalHandler(req, res, next);
         }
       } catch (error) {
-        console.error('Error in n8n chat wrapper:', error);
+        logger.error('Error in n8n chat wrapper:', error);
         // Fall back to original handler
         return originalHandler(req, res, next);
       }
@@ -128,14 +129,14 @@ function initializeN8nIntegration(app) {
           return originalHandler(req, res, next);
         }
       } catch (error) {
-        console.error('Error in n8n Wikipedia article wrapper:', error);
+        logger.error('Error in n8n Wikipedia article wrapper:', error);
         // Fall back to original handler
         return originalHandler(req, res, next);
       }
     };
   }
   
-  console.log('n8n integration initialized successfully');
+  logger.info('n8n integration initialized successfully');
   return true;
 }
 

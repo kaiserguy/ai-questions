@@ -1,3 +1,4 @@
+const logger = require('../core/logger');
 /**
  * Local Package Generator
  * 
@@ -32,7 +33,7 @@ class PackageGenerator {
     }
     
     async generatePackage() {
-        console.log('Starting package generation...');
+        logger.info('Starting package generation...');
         
         try {
             // Create output paths
@@ -45,14 +46,14 @@ class PackageGenerator {
             // Create outer package
             await this.generateOuterPackage(innerPackagePath, outputPath);
             
-            console.log(`Package generated successfully: ${outputPath}`);
+            logger.info(`Package generated successfully: ${outputPath}`);
             return {
                 success: true,
                 packagePath: outputPath,
                 size: fs.statSync(outputPath).size
             };
         } catch (error) {
-            console.error('Error generating package:', error);
+            logger.error('Error generating package:', error);
             return {
                 success: false,
                 error: error.message
@@ -68,7 +69,7 @@ class PackageGenerator {
             });
             
             output.on('close', () => {
-                console.log(`Inner package created: ${archive.pointer()} total bytes`);
+                logger.info(`Inner package created: ${archive.pointer()} total bytes`);
                 resolve();
             });
             
@@ -105,7 +106,7 @@ class PackageGenerator {
             });
             
             output.on('close', () => {
-                console.log(`Outer package created: ${archive.pointer()} total bytes`);
+                logger.info(`Outer package created: ${archive.pointer()} total bytes`);
                 resolve();
             });
             
@@ -138,10 +139,10 @@ class PackageGenerator {
         return new Promise((resolve, reject) => {
             exec(`rm -rf ${this.options.tempDir}/*`, (error) => {
                 if (error) {
-                    console.error('Error cleaning up temp files:', error);
+                    logger.error('Error cleaning up temp files:', error);
                     reject(error);
                 } else {
-                    console.log('Temporary files cleaned up');
+                    logger.info('Temporary files cleaned up');
                     resolve();
                 }
             });

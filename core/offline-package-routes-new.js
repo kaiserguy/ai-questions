@@ -1,3 +1,4 @@
+const logger = require('./logger');
 const express = require('express');
 const path = require('path');
 const fs = require('fs');
@@ -32,7 +33,7 @@ router.get('/api/offline/packages/availability', async (req, res) => {
             }
         });
     } catch (error) {
-        console.error('Error checking package availability:', error);
+        logger.error('Error checking package availability:', error);
         res.status(500).json({ 
             success: false,
             error: 'Failed to check package availability',
@@ -44,20 +45,20 @@ router.get('/api/offline/packages/availability', async (req, res) => {
 // Build minimal package cache (admin endpoint)
 router.post('/api/offline/packages/build', async (req, res) => {
     try {
-        console.log('Starting minimal package build...');
+        logger.info('Starting minimal package build...');
         res.json({ status: 'started', message: 'Building minimal package cache...' });
         
         // Start caching in background
         cache.cacheMinimalPackageResources()
             .then(manifest => {
-                console.log('Minimal package build completed:', manifest);
+                logger.info('Minimal package build completed:', manifest);
             })
             .catch(error => {
-                console.error('Minimal package build failed:', error);
+                logger.error('Minimal package build failed:', error);
             });
             
     } catch (error) {
-        console.error('Error starting package build:', error);
+        logger.error('Error starting package build:', error);
         res.status(500).json({ error: 'Failed to start package build' });
     }
 });
@@ -68,7 +69,7 @@ router.get('/api/offline/packages/status', (req, res) => {
         const packageInfo = cache.getPackageInfo();
         res.json(packageInfo);
     } catch (error) {
-        console.error('Error getting package status:', error);
+        logger.error('Error getting package status:', error);
         res.status(500).json({ error: 'Failed to get package status' });
     }
 });
@@ -94,7 +95,7 @@ router.get('/offline/packages/:filename', (req, res) => {
         stream.pipe(res);
         
     } catch (error) {
-        console.error('Error serving cached file:', error);
+        logger.error('Error serving cached file:', error);
         res.status(500).json({ error: 'Failed to serve file' });
     }
 });
@@ -182,7 +183,7 @@ Total size: ${cache.formatBytes(manifest.totalSize)}
         await archive.finalize();
         
     } catch (error) {
-        console.error('Error creating minimal package ZIP:', error);
+        logger.error('Error creating minimal package ZIP:', error);
         res.status(500).json({ error: 'Failed to create package' });
     }
 });
@@ -205,7 +206,7 @@ router.get('/api/offline/packages/minimal/manifest', (req, res) => {
             manifest: manifest
         });
     } catch (error) {
-        console.error('Error getting minimal package manifest:', error);
+        logger.error('Error getting minimal package manifest:', error);
         res.status(500).json({ 
             success: false,
             error: 'Failed to get manifest',
