@@ -305,5 +305,120 @@ describe('DownloadManager', () => {
       expect(() => manager.updateProgress('Test message')).not.toThrow();
     });
   });
+
+  describe('Storage Space Validation', () => {
+    test('should check storage space before download', async () => {
+      const manager = new DownloadManager('minimal');
+      
+      // Mock navigator.storage.estimate
+      global.navigator.storage = {
+        estimate: jest.fn().mockResolvedValue({
+          quota: 1000 * 1024 * 1024, // 1GB
+          usage: 100 * 1024 * 1024    // 100MB used
+        })
+      };
+
+      const result = await manager.checkStorageSpace();
+      
+      expect(result).toHaveProperty('sufficient');
+      expect(result).toHaveProperty('message');
+      expect(result.sufficient).toBe(true);
+    });
+
+    test('should return insufficient storage when space is low', async () => {
+      const manager = new DownloadManager('standard');
+      
+      // Mock insufficient storage
+      global.navigator.storage = {
+        estimate: jest.fn().mockResolvedValue({
+          quota: 500 * 1024 * 1024,   // 500MB total
+          usage: 100 * 1024 * 1024    // 100MB used, only 400MB available
+        })
+      };
+
+      const result = await manager.checkStorageSpace();
+      
+      expect(result.sufficient).toBe(false);
+      expect(result.message).toContain('Insufficient storage space');
+    });
+
+    test('should handle missing Storage API gracefully', async () => {
+      const manager = new DownloadManager('minimal');
+      
+      // Remove storage API
+      delete global.navigator.storage;
+
+      const result = await manager.checkStorageSpace();
+      
+      expect(result.sufficient).toBe(true);
+      expect(result.message).toContain('Storage check not available');
+    });
+
+    test('should calculate correct package sizes in bytes', () => {
+      const minimalManager = new DownloadManager('minimal');
+      const standardManager = new DownloadManager('standard');
+      const fullManager = new DownloadManager('full');
+
+      expect(minimalManager.getPackageSizeInBytes()).toBe(175 * 1024 * 1024);
+      expect(standardManager.getPackageSizeInBytes()).toBe(555 * 1024 * 1024);
+      expect(fullManager.getPackageSizeInBytes()).toBe(1705 * 1024 * 1024);
+    });
+
+    test('should add 20% buffer to storage requirement', async () => {
+      const manager = new DownloadManager('minimal');
+      const requiredBytes = manager.getPackageSizeInBytes();
+      
+      global.navigator.storage = {
+        estimate: jest.fn().mockResolvedValue({
+          quota: 1000 * 1024 * 1024,
+          usage: 1000 * 1024 * 1024 - requiredBytes // Exactly enough without buffer
+        })
+      };
+
+      const result = await manager.checkStorageSpace();
+      
+      // Should fail because we need 20% buffer
+      expect(result.sufficient).toBe(false);
+    });
+
+    test('should handle storage estimation errors', async () => {
+      const manager = new DownloadManager('minimal');
+      
+      global.navigator.storage = {
+        estimate: jest.fn().mockRejectedValue(new Error('Storage error'))
+      };
+
+      const result = await manager.checkStorageSpace();
+      
+      // Should allow download to proceed on error
+      expect(result.sufficient).toBe(true);
+      expect(result.message).toContain('Unable to verify storage space');
+    });
+
+    test('should prevent download when storage check fails', async () => {
+      const manager = new DownloadManager('full');
+      
+      // Mock insufficient storage
+      global.navigator.storage = {
+        estimate: jest.fn().mockResolvedValue({
+          quota: 1000 * 1024 * 1024,  // 1GB total
+          usage: 900 * 1024 * 1024    // 900MB used
+        })
+      };
+
+      // Mock the error handler
+      const mockErrorHandler = jest.fn();
+      manager.setEventHandlers({
+        onError: mockErrorHandler
+      });
+
+      // Try to start download
+      await manager.startDownload();
+
+      // Should have called error handler with storage error
+      expect(mockErrorHandler).toHaveBeenCalled();
+      expect(mockErrorHandler.mock.calls[0][0]).toContain('Insufficient storage space');
+    });
+  });
 });
 

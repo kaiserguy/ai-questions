@@ -97,6 +97,12 @@ class DownloadManager {
         console.log(`Starting download of ${this.packageType} package`);
         
         try {
+            // Check storage space first
+            const storageCheck = await this.checkStorageSpace();
+            if (!storageCheck.sufficient) {
+                throw new Error(storageCheck.message);
+            }
+            
             // Check package availability first
             await this.checkPackageAvailability();
             
@@ -161,6 +167,88 @@ class DownloadManager {
             }
             
             throw error;
+        }
+    }
+    
+    /**
+     * Check if sufficient storage space is available
+     * @returns {Object} Object with sufficient (boolean) and message (string)
+     */
+    async checkStorageSpace() {
+        const requiredBytes = this.getPackageSizeInBytes();
+        
+        try {
+            // Check if Storage API is supported
+            if (!navigator.storage || !navigator.storage.estimate) {
+                console.warn('Storage API not supported, skipping storage check');
+                return {
+                    sufficient: true,
+                    message: 'Storage check not available on this browser',
+                    available: 'unknown',
+                    required: this.formatBytes(requiredBytes)
+                };
+            }
+            
+            // Get storage estimate
+            const estimate = await navigator.storage.estimate();
+            const availableBytes = (estimate.quota || 0) - (estimate.usage || 0);
+            
+            // Add 20% buffer for safety
+            const requiredWithBuffer = requiredBytes * 1.2;
+            
+            console.log('Storage check:', {
+                required: this.formatBytes(requiredBytes),
+                requiredWithBuffer: this.formatBytes(requiredWithBuffer),
+                available: this.formatBytes(availableBytes),
+                quota: this.formatBytes(estimate.quota || 0),
+                usage: this.formatBytes(estimate.usage || 0)
+            });
+            
+            if (availableBytes < requiredWithBuffer) {
+                return {
+                    sufficient: false,
+                    message: `Insufficient storage space. Required: ${this.formatBytes(requiredWithBuffer)} (including 20% buffer), Available: ${this.formatBytes(availableBytes)}. Please free up ${this.formatBytes(requiredWithBuffer - availableBytes)} of space.`,
+                    available: this.formatBytes(availableBytes),
+                    required: this.formatBytes(requiredWithBuffer)
+                };
+            }
+            
+            return {
+                sufficient: true,
+                message: 'Sufficient storage space available',
+                available: this.formatBytes(availableBytes),
+                required: this.formatBytes(requiredWithBuffer)
+            };
+            
+        } catch (error) {
+            console.error('Error checking storage:', error);
+            // If storage check fails, allow download to proceed with warning
+            return {
+                sufficient: true,
+                message: 'Unable to verify storage space, proceeding with download',
+                available: 'unknown',
+                required: this.formatBytes(requiredBytes)
+            };
+        }
+    }
+    
+    /**
+     * Get package size in bytes
+     * @returns {number} Size in bytes
+     */
+    getPackageSizeInBytes() {
+        switch (this.packageType) {
+            case 'minimal':
+                // Libraries (5MB) + AI Model (150MB) + Wikipedia (20MB)
+                return (5 + 150 + 20) * 1024 * 1024;
+            case 'standard':
+                // Libraries (5MB) + AI Model (500MB) + Wikipedia (50MB)
+                return (5 + 500 + 50) * 1024 * 1024;
+            case 'full':
+                // Libraries (5MB) + AI Model (1500MB) + Wikipedia (200MB)
+                return (5 + 1500 + 200) * 1024 * 1024;
+            default:
+                return 200 * 1024 * 1024; // Default 200MB
         }
     }
     
