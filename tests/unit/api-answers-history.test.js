@@ -25,7 +25,7 @@ describe('API Answers History Route Tests', () => {
         });
 
         test('should be an async route handler', () => {
-            const routeMatch = routesContent.match(/router\.get\("\/api\/answers\/history".*async/);
+            const routeMatch = routesContent.match(/router\.get\("\/api\/answers\/history"[\s\S]*?async/);
             expect(routeMatch).toBeTruthy();
         });
     });

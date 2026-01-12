@@ -1,6 +1,7 @@
 const express = require("express");
 const cron = require("node-cron");
 const crypto = require("crypto");
+const { validationRules, validateRequest, sanitizeInput } = require("./validation");
 
 // Generate a random debug token on startup if DEBUG_TOKEN is not set
 const DEBUG_TOKEN = process.env.DEBUG_TOKEN || (() => {
@@ -183,40 +184,43 @@ module.exports = (db, ai, wikipedia, config) => {
     });
 
     // API to generate a new answer
-    router.post("/api/generate-answer", ensureAuthenticated, async (req, res) => {
-        const { question, context, modelId } = req.body;
-        const userId = req.user ? req.user.id : null;
+    router.post("/api/generate-answer", 
+        ensureAuthenticated,
+        validationRules.question(),
+        validationRules.context(),
+        validationRules.modelId(),
+        validateRequest,
+        async (req, res) => {
+            const { question, context, modelId } = req.body;
+            const userId = req.user ? req.user.id : null;
 
-        if (!question || !modelId) {
-            return res.status(400).json({ error: "Question and model ID are required." });
+            try {
+                const promptVersion = "2.0"; // New concise prompt version
+                const aiResponse = await ai.generateResponse(modelId, question, context, userId);
+                const savedAnswer = await db.saveAnswer(
+                    question,
+                    context,
+                    aiResponse.answer,
+                    aiResponse.model,
+                    aiResponse.model_name,
+                    aiResponse.confidence,
+                    new Date(),
+                    userId,
+                    null, // personal_question_id
+                    false, // is_personal
+                    promptVersion
+                );
+                res.json({ success: true, answer: savedAnswer });
+            } catch (error) {
+                console.error("Error generating or saving answer:", error);
+                res.status(500).json({ error: error.message });
+            }
         }
-
-        try {
-            const promptVersion = "2.0"; // New concise prompt version
-            const aiResponse = await ai.generateResponse(modelId, question, context, userId);
-            const savedAnswer = await db.saveAnswer(
-                question,
-                context,
-                aiResponse.answer,
-                aiResponse.model,
-                aiResponse.model_name,
-                aiResponse.confidence,
-                new Date(),
-                userId,
-                null, // personal_question_id
-                false, // is_personal
-                promptVersion
-            );
-            res.json({ success: true, answer: savedAnswer });
-        } catch (error) {
-            console.error("Error generating or saving answer:", error);
-            res.status(500).json({ error: error.message });
-        }
-    });
+    );
 
     // API to get answer history for a question
     router.get("/history", async (req, res) => {
-        const questionText = req.query.question;
+        const questionText = sanitizeInput(req.query.question);
         const userId = req.user ? req.user.id : null;
         let history = [];
 
@@ -325,22 +329,27 @@ module.exports = (db, ai, wikipedia, config) => {
     });
 
     // API to save user model preferences
-    router.post("/api/user/model-preferences", ensureAuthenticated, async (req, res) => {
-        const { modelId, isEnabled, displayOrder } = req.body;
-        const userId = req.user ? req.user.id : null;
+    router.post("/api/user/model-preferences",
+        ensureAuthenticated,
+        validationRules.modelPreferences(),
+        validateRequest,
+        async (req, res) => {
+            const { modelId, isEnabled, displayOrder } = req.body;
+            const userId = req.user ? req.user.id : null;
 
-        if (!userId) {
-            return res.status(401).json({ error: "Authentication required." });
-        }
+            if (!userId) {
+                return res.status(401).json({ error: "Authentication required." });
+            }
 
-        try {
-            const preference = await db.saveUserModelPreference(userId, modelId, isEnabled, displayOrder);
-            res.json({ success: true, preference });
-        } catch (error) {
-            console.error("Error saving model preference:", error);
-            res.status(500).json({ error: "Failed to save model preference." });
+            try {
+                const preference = await db.saveUserModelPreference(userId, modelId, isEnabled, displayOrder);
+                res.json({ success: true, preference });
+            } catch (error) {
+                console.error("Error saving model preference:", error);
+                res.status(500).json({ error: "Failed to save model preference." });
+            }
         }
-    });
+    );
 
     // API to get user model preferences
     router.get("/api/user/model-preferences", ensureAuthenticated, async (req, res) => {
@@ -360,74 +369,85 @@ module.exports = (db, ai, wikipedia, config) => {
     });
 
     // API to save user API key
-    router.post("/api/user/api-key", ensureAuthenticated, async (req, res) => {
-        const { provider, apiKey } = req.body;
-        const userId = req.user ? req.user.id : null;
+    router.post("/api/user/api-key",
+        ensureAuthenticated,
+        validationRules.provider(),
+        validationRules.apiKey(),
+        validateRequest,
+        async (req, res) => {
+            const { provider, apiKey } = req.body;
+            const userId = req.user ? req.user.id : null;
 
-        if (!userId) {
-            return res.status(401).json({ error: "Authentication required." });
-        }
+            if (!userId) {
+                return res.status(401).json({ error: "Authentication required." });
+            }
 
-        try {
-            const savedKey = await db.saveUserApiKey(userId, provider, apiKey);
-            res.json({ success: true, savedKey });
-        } catch (error) {
-            console.error("Error saving API key:", error);
-            res.status(500).json({ error: "Failed to save API key." });
+            try {
+                const savedKey = await db.saveUserApiKey(userId, provider, apiKey);
+                res.json({ success: true, savedKey });
+            } catch (error) {
+                console.error("Error saving API key:", error);
+                res.status(500).json({ error: "Failed to save API key." });
+            }
         }
-    });
+    );
 
     // API route to get answer history for a specific question
-    router.get("/api/answers/history", ensureAuthenticated, async (req, res) => {
-        try {
-            const question = req.query.question;
-            
-            if (!question) {
-                return res.status(400).json({ 
-                    error: 'Missing required parameter: question' 
-                });
-            }
-            
-            const history = await db.getHistory(question);
-            
-            // Distinguish between a non-existent question and questions with no history
-            if (history === null || typeof history === 'undefined') {
-                return res.status(404).json({
-                    error: 'Question not found',
-                    question: question
-                });
-            }
+    router.get("/api/answers/history",
+        ensureAuthenticated,
+        validationRules.questionQuery(),
+        validateRequest,
+        async (req, res) => {
+            try {
+                const question = req.query.question;
+                
+                if (!question) {
+                    return res.status(400).json({ 
+                        error: 'Missing required parameter: question' 
+                    });
+                }
+                
+                const history = await db.getHistory(question);
+                
+                // Distinguish between a non-existent question and questions with no history
+                if (history === null || typeof history === 'undefined') {
+                    return res.status(404).json({
+                        error: 'Question not found',
+                        question: question
+                    });
+                }
 
-            if (Array.isArray(history) && history.length === 0) {
-                return res.status(200).json({
+                if (Array.isArray(history) && history.length === 0) {
+                    return res.status(200).json({
+                        question: question,
+                        history: [],
+                        message: 'No answer history found for this question.'
+                    });
+                }
+
+                res.json({
                     question: question,
-                    history: [],
-                    message: 'No answer history found for this question.'
+                    history: history
+                });
+            } catch (error) {
+                // Use application logger if available, fallback to console.error
+                const logger = req.app && typeof req.app.get === 'function'
+                    ? req.app.get('logger')
+                    : null;
+
+                if (logger && typeof logger.error === 'function') {
+                    logger.error('Error in answers history API route:', error);
+                } else {
+                    console.error('Error in answers history API route:', error);
+                }
+
+                res.status(500).json({ 
+                    error: 'Failed to get answer history', 
+                    message: error.message 
                 });
             }
-
-            res.json({
-                question: question,
-                history: history
-            });
-        } catch (error) {
-            // Use application logger if available, fallback to console.error
-            const logger = req.app && typeof req.app.get === 'function'
-                ? req.app.get('logger')
-                : null;
-
-            if (logger && typeof logger.error === 'function') {
-                logger.error('Error in answers history API route:', error);
-            } else {
-                console.error('Error in answers history API route:', error);
-            }
-
-            res.status(500).json({ 
-                error: 'Failed to get answer history', 
-                message: error.message 
-            });
         }
-    });
+    );
 
     // Personal Questions Routes
     router.get("/personal-questions", ensureAuthenticated, async (req, res) => {
@@ -443,22 +463,32 @@ module.exports = (db, ai, wikipedia, config) => {
         }
     });
 
-    router.post("/api/personal-questions", ensureAuthenticated, async (req, res) => {
-        const { question, context } = req.body;
-        const userId = req.user ? req.user.id : null;
-        if (!userId) return res.status(401).json({ error: "Authentication required." });
+    router.post("/api/personal-questions",
+        ensureAuthenticated,
+        validationRules.personalQuestion(),
+        validateRequest,
+        async (req, res) => {
+            const { question, context } = req.body;
+            const userId = req.user ? req.user.id : null;
+            if (!userId) return res.status(401).json({ error: "Authentication required." });
 
-        try {
-            const newQuestion = await db.createPersonalQuestion(userId, question, context);
-            res.json({ success: true, question: newQuestion });
-        } catch (error) {
-            console.error("Error creating personal question:", error);
-            res.status(500).json({ error: "Failed to create personal question." });
+            try {
+                const newQuestion = await db.createPersonalQuestion(userId, question, context);
+                res.json({ success: true, question: newQuestion });
+            } catch (error) {
+                console.error("Error creating personal question:", error);
+                res.status(500).json({ error: "Failed to create personal question." });
+            }
         }
-    });
+    );
 
-    router.put("/api/personal-questions/:id", ensureAuthenticated, async (req, res) => {
-        const { id } = req.params;
+    router.put("/api/personal-questions/:id",
+        ensureAuthenticated,
+        validationRules.id(),
+        validationRules.personalQuestion(),
+        validateRequest,
+        async (req, res) => {
+            const { id } = req.params;
         const { question, context } = req.body;
         const userId = req.user ? req.user.id : null;
         if (!userId) return res.status(401).json({ error: "Authentication required." });
@@ -668,16 +698,20 @@ module.exports = (db, ai, wikipedia, config) => {
         }
     });
 
-    router.post("/api/schedules", ensureAuthenticated, async (req, res) => {
-        const { questionId, frequencyType, frequencyValue, frequencyUnit, selectedModels, nextRunDate } = req.body;
-        const userId = req.user ? req.user.id : null;
-        if (!userId) return res.status(401).json({ error: "Authentication required." });
+    router.post("/api/schedules",
+        ensureAuthenticated,
+        validationRules.schedule(),
+        validateRequest,
+        async (req, res) => {
+            const { questionId, frequencyType, frequencyValue, frequencyUnit, selectedModels, nextRunDate } = req.body;
+            const userId = req.user ? req.user.id : null;
+            if (!userId) return res.status(401).json({ error: "Authentication required." });
 
-        try {
-            const newSchedule = await db.createQuestionSchedule({
-                userId, questionId, frequencyType, frequencyValue, frequencyUnit, selectedModels, nextRunDate
-            });
-            res.json({ success: true, schedule: newSchedule });
+            try {
+                const newSchedule = await db.createQuestionSchedule({
+                    userId, questionId, frequencyType, frequencyValue, frequencyUnit, selectedModels, nextRunDate
+                });
+                res.json({ success: true, schedule: newSchedule });
         } catch (error) {
             console.error("Error creating schedule:", error);
             res.status(500).json({ error: "Failed to create schedule." });
@@ -890,27 +924,37 @@ module.exports = (db, ai, wikipedia, config) => {
     });
 
     // Wikipedia Routes
-    router.get("/api/wikipedia/search", ensureAuthenticated, async (req, res) => {
-        const { query } = req.query;
-        try {
-            const results = await wikipedia.searchWikipedia(query);
-            res.json(results);
-        } catch (error) {
-            console.error("Wikipedia search error:", error);
-            res.status(500).json({ error: "Failed to perform Wikipedia search." });
+    router.get("/api/wikipedia/search",
+        ensureAuthenticated,
+        validationRules.wikipediaSearch(),
+        validateRequest,
+        async (req, res) => {
+            const { query } = req.query;
+            try {
+                const results = await wikipedia.searchWikipedia(query);
+                res.json(results);
+            } catch (error) {
+                console.error("Wikipedia search error:", error);
+                res.status(500).json({ error: "Failed to perform Wikipedia search." });
+            }
         }
-    });
+    );
 
-    router.get("/api/wikipedia/context", ensureAuthenticated, async (req, res) => {
-        const { query, maxLength } = req.query;
-        try {
-            const context = await wikipedia.getWikipediaContext(query, maxLength);
-            res.json(context);
-        } catch (error) {
-            console.error("Wikipedia context error:", error);
-            res.status(500).json({ error: "Failed to get Wikipedia context." });
+    router.get("/api/wikipedia/context",
+        ensureAuthenticated,
+        validationRules.wikipediaSearch(),
+        validateRequest,
+        async (req, res) => {
+            const { query, maxLength } = req.query;
+            try {
+                const context = await wikipedia.getWikipediaContext(query, maxLength);
+                res.json(context);
+            } catch (error) {
+                console.error("Wikipedia context error:", error);
+                res.status(500).json({ error: "Failed to get Wikipedia context." });
+            }
         }
-    });
+    );
 
     router.get("/api/wikipedia/stats", ensureAuthenticated, async (req, res) => {
         try {
@@ -939,16 +983,21 @@ module.exports = (db, ai, wikipedia, config) => {
         }
     });
 
-    router.get("/api/wikipedia/article", ensureAuthenticated, async (req, res) => {
-        const { title } = req.query;
-        try {
-            const article = await wikipedia.getArticle(title);
-            res.json({ article });
-        } catch (error) {
-            console.error("Wikipedia article error:", error);
-            res.status(500).json({ error: "Failed to get Wikipedia article." });
+    router.get("/api/wikipedia/article",
+        ensureAuthenticated,
+        validationRules.wikipediaArticle(),
+        validateRequest,
+        async (req, res) => {
+            const { title } = req.query;
+            try {
+                const article = await wikipedia.getArticle(title);
+                res.json({ article });
+            } catch (error) {
+                console.error("Wikipedia article error:", error);
+                res.status(500).json({ error: "Failed to get Wikipedia article." });
+            }
         }
-    });
+    );
 
     // ===== CONFIG PAGE ROUTE =====
     // Config page - accessible to both logged-in and guest users
