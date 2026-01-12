@@ -1040,6 +1040,22 @@ header {
     box-shadow: 0 10px 30px rgba(0,0,0,0.1);
 }
 
+.offline-page .prototype-warning {
+    background: #fff3cd;
+    border-left: 4px solid #ffc107;
+    margin-bottom: 20px;
+}
+
+.offline-page .prototype-warning p {
+    margin: 0;
+    font-weight: 500;
+}
+
+.offline-page .prototype-warning a {
+    color: #0066cc;
+    text-decoration: underline;
+}
+
 .offline-page .status-indicator {
     display: flex;
     align-items: center;
@@ -1641,160 +1657,375 @@ header {
     }
 }
 
-/* ===== ADDITIONAL MOBILE ENHANCEMENTS ===== */
 
-/* Improve readability on very small screens (iPhone SE, older Android) */
-@media (max-width: 374px) {
-    body {
-        font-size: 15px;
+/* Site Navigation */
+.site-nav {
+    background: #1a1a2e;
+    padding: 1rem 0;
+    position: sticky;
+    top: 0;
+    z-index: 1000;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+}
+
+.nav-container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 1rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.nav-logo {
+    font-size: 1.5rem;
+    font-weight: bold;
+    color: #fff;
+    text-decoration: none;
+}
+
+.nav-links {
+    display: flex;
+    gap: 2rem;
+}
+
+.nav-links a {
+    color: #a0a0a0;
+    text-decoration: none;
+    transition: color 0.2s;
+}
+
+.nav-links a:hover,
+.nav-links a.active {
+    color: #fff;
+}
+
+.nav-toggle {
+    display: none;
+    flex-direction: column;
+    gap: 4px;
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 0.5rem;
+}
+
+.nav-toggle span {
+    width: 24px;
+    height: 2px;
+    background: #fff;
+    transition: transform 0.2s;
+}
+
+/* Breadcrumb */
+.breadcrumb {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0.75rem 1rem;
+    font-size: 0.875rem;
+    color: #6b7280;
+}
+
+.breadcrumb a {
+    color: #3498db;
+    text-decoration: none;
+}
+
+.breadcrumb a:hover {
+    text-decoration: underline;
+}
+
+.breadcrumb .separator {
+    margin: 0 0.5rem;
+    color: #9ca3af;
+}
+
+.breadcrumb .current {
+    color: #374151;
+}
+
+/* Mobile Navigation */
+@media (max-width: 768px) {
+    .nav-toggle {
+        display: flex;
     }
     
-    .header h1 {
-        font-size: 1.3rem;
+    .nav-links {
+        display: none;
+        position: absolute;
+        top: 100%;
+        left: 0;
+        right: 0;
+        background: #1a1a2e;
+        flex-direction: column;
+        padding: 1rem;
+        gap: 1rem;
     }
     
-    /* Slightly smaller padding for very small screens */
-    .container {
-        padding: 8px;
+    .nav-links.open {
+        display: flex;
     }
-    
-    /* Stack buttons vertically if needed */
-    .header-nav, .personal-question-actions, .schedule-modal-actions {
+}
+
+
+/* Download Controls */
+.download-controls {
+    display: flex;
+    gap: 0.75rem;
+    margin: 1rem 0;
+    justify-content: center;
+}
+
+.control-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 1rem;
+    border: none;
+    border-radius: 6px;
+    font-size: 0.9rem;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.pause-btn {
+    background: #f59e0b;
+    color: white;
+}
+
+.pause-btn:hover {
+    background: #d97706;
+}
+
+.resume-btn {
+    background: #10b981;
+    color: white;
+}
+
+.resume-btn:hover {
+    background: #059669;
+}
+
+.cancel-btn {
+    background: #ef4444;
+    color: white;
+}
+
+.cancel-btn:hover {
+    background: #dc2626;
+}
+
+/* Storage Monitor */
+.storage-monitor {
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    padding: 1rem;
+    margin: 1rem 0;
+}
+
+.storage-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.5rem;
+}
+
+.storage-title {
+    font-weight: 600;
+    color: #334155;
+}
+
+.storage-summary {
+    font-size: 0.875rem;
+    color: #64748b;
+}
+
+.storage-bar {
+    height: 8px;
+    background: #e2e8f0;
+    border-radius: 4px;
+    overflow: hidden;
+    margin-bottom: 0.5rem;
+}
+
+.storage-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #3b82f6, #8b5cf6);
+    border-radius: 4px;
+    transition: width 0.3s ease;
+}
+
+.storage-fill.warning {
+    background: linear-gradient(90deg, #f59e0b, #ef4444);
+}
+
+.storage-details {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.75rem;
+    color: #64748b;
+}
+
+.storage-warning {
+    margin-top: 0.5rem;
+    padding: 0.5rem;
+    background: #fef3c7;
+    border: 1px solid #f59e0b;
+    border-radius: 4px;
+    color: #92400e;
+    font-size: 0.875rem;
+    text-align: center;
+}
+
+@media (max-width: 768px) {
+    .download-controls {
         flex-direction: column;
     }
     
-    .header-nav .nav-link,
-    .header-nav .auth-button {
+    .storage-details {
+        flex-direction: column;
+        gap: 0.25rem;
+    }
+}
+
+
+/* Next Steps Container */
+.next-steps-container {
+    background: linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%);
+    border: 2px solid #10b981;
+    border-radius: 12px;
+    padding: 1.5rem;
+    margin: 1.5rem 0;
+    display: none;
+}
+
+.next-steps-header {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 1rem;
+}
+
+.next-steps-header .success-icon {
+    font-size: 2rem;
+}
+
+.next-steps-header h3 {
+    margin: 0;
+    color: #065f46;
+    font-size: 1.5rem;
+}
+
+.next-steps-content p {
+    color: #047857;
+    margin-bottom: 1rem;
+}
+
+.next-steps-actions {
+    display: flex;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+    flex-wrap: wrap;
+}
+
+.action-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.75rem 1.5rem;
+    border: none;
+    border-radius: 8px;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.action-btn.primary {
+    background: #10b981;
+    color: white;
+}
+
+.action-btn.primary:hover {
+    background: #059669;
+    transform: translateY(-2px);
+}
+
+.action-btn.secondary {
+    background: white;
+    color: #10b981;
+    border: 2px solid #10b981;
+}
+
+.action-btn.secondary:hover {
+    background: #ecfdf5;
+}
+
+.next-steps-info {
+    background: white;
+    border-radius: 8px;
+    padding: 1rem;
+}
+
+.next-steps-info h4 {
+    margin: 0 0 0.5rem 0;
+    color: #065f46;
+}
+
+.next-steps-info ul {
+    margin: 0;
+    padding-left: 1.5rem;
+    color: #047857;
+}
+
+.next-steps-info li {
+    margin-bottom: 0.25rem;
+}
+
+.test-result {
+    margin-top: 1rem;
+    padding: 1rem;
+    background: white;
+    border-radius: 8px;
+}
+
+.test-success {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.25rem 0;
+    color: #065f46;
+}
+
+.test-complete {
+    margin-top: 0.75rem;
+    padding-top: 0.75rem;
+    border-top: 1px solid #d1fae5;
+    color: #065f46;
+}
+
+.loading-spinner {
+    display: inline-block;
+    width: 16px;
+    height: 16px;
+    border: 2px solid #10b981;
+    border-top-color: transparent;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+@media (max-width: 768px) {
+    .next-steps-actions {
+        flex-direction: column;
+    }
+    
+    .action-btn {
         width: 100%;
         justify-content: center;
     }
 }
-
-/* Better experience on iPhone 14 Pro Max and similar large phones */
-@media (min-width: 428px) and (max-width: 767px) {
-    .header h1 {
-        font-size: 1.85rem;
-    }
-    
-    /* Can show 2 cards side by side on larger phones */
-    .download-options {
-        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-    }
-}
-
-/* Landscape orientation improvements for phones */
-@media (max-width: 767px) and (orientation: landscape) {
-    /* Reduce vertical spacing in landscape */
-    .header {
-        margin-bottom: 20px;
-        padding-bottom: 10px;
-    }
-    
-    .question-card, .personal-question-item {
-        padding: 12px;
-        margin-bottom: 15px;
-    }
-    
-    /* Make modals more compact in landscape */
-    .schedule-modal-content, .modal-content {
-        max-height: 85vh;
-        padding: 16px;
-    }
-    
-    .welcome-section, .offline-version-section {
-        padding: 15px;
-        margin: 15px 0;
-    }
-}
-
-/* iPad Mini and similar small tablets */
-@media (min-width: 768px) and (max-width: 820px) {
-    .download-options, .features-grid {
-        grid-template-columns: repeat(2, 1fr);
-    }
-    
-    .models-list {
-        grid-template-columns: repeat(2, 1fr);
-    }
-}
-
-/* Ensure touch-friendly spacing for all interactive elements */
-@media (max-width: 1024px) {
-    /* Increase touch target padding */
-    button, .btn, a.nav-link, .auth-button {
-        padding: 10px 16px;
-    }
-    
-    /* More spacing between clickable items */
-    .personal-question-actions {
-        gap: 12px;
-    }
-    
-    .schedule-modal-actions {
-        gap: 12px;
-    }
-    
-    /* Make dropdowns easier to use on touch */
-    select {
-        min-height: 44px;
-        padding: 10px;
-    }
-    
-    /* Larger checkbox hit areas */
-    input[type="checkbox"] {
-        width: 20px;
-        height: 20px;
-        margin: 8px;
-    }
-}
-
-/* Optimize for foldable phones and unusual aspect ratios */
-@media (max-width: 767px) and (min-aspect-ratio: 13/9) {
-    .container {
-        max-width: 85%;
-        margin: 0 auto;
-    }
-}
-
-/* Prevent text overflow on small screens */
-@media (max-width: 480px) {
-    h1, h2, h3, h4 {
-        word-break: break-word;
-        overflow-wrap: break-word;
-    }
-    
-    .question, .answer {
-        word-break: break-word;
-        overflow-wrap: break-word;
-    }
-    
-    /* Make long URLs and code snippets wrap */
-    pre, code {
-        white-space: pre-wrap;
-        word-break: break-all;
-    }
-}
-
-/* Dark mode support (respects system preference) */
-/* Dark mode is disabled by default. To enable, see RESPONSIVE_DESIGN_GUIDE.md */
-/* Uncomment the CSS below and customize colors as needed for dark mode support */
-/*
-@media (prefers-color-scheme: dark) {
-    body {
-        background-color: #1a1a1a;
-        color: #e0e0e0;
-    }
-    
-    .question-card, .status-card, .personal-question-item {
-        background-color: #2d2d2d;
-        border-color: #444;
-    }
-    
-    input, textarea, select {
-        background-color: #2d2d2d;
-        color: #e0e0e0;
-        border-color: #444;
-    }
-}
-*/
-

@@ -26,6 +26,41 @@ class DownloadManager {
             libraries: { status: 'pending', progress: 0 }
         };
         this.aborted = false;
+        this.onError = null;
+        this.downloadState = null;
+        this.errorCategories = {
+            network: {
+                patterns: ['network', 'fetch', 'connection', 'timeout', 'offline', 'ECONNREFUSED'],
+                message: 'Connection lost during download',
+                recovery: 'Check your internet connection and try again.',
+                actions: ['retry', 'cancel']
+            },
+            storage: {
+                patterns: ['quota', 'storage', 'disk', 'space', 'IndexedDB'],
+                message: 'Not enough storage space',
+                recovery: 'Free up storage space and try again.',
+                actions: ['clear_cache', 'cancel']
+            },
+            server: {
+                patterns: ['500', '502', '503', '504', 'server'],
+                message: 'Server temporarily unavailable',
+                recovery: 'The server is experiencing issues. Please try again later.',
+                actions: ['retry_later', 'cancel']
+            },
+            notFound: {
+                patterns: ['404', 'not found'],
+                message: 'Resource not found',
+                recovery: 'The requested file could not be found. Try a different package.',
+                actions: ['change_package', 'cancel']
+            },
+            permission: {
+                patterns: ['403', 'forbidden', 'permission', 'access'],
+                message: 'Access denied',
+                recovery: 'You do not have permission to download this resource.',
+                actions: ['cancel']
+            }
+        };
+        this.lastSaveTime = 0;
         this.onProgressUpdate = null;
         this.onResourceUpdate = null;
         this.onComplete = null;
@@ -97,6 +132,12 @@ class DownloadManager {
         console.log(`Starting download of ${this.packageType} package`);
         
         try {
+            // Check if resources are actually available before starting
+            const resourcesAvailable = await this.checkResourcesExist();
+            if (!resourcesAvailable) {
+                throw new Error('Offline mode downloads are currently unavailable. The required AI models and Wikipedia databases are not yet hosted. Please use the online version or install locally with Ollama for full functionality.');
+            }
+            
             // Check package availability first
             await this.checkPackageAvailability();
             
@@ -120,6 +161,21 @@ class DownloadManager {
             if (this.onError) {
                 this.onError(error.message);
             }
+        }
+    }
+    
+    /**
+     * Check if offline resources actually exist on the server or CDN
+     */
+    async checkResourcesExist() {
+        try {
+            // Check availability of the transformers library on the CDN
+            // Using CDN check because local resources are not currently hosted
+            const response = await fetch('https://cdn.jsdelivr.net/npm/@xenova/transformers@2.17.2/dist/transformers.min.js', { method: 'HEAD' });
+            return response.ok;
+        } catch (error) {
+            console.log('Resource check failed:', error);
+            return false;
         }
     }
     
@@ -176,17 +232,19 @@ class DownloadManager {
         // Initialize storage first
         await this.initializeStorage();
         
-        // Libraries to download with real URLs
+        // Libraries to download
+        // Use CDN URLs as primary source since local resources are not currently hosted
+        // This allows downloads to work when CDN resources are available
         const libraries = [
             { 
                 name: 'transformers.js', 
-                url: '/offline-resources/libs/transformers.js',
-                fallbackUrl: 'https://cdn.jsdelivr.net/npm/@xenova/transformers@2.17.2/dist/transformers.min.js'
+                url: 'https://cdn.jsdelivr.net/npm/@xenova/transformers@2.17.2/dist/transformers.min.js',
+                fallbackUrl: '/offline-resources/libs/transformers.js'
             },
             { 
                 name: 'sql-wasm.js', 
-                url: '/offline-resources/libs/sql-wasm.js',
-                fallbackUrl: 'https://cdn.jsdelivr.net/npm/sql.js@1.8.0/dist/sql-wasm.js'
+                url: 'https://cdn.jsdelivr.net/npm/sql.js@1.8.0/dist/sql-wasm.js',
+                fallbackUrl: '/offline-resources/libs/sql-wasm.js'
             }
         ];
         
@@ -252,21 +310,25 @@ class DownloadManager {
         
         try {
             // Model URLs based on package type
+            // Use CDN URLs as primary source since local resources are not currently hosted
+            // Note: These URLs point to large model files (hundreds of MB to GB)
+            // TODO: Consider using pre-converted ONNX format models to reduce size and ensure compatibility
+            // Current formats (pytorch_model.bin, model.safetensors) may need conversion for ONNX Runtime Web
             const modelUrls = {
                 'minimal': {
                     name: 'TinyBERT',
-                    url: '/offline-resources/models/tinybert-uncased.bin',
-                    fallbackUrl: 'https://huggingface.co/prajjwal1/bert-tiny/resolve/main/pytorch_model.bin'
+                    url: 'https://huggingface.co/prajjwal1/bert-tiny/resolve/main/pytorch_model.bin',
+                    fallbackUrl: '/offline-resources/models/tinybert-uncased.bin'
                 },
                 'standard': {
                     name: 'Phi-3 Mini',
-                    url: '/offline-resources/models/phi3-mini.bin',
-                    fallbackUrl: 'https://huggingface.co/microsoft/Phi-3-mini-4k-instruct/resolve/main/model.safetensors'
+                    url: 'https://huggingface.co/microsoft/Phi-3-mini-4k-instruct/resolve/main/model.safetensors',
+                    fallbackUrl: '/offline-resources/models/phi3-mini.bin'
                 },
                 'full': {
                     name: 'Llama-3.2',
-                    url: '/offline-resources/models/llama-3.2.bin',
-                    fallbackUrl: 'https://huggingface.co/meta-llama/Llama-3.2-1B/resolve/main/model.safetensors'
+                    url: 'https://huggingface.co/meta-llama/Llama-3.2-1B/resolve/main/model.safetensors',
+                    fallbackUrl: '/offline-resources/models/llama-3.2.bin'
                 }
             };
             
@@ -315,21 +377,23 @@ class DownloadManager {
         
         try {
             // Wikipedia database URLs based on package type
+            // Use CDN URLs as primary source since local resources are not currently hosted
+            // This allows downloads to work when CDN resources are available
             const wikiUrls = {
                 'minimal': {
                     name: 'Wikipedia-Subset-20MB',
-                    url: '/offline-resources/wikipedia/wikipedia-subset-20mb.db',
-                    fallbackUrl: 'https://dumps.wikimedia.org/other/kiwix/zim/wikipedia/wikipedia_en_top_2023-01.zim'
+                    url: 'https://dumps.wikimedia.org/other/kiwix/zim/wikipedia/wikipedia_en_top_2023-01.zim',
+                    fallbackUrl: '/offline-resources/wikipedia/wikipedia-subset-20mb.db'
                 },
                 'standard': {
                     name: 'Simple-Wikipedia-50MB',
-                    url: '/offline-resources/wikipedia/simple-wikipedia-50mb.db',
-                    fallbackUrl: 'https://dumps.wikimedia.org/other/kiwix/zim/wikipedia/wikipedia_en_simple_all_2023-01.zim'
+                    url: 'https://dumps.wikimedia.org/other/kiwix/zim/wikipedia/wikipedia_en_simple_all_2023-01.zim',
+                    fallbackUrl: '/offline-resources/wikipedia/simple-wikipedia-50mb.db'
                 },
                 'full': {
                     name: 'Extended-Wikipedia',
-                    url: '/offline-resources/wikipedia/extended-wikipedia.db',
-                    fallbackUrl: 'https://dumps.wikimedia.org/other/kiwix/zim/wikipedia/wikipedia_en_all_nopic_2023-01.zim'
+                    url: 'https://dumps.wikimedia.org/other/kiwix/zim/wikipedia/wikipedia_en_all_nopic_2023-01.zim',
+                    fallbackUrl: '/offline-resources/wikipedia/extended-wikipedia.db'
                 }
             };
             
@@ -486,17 +550,27 @@ class DownloadManager {
     /**
      * Download a resource with progress tracking using real HTTP requests
      */
-    async downloadResource(name, url, progressCallback = null) {
+    async downloadResource(name, url, progressCallback = null, retryCount = 0) {
+        const MAX_RETRIES = 3;
+        const TIMEOUT_MS = 30000; // 30 second timeout
+        
         return new Promise(async (resolve, reject) => {
             if (this.aborted) {
                 reject(new Error('Download aborted'));
                 return;
             }
             
-            console.log(`Downloading ${name} from ${url}...`);
+            console.log(`Downloading ${name} from ${url}... (attempt ${retryCount + 1}/${MAX_RETRIES + 1})`);
+            
+            // Create abort controller for timeout
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => {
+                controller.abort();
+            }, TIMEOUT_MS);
             
             try {
-                const response = await fetch(url);
+                const response = await fetch(url, { signal: controller.signal });
+                clearTimeout(timeoutId);
                 
                 if (!response.ok) {
                     throw new Error(`HTTP ${response.status}: ${response.statusText}`);
@@ -550,8 +624,37 @@ class DownloadManager {
                 resolve(result);
                 
             } catch (error) {
+                clearTimeout(timeoutId);
                 console.error(`Failed to download ${name}:`, error);
-                reject(error);
+                
+                // Check if we should retry
+                if (retryCount < MAX_RETRIES && !this.aborted) {
+                    const isTimeout = error.name === 'AbortError';
+                    const errorType = isTimeout ? 'timeout' : 'error';
+                    console.log(`Download ${errorType} for ${name}, retrying in 2 seconds...`);
+                    
+                    // Notify about retry
+                    if (this.onProgress) {
+                        this.onProgress(`Retry ${retryCount + 1}/${MAX_RETRIES} for ${name}...`);
+                    }
+                    
+                    // Backoff delay before retry (2 seconds)
+                    await this.delay(2000);
+                    
+                    // Retry with incremented count
+                    try {
+                        const result = await this.downloadResource(name, url, progressCallback, retryCount + 1);
+                        resolve(result);
+                    } catch (retryError) {
+                        reject(retryError);
+                    }
+                } else {
+                    const isTimeout = error.name === 'AbortError';
+                    const errorMsg = isTimeout 
+                        ? `Download timed out after ${TIMEOUT_MS/1000}s (${MAX_RETRIES + 1} attempts)` 
+                        : error.message;
+                    reject(new Error(errorMsg));
+                }
             }
         });
     }
@@ -732,6 +835,11 @@ class DownloadManager {
         if (this.onProgressUpdate) {
             this.onProgressUpdate(null, this.calculateTotalProgress());
         }
+        
+        // Save state periodically during download
+        if (status === 'downloading') {
+            this.saveDownloadState();
+        }
     }
     
     /**
@@ -789,6 +897,23 @@ class DownloadManager {
     /**
      * Format bytes to human-readable size
      */
+    /**
+     * Utility delay for retry backoff
+     */
+    delay(ms) {
+        return new Promise(resolve => {
+            const start = Date.now();
+            const check = () => {
+                if (Date.now() - start >= ms) {
+                    resolve();
+                } else {
+                    requestAnimationFrame(check);
+                }
+            };
+            check();
+        });
+    }
+    
     formatBytes(bytes) {
         if (bytes === 0) return '0 Bytes';
         const k = 1024;
@@ -833,7 +958,239 @@ class DownloadManager {
      */
     abort() {
         this.aborted = true;
+        this.clearDownloadState();
         console.log('Download aborted');
+    }
+    
+    /**
+     * Pause the download process
+     */
+    pause() {
+        this.paused = true;
+        this.saveDownloadState();
+        console.log('Download paused');
+    }
+    
+    /**
+     * Resume the download process
+     */
+    resume() {
+        this.paused = false;
+        console.log('Download resumed');
+    }
+    
+    /**
+     * Check if download is paused
+     */
+    isPaused() {
+        return this.paused;
+    }
+    
+    /**
+     * Save download state to IndexedDB for persistence
+     */
+    async saveDownloadState() {
+        const now = Date.now();
+        // Only save every 5 seconds to avoid excessive writes
+        if (now - this.lastSaveTime < 5000) return;
+        this.lastSaveTime = now;
+        
+        try {
+            await this.initializeStorage();
+            const state = {
+                key: 'downloadState',
+                packageType: this.packageType,
+                progress: this.progress,
+                resources: JSON.parse(JSON.stringify(this.resources)),
+                timestamp: now,
+                paused: this.paused
+            };
+            
+            const transaction = this.db.transaction(['metadata'], 'readwrite');
+            const store = transaction.objectStore('metadata');
+            store.put(state);
+            console.log('Download state saved:', state.progress + '%');
+        } catch (error) {
+            console.error('Failed to save download state:', error);
+        }
+    }
+    
+    /**
+     * Load download state from IndexedDB
+     */
+    async loadDownloadState() {
+        try {
+            await this.initializeStorage();
+            return new Promise((resolve, reject) => {
+                const transaction = this.db.transaction(['metadata'], 'readonly');
+                const store = transaction.objectStore('metadata');
+                const request = store.get('downloadState');
+                
+                request.onsuccess = () => {
+                    const state = request.result;
+                    if (state && state.packageType === this.packageType) {
+                        // Check if state is less than 24 hours old
+                        const age = Date.now() - state.timestamp;
+                        if (age < 24 * 60 * 60 * 1000) {
+                            resolve(state);
+                        } else {
+                            resolve(null);
+                        }
+                    } else {
+                        resolve(null);
+                    }
+                };
+                request.onerror = () => reject(request.error);
+            });
+        } catch (error) {
+            console.error('Failed to load download state:', error);
+            return null;
+        }
+    }
+    
+    /**
+     * Clear download state from IndexedDB
+     */
+    async clearDownloadState() {
+        try {
+            await this.initializeStorage();
+            const transaction = this.db.transaction(['metadata'], 'readwrite');
+            const store = transaction.objectStore('metadata');
+            store.delete('downloadState');
+            console.log('Download state cleared');
+        } catch (error) {
+            console.error('Failed to clear download state:', error);
+        }
+    }
+    
+    /**
+     * Check for interrupted download and offer to resume
+     */
+    async checkForInterruptedDownload() {
+        const state = await this.loadDownloadState();
+        if (state && state.progress > 0 && state.progress < 100) {
+            return {
+                hasInterrupted: true,
+                progress: state.progress,
+                resources: state.resources,
+                timestamp: state.timestamp,
+                packageType: state.packageType
+            };
+        }
+        return { hasInterrupted: false };
+    }
+    
+    /**
+     * Resume from saved state
+     */
+    async resumeFromState(state) {
+        if (!state) return false;
+        
+        this.progress = state.progress;
+        this.resources = state.resources;
+        this.paused = false;
+        
+        console.log('Resuming download from', state.progress + '%');
+        return true;
+    }
+    
+    /**
+     * Setup beforeunload warning during active download
+     */
+    setupBeforeUnloadWarning() {
+        if (typeof window === 'undefined') return;
+        
+        this.beforeUnloadHandler = (e) => {
+            if (this.isDownloading() && !this.paused) {
+                e.preventDefault();
+                e.returnValue = 'Download in progress. Are you sure you want to leave?';
+                return e.returnValue;
+            }
+        };
+        window.addEventListener('beforeunload', this.beforeUnloadHandler);
+    }
+    
+    /**
+     * Remove beforeunload warning
+     */
+    removeBeforeUnloadWarning() {
+        if (typeof window === 'undefined' || !this.beforeUnloadHandler) return;
+        window.removeEventListener('beforeunload', this.beforeUnloadHandler);
+    }
+    
+    /**
+     * Check if download is in progress
+     */
+    isDownloading() {
+        return Object.values(this.resources).some(r => r.status === 'downloading');
+    }
+    
+    /**
+     * Get storage usage information
+     */
+    async getStorageUsage() {
+        if (typeof navigator === 'undefined' || !navigator.storage) {
+            return { used: 0, quota: 0, percent: 0 };
+        }
+        
+        try {
+            const estimate = await navigator.storage.estimate();
+            return {
+                used: estimate.usage || 0,
+                quota: estimate.quota || 0,
+                percent: estimate.quota ? Math.round((estimate.usage / estimate.quota) * 100) : 0,
+                usedFormatted: this.formatBytes(estimate.usage || 0),
+                quotaFormatted: this.formatBytes(estimate.quota || 0)
+            };
+        } catch (error) {
+            console.error('Failed to get storage estimate:', error);
+            return { used: 0, quota: 0, percent: 0 };
+        }
+    }
+    
+    /**
+     * Categorize an error and provide recovery guidance
+     */
+    categorizeError(error) {
+        const errorString = (error.message || error.toString()).toLowerCase();
+        
+        for (const [category, config] of Object.entries(this.errorCategories)) {
+            if (config.patterns.some(pattern => errorString.includes(pattern.toLowerCase()))) {
+                return {
+                    category,
+                    message: config.message,
+                    recovery: config.recovery,
+                    actions: config.actions,
+                    originalError: error.message || error.toString()
+                };
+            }
+        }
+        
+        // Default unknown error
+        return {
+            category: 'unknown',
+            message: 'An unexpected error occurred',
+            recovery: 'Please try again. If the problem persists, contact support.',
+            actions: ['retry', 'cancel'],
+            originalError: error.message || error.toString()
+        };
+    }
+    
+    /**
+     * Handle error with categorization
+     */
+    handleError(error, resource = null) {
+        const categorized = this.categorizeError(error);
+        
+        if (resource) {
+            this.updateResource(resource, 'error', 0);
+        }
+        
+        if (this.onError) {
+            this.onError(categorized);
+        }
+        
+        return categorized;
     }
 }
 
