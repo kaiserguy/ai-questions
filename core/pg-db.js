@@ -193,7 +193,12 @@ class PgDatabase extends DatabaseInterface {
 
     async getLatestAnswers(limit = 10) {
         const result = await this.pool.query(
-            `SELECT * FROM answers WHERE is_personal = false ORDER BY date DESC LIMIT $1`,
+            `SELECT id, question, context, answer, model, model_name, confidence, 
+                    date as created_at, user_id, is_personal, prompt_version 
+             FROM answers 
+             WHERE is_personal = false 
+             ORDER BY date DESC 
+             LIMIT $1`,
             [limit]
         );
         return result.rows;
