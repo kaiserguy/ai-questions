@@ -1640,3 +1640,161 @@ header {
         text-decoration: underline;
     }
 }
+
+/* ===== ADDITIONAL MOBILE ENHANCEMENTS ===== */
+
+/* Improve readability on very small screens (iPhone SE, older Android) */
+@media (max-width: 374px) {
+    body {
+        font-size: 15px;
+    }
+    
+    .header h1 {
+        font-size: 1.3rem;
+    }
+    
+    /* Slightly smaller padding for very small screens */
+    .container {
+        padding: 8px;
+    }
+    
+    /* Stack buttons vertically if needed */
+    .header-nav, .personal-question-actions, .schedule-modal-actions {
+        flex-direction: column;
+    }
+    
+    .header-nav .nav-link,
+    .header-nav .auth-button {
+        width: 100%;
+        justify-content: center;
+    }
+}
+
+/* Better experience on iPhone 14 Pro Max and similar large phones */
+@media (min-width: 428px) and (max-width: 767px) {
+    .header h1 {
+        font-size: 1.85rem;
+    }
+    
+    /* Can show 2 cards side by side on larger phones */
+    .download-options {
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    }
+}
+
+/* Landscape orientation improvements for phones */
+@media (max-width: 767px) and (orientation: landscape) {
+    /* Reduce vertical spacing in landscape */
+    .header {
+        margin-bottom: 20px;
+        padding-bottom: 10px;
+    }
+    
+    .question-card, .personal-question-item {
+        padding: 12px;
+        margin-bottom: 15px;
+    }
+    
+    /* Make modals more compact in landscape */
+    .schedule-modal-content, .modal-content {
+        max-height: 85vh;
+        padding: 16px;
+    }
+    
+    .welcome-section, .offline-version-section {
+        padding: 15px;
+        margin: 15px 0;
+    }
+}
+
+/* iPad Mini and similar small tablets */
+@media (min-width: 768px) and (max-width: 820px) {
+    .download-options, .features-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+    
+    .models-list {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+/* Ensure touch-friendly spacing for all interactive elements */
+@media (max-width: 1024px) {
+    /* Increase touch target padding */
+    button, .btn, a.nav-link, .auth-button {
+        padding: 10px 16px;
+    }
+    
+    /* More spacing between clickable items */
+    .personal-question-actions {
+        gap: 12px;
+    }
+    
+    .schedule-modal-actions {
+        gap: 12px;
+    }
+    
+    /* Make dropdowns easier to use on touch */
+    select {
+        min-height: 44px;
+        padding: 10px;
+    }
+    
+    /* Larger checkbox hit areas */
+    input[type="checkbox"] {
+        width: 20px;
+        height: 20px;
+        margin: 8px;
+    }
+}
+
+/* Optimize for foldable phones and unusual aspect ratios */
+@media (max-width: 767px) and (min-aspect-ratio: 13/9) {
+    .container {
+        max-width: 85%;
+        margin: 0 auto;
+    }
+}
+
+/* Prevent text overflow on small screens */
+@media (max-width: 480px) {
+    h1, h2, h3, h4 {
+        word-break: break-word;
+        overflow-wrap: break-word;
+    }
+    
+    .question, .answer {
+        word-break: break-word;
+        overflow-wrap: break-word;
+    }
+    
+    /* Make long URLs and code snippets wrap */
+    pre, code {
+        white-space: pre-wrap;
+        word-break: break-all;
+    }
+}
+
+/* Dark mode support (respects system preference) */
+@media (prefers-color-scheme: dark) {
+    /* Only add dark mode styles if the user prefers dark mode */
+    /* This is commented out by default - uncomment to enable dark mode */
+    /*
+    body {
+        background-color: #1a1a1a;
+        color: #e0e0e0;
+    }
+    
+    .question-card, .status-card, .personal-question-item {
+        background-color: #2d2d2d;
+        border-color: #444;
+    }
+    
+    input, textarea, select {
+        background-color: #2d2d2d;
+        color: #e0e0e0;
+        border-color: #444;
+    }
+    */
+}
+
