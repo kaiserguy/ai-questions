@@ -132,6 +132,12 @@ class DownloadManager {
         console.log(`Starting download of ${this.packageType} package`);
         
         try {
+            // Check if resources are actually available before starting
+            const resourcesAvailable = await this.checkResourcesExist();
+            if (!resourcesAvailable) {
+                throw new Error('Offline mode downloads are currently unavailable. The required AI models and Wikipedia databases are not yet hosted. Please use the online version or install locally with Ollama for full functionality.');
+            }
+            
             // Check package availability first
             await this.checkPackageAvailability();
             
@@ -155,6 +161,21 @@ class DownloadManager {
             if (this.onError) {
                 this.onError(error.message);
             }
+        }
+    }
+    
+    /**
+     * Check if offline resources actually exist on the server or CDN
+     */
+    async checkResourcesExist() {
+        try {
+            // Check availability of the transformers library on the CDN
+            // Using CDN check because local resources are not currently hosted
+            const response = await fetch('https://cdn.jsdelivr.net/npm/@xenova/transformers@2.17.2/dist/transformers.min.js', { method: 'HEAD' });
+            return response.ok;
+        } catch (error) {
+            console.log('Resource check failed:', error);
+            return false;
         }
     }
     
@@ -211,17 +232,19 @@ class DownloadManager {
         // Initialize storage first
         await this.initializeStorage();
         
-        // Libraries to download with real URLs
+        // Libraries to download
+        // Use CDN URLs as primary source since local resources are not currently hosted
+        // This allows downloads to work when CDN resources are available
         const libraries = [
             { 
                 name: 'transformers.js', 
-                url: '/offline-resources/libs/transformers.js',
-                fallbackUrl: 'https://cdn.jsdelivr.net/npm/@xenova/transformers@2.17.2/dist/transformers.min.js'
+                url: 'https://cdn.jsdelivr.net/npm/@xenova/transformers@2.17.2/dist/transformers.min.js',
+                fallbackUrl: '/offline-resources/libs/transformers.js'
             },
             { 
                 name: 'sql-wasm.js', 
-                url: '/offline-resources/libs/sql-wasm.js',
-                fallbackUrl: 'https://cdn.jsdelivr.net/npm/sql.js@1.8.0/dist/sql-wasm.js'
+                url: 'https://cdn.jsdelivr.net/npm/sql.js@1.8.0/dist/sql-wasm.js',
+                fallbackUrl: '/offline-resources/libs/sql-wasm.js'
             }
         ];
         
@@ -287,21 +310,25 @@ class DownloadManager {
         
         try {
             // Model URLs based on package type
+            // Use CDN URLs as primary source since local resources are not currently hosted
+            // Note: These URLs point to large model files (hundreds of MB to GB)
+            // TODO: Consider using pre-converted ONNX format models to reduce size and ensure compatibility
+            // Current formats (pytorch_model.bin, model.safetensors) may need conversion for ONNX Runtime Web
             const modelUrls = {
                 'minimal': {
                     name: 'TinyBERT',
-                    url: '/offline-resources/models/tinybert-uncased.bin',
-                    fallbackUrl: 'https://huggingface.co/prajjwal1/bert-tiny/resolve/main/pytorch_model.bin'
+                    url: 'https://huggingface.co/prajjwal1/bert-tiny/resolve/main/pytorch_model.bin',
+                    fallbackUrl: '/offline-resources/models/tinybert-uncased.bin'
                 },
                 'standard': {
                     name: 'Phi-3 Mini',
-                    url: '/offline-resources/models/phi3-mini.bin',
-                    fallbackUrl: 'https://huggingface.co/microsoft/Phi-3-mini-4k-instruct/resolve/main/model.safetensors'
+                    url: 'https://huggingface.co/microsoft/Phi-3-mini-4k-instruct/resolve/main/model.safetensors',
+                    fallbackUrl: '/offline-resources/models/phi3-mini.bin'
                 },
                 'full': {
                     name: 'Llama-3.2',
-                    url: '/offline-resources/models/llama-3.2.bin',
-                    fallbackUrl: 'https://huggingface.co/meta-llama/Llama-3.2-1B/resolve/main/model.safetensors'
+                    url: 'https://huggingface.co/meta-llama/Llama-3.2-1B/resolve/main/model.safetensors',
+                    fallbackUrl: '/offline-resources/models/llama-3.2.bin'
                 }
             };
             
@@ -350,21 +377,23 @@ class DownloadManager {
         
         try {
             // Wikipedia database URLs based on package type
+            // Use CDN URLs as primary source since local resources are not currently hosted
+            // This allows downloads to work when CDN resources are available
             const wikiUrls = {
                 'minimal': {
                     name: 'Wikipedia-Subset-20MB',
-                    url: '/offline-resources/wikipedia/wikipedia-subset-20mb.db',
-                    fallbackUrl: 'https://dumps.wikimedia.org/other/kiwix/zim/wikipedia/wikipedia_en_top_2023-01.zim'
+                    url: 'https://dumps.wikimedia.org/other/kiwix/zim/wikipedia/wikipedia_en_top_2023-01.zim',
+                    fallbackUrl: '/offline-resources/wikipedia/wikipedia-subset-20mb.db'
                 },
                 'standard': {
                     name: 'Simple-Wikipedia-50MB',
-                    url: '/offline-resources/wikipedia/simple-wikipedia-50mb.db',
-                    fallbackUrl: 'https://dumps.wikimedia.org/other/kiwix/zim/wikipedia/wikipedia_en_simple_all_2023-01.zim'
+                    url: 'https://dumps.wikimedia.org/other/kiwix/zim/wikipedia/wikipedia_en_simple_all_2023-01.zim',
+                    fallbackUrl: '/offline-resources/wikipedia/simple-wikipedia-50mb.db'
                 },
                 'full': {
                     name: 'Extended-Wikipedia',
-                    url: '/offline-resources/wikipedia/extended-wikipedia.db',
-                    fallbackUrl: 'https://dumps.wikimedia.org/other/kiwix/zim/wikipedia/wikipedia_en_all_nopic_2023-01.zim'
+                    url: 'https://dumps.wikimedia.org/other/kiwix/zim/wikipedia/wikipedia_en_all_nopic_2023-01.zim',
+                    fallbackUrl: '/offline-resources/wikipedia/extended-wikipedia.db'
                 }
             };
             
