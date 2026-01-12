@@ -363,7 +363,8 @@ describe('Accessibility Tests (Issue #25)', () => {
             const allContent = hostedIndexContent + localIndexContent + historyContent + offlineContent;
             
             // Find patterns like <span aria-hidden="true">emoji</span>
-            const emojiSpans = allContent.match(/<span[^>]*aria-hidden="true"[^>]*>[📱🗑️📥📊⚙️🚀📋🤖🔍⏰]/g) || [];
+            // Use Unicode property escapes to detect emojis
+            const emojiSpans = allContent.match(/<span[^>]*aria-hidden="true"[^>]*>[\u{1F300}-\u{1F9FF}]/gu) || [];
             
             expect(emojiSpans.length).toBeGreaterThan(15);
         });
@@ -397,8 +398,9 @@ describe('Accessibility Tests (Issue #25)', () => {
                     .replace(/<[^>]+>/g, '') // Remove all tags
                     .replace(/\s+/g, ''); // Remove whitespace
                 
-                // If the content is just an emoji (one or two characters)
-                const isEmojiOnly = textOnly.length <= 2 && /[📱🗑️📥📊⚙️🚀📋🤖🔍⏰🔄🎲📂💻💡🧠]/u.test(textOnly);
+                // If the content is just an emoji (short length and contains Unicode emoji characters)
+                // Use Unicode property escapes to detect emojis more comprehensively
+                const isEmojiOnly = textOnly.length <= 2 && /[\u{1F300}-\u{1F9FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}]/u.test(textOnly);
                 
                 if (isEmojiOnly) {
                     // It should have aria-label
