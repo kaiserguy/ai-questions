@@ -6,6 +6,7 @@
 // Import required modules
 const n8nChatIntegration = require('./n8n-chat-integration');
 const WikipediaParserN8n = require('./wikipedia-parser-n8n');
+const { validationRules, validateRequest, sanitizeInput } = require('../core/validation');
 
 /**
  * Initialize n8n integration in the main application
@@ -20,40 +21,37 @@ function initializeN8nIntegration(app) {
   // Create new endpoints that route through n8n
   
   // n8n Chat endpoint
-  app.post('/api/n8n/chat', async (req, res) => {
-    try {
-      const { message, model, context, includeWikipedia, enableQueryLogging } = req.body;
-      
-      if (!message || !model) {
-        return res.status(400).json({ 
+  app.post('/api/n8n/chat',
+    validationRules.chatMessage(),
+    validateRequest,
+    async (req, res) => {
+      try {
+        const { message, model, context, includeWikipedia, enableQueryLogging } = req.body;
+        
+        // Process chat through n8n
+        const result = await n8nChatIntegration.sendChatMessage({
+          message,
+          model,
+          context: context || [],
+          includeWikipedia: includeWikipedia !== false,
+          enableQueryLogging: enableQueryLogging || false
+        });
+        
+        res.json(result);
+      } catch (error) {
+        console.error('n8n chat error:', error);
+        res.status(500).json({ 
           success: false, 
-          error: 'Message and model are required' 
+          error: error.message || 'Failed to process chat through n8n'
         });
       }
-      
-      // Process chat through n8n
-      const result = await n8nChatIntegration.sendChatMessage({
-        message,
-        model,
-        context: context || [],
-        includeWikipedia: includeWikipedia !== false,
-        enableQueryLogging: enableQueryLogging || false
-      });
-      
-      res.json(result);
-    } catch (error) {
-      console.error('n8n chat error:', error);
-      res.status(500).json({ 
-        success: false, 
-        error: error.message || 'Failed to process chat through n8n'
-      });
     }
-  });
+  );
   
   // n8n Wikipedia article endpoint
   app.get('/api/n8n/wikipedia/article/:id', async (req, res) => {
     try {
-      const { id } = req.params;
+      const id = sanitizeInput(req.params.id);
       
       if (!id) {
         return res.status(400).json({ 
