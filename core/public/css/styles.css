@@ -1065,6 +1065,40 @@ header {
     background-color: #f59e0b;
 }
 
+/* Installed Packages Section */
+.offline-page .installed-packages-section {
+    background: white;
+    border-radius: 12px;
+    padding: 30px;
+    margin-bottom: 30px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+}
+
+.offline-page .installed-packages-section h2 {
+    color: #1f2937;
+    margin-bottom: 20px;
+    font-size: 1.5rem;
+}
+
+.offline-page .installed-packages-container {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+.offline-page .installed-package-card {
+    background: white;
+    border: 2px solid #10b981;
+    border-radius: 8px;
+    padding: 20px;
+    transition: all 0.3s ease;
+}
+
+.offline-page .installed-package-card:hover {
+    box-shadow: 0 4px 12px rgba(16, 185, 129, 0.15);
+    transform: translateY(-2px);
+}
+
 .offline-page .download-section {
     background: white;
     border-radius: 12px;
