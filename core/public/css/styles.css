@@ -1872,3 +1872,144 @@ header {
         gap: 0.25rem;
     }
 }
+
+
+/* Next Steps Container */
+.next-steps-container {
+    background: linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%);
+    border: 2px solid #10b981;
+    border-radius: 12px;
+    padding: 1.5rem;
+    margin: 1.5rem 0;
+    display: none;
+}
+
+.next-steps-header {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 1rem;
+}
+
+.next-steps-header .success-icon {
+    font-size: 2rem;
+}
+
+.next-steps-header h3 {
+    margin: 0;
+    color: #065f46;
+    font-size: 1.5rem;
+}
+
+.next-steps-content p {
+    color: #047857;
+    margin-bottom: 1rem;
+}
+
+.next-steps-actions {
+    display: flex;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+    flex-wrap: wrap;
+}
+
+.action-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.75rem 1.5rem;
+    border: none;
+    border-radius: 8px;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.action-btn.primary {
+    background: #10b981;
+    color: white;
+}
+
+.action-btn.primary:hover {
+    background: #059669;
+    transform: translateY(-2px);
+}
+
+.action-btn.secondary {
+    background: white;
+    color: #10b981;
+    border: 2px solid #10b981;
+}
+
+.action-btn.secondary:hover {
+    background: #ecfdf5;
+}
+
+.next-steps-info {
+    background: white;
+    border-radius: 8px;
+    padding: 1rem;
+}
+
+.next-steps-info h4 {
+    margin: 0 0 0.5rem 0;
+    color: #065f46;
+}
+
+.next-steps-info ul {
+    margin: 0;
+    padding-left: 1.5rem;
+    color: #047857;
+}
+
+.next-steps-info li {
+    margin-bottom: 0.25rem;
+}
+
+.test-result {
+    margin-top: 1rem;
+    padding: 1rem;
+    background: white;
+    border-radius: 8px;
+}
+
+.test-success {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.25rem 0;
+    color: #065f46;
+}
+
+.test-complete {
+    margin-top: 0.75rem;
+    padding-top: 0.75rem;
+    border-top: 1px solid #d1fae5;
+    color: #065f46;
+}
+
+.loading-spinner {
+    display: inline-block;
+    width: 16px;
+    height: 16px;
+    border: 2px solid #10b981;
+    border-top-color: transparent;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+@media (max-width: 768px) {
+    .next-steps-actions {
+        flex-direction: column;
+    }
+    
+    .action-btn {
+        width: 100%;
+        justify-content: center;
+    }
+}
