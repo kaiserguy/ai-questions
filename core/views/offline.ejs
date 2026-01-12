@@ -376,8 +376,9 @@
                     };
                     
                     request.onupgradeneeded = (event) => {
+                        // Database is being created/upgraded, so it exists
                         event.target.transaction.abort();
-                        resolve(false);
+                        resolve(true);
                     };
                 } catch (e) {
                     resolve(false);
@@ -393,18 +394,17 @@
             packages.forEach(pkg => {
                 const packageCard = document.createElement('div');
                 packageCard.className = 'installed-package-card';
-                packageCard.style.cssText = 'background: white; border: 2px solid #10b981; border-radius: 8px; padding: 20px; margin-bottom: 15px;';
                 
                 // Package header
                 const header = document.createElement('div');
-                header.style.cssText = 'display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;';
+                header.className = 'package-header';
                 
                 const title = document.createElement('h3');
-                title.style.cssText = 'margin: 0; color: #1f2937; font-size: 1.2em;';
+                title.className = 'package-title';
                 title.textContent = `${pkg.type.charAt(0).toUpperCase() + pkg.type.slice(1)} Package`;
                 
                 const statusBadge = document.createElement('span');
-                statusBadge.style.cssText = 'background: #10b981; color: white; padding: 4px 12px; border-radius: 12px; font-size: 0.85em; font-weight: 600;';
+                statusBadge.className = 'package-status-badge';
                 statusBadge.textContent = '✓ Installed';
                 
                 header.appendChild(title);
@@ -412,34 +412,34 @@
                 
                 // Package details
                 const details = document.createElement('div');
-                details.style.cssText = 'color: #6b7280; font-size: 0.95em; line-height: 1.6;';
+                details.className = 'package-details';
                 
                 details.innerHTML = `
-                    <div style="margin-bottom: 8px;"><strong>Install Date:</strong> ${pkg.installDate}</div>
-                    <div style="margin-bottom: 8px;"><strong>Storage Used:</strong> ${pkg.size || 'Unknown'}</div>
+                    <div><strong>Install Date:</strong> ${pkg.installDate}</div>
+                    <div><strong>Storage Used:</strong> ${pkg.size || 'Unknown'}</div>
                 `;
                 
                 // Components status
                 if (pkg.components) {
                     const componentsDiv = document.createElement('div');
-                    componentsDiv.style.cssText = 'margin-top: 15px; padding-top: 15px; border-top: 1px solid #e5e7eb;';
+                    componentsDiv.className = 'package-components';
                     
                     const componentsTitle = document.createElement('div');
-                    componentsTitle.style.cssText = 'font-weight: 600; color: #374151; margin-bottom: 10px;';
+                    componentsTitle.className = 'components-title';
                     componentsTitle.textContent = 'Components:';
                     
                     componentsDiv.appendChild(componentsTitle);
                     
                     Object.values(pkg.components).forEach(component => {
                         const componentItem = document.createElement('div');
-                        componentItem.style.cssText = 'display: flex; justify-content: space-between; padding: 6px 0;';
+                        componentItem.className = 'component-item';
                         
                         const componentName = document.createElement('span');
                         componentName.textContent = component.name;
                         
                         const componentStatus = document.createElement('span');
                         const isInstalled = component.status === 'installed';
-                        componentStatus.style.cssText = `color: ${isInstalled ? '#10b981' : '#ef4444'}; font-weight: 500;`;
+                        componentStatus.className = isInstalled ? 'component-status-installed' : 'component-status-not-installed';
                         componentStatus.textContent = isInstalled ? '✓ Installed' : '✗ Not Installed';
                         
                         componentItem.appendChild(componentName);

@@ -1099,6 +1099,66 @@ header {
     transform: translateY(-2px);
 }
 
+.offline-page .package-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+}
+
+.offline-page .package-title {
+    margin: 0;
+    color: #1f2937;
+    font-size: 1.2em;
+}
+
+.offline-page .package-status-badge {
+    background: #10b981;
+    color: white;
+    padding: 4px 12px;
+    border-radius: 12px;
+    font-size: 0.85em;
+    font-weight: 600;
+}
+
+.offline-page .package-details {
+    color: #6b7280;
+    font-size: 0.95em;
+    line-height: 1.6;
+}
+
+.offline-page .package-details > div {
+    margin-bottom: 8px;
+}
+
+.offline-page .package-components {
+    margin-top: 15px;
+    padding-top: 15px;
+    border-top: 1px solid #e5e7eb;
+}
+
+.offline-page .components-title {
+    font-weight: 600;
+    color: #374151;
+    margin-bottom: 10px;
+}
+
+.offline-page .component-item {
+    display: flex;
+    justify-content: space-between;
+    padding: 6px 0;
+}
+
+.offline-page .component-status-installed {
+    color: #10b981;
+    font-weight: 500;
+}
+
+.offline-page .component-status-not-installed {
+    color: #ef4444;
+    font-weight: 500;
+}
+
 .offline-page .download-section {
     background: white;
     border-radius: 12px;
