@@ -26,6 +26,14 @@
             <p id="statusDescription">Verifying that your browser supports all required features for offline operation.</p>
         </div>
 
+        <!-- Installed Packages Status -->
+        <div class="installed-packages-section" id="installedPackagesSection" style="display: none;">
+            <h2>📦 Installed Offline Packages</h2>
+            <div class="installed-packages-container" id="installedPackagesContainer">
+                <!-- Installed packages will be displayed here -->
+            </div>
+        </div>
+
         <!-- Download Section -->
         <div class="download-section" id="downloadSection">
             <h2>📦 Choose Your Offline Package</h2>
@@ -180,6 +188,17 @@
         let integrationManager = null;
         let downloadManager = null;
         let selectedPackage = 'minimal';
+        let packageStatusCache = null;
+        let packageStatusCacheTime = 0;
+        const CACHE_DURATION = 60000; // Cache for 60 seconds
+        
+        // localStorage keys constants to avoid duplication and typos
+        const STORAGE_KEYS = {
+            OFFLINE_INSTALLED: 'offlineInstalled',
+            PACKAGE_TYPE: 'offlinePackageType',
+            INSTALL_DATE: 'offlineInstallDate',
+            LIBRARIES_LOADED: 'offlineLibrariesLoaded'
+        };
 
         // Initialize when page loads
         document.addEventListener('DOMContentLoaded', function() {
@@ -252,16 +271,254 @@
         }
 
         // Check for existing installation
-        function checkExistingInstallation() {
+        async function checkExistingInstallation() {
             checkBrowserCompatibility();
             
+            // Check installed packages and display status
+            await checkInstalledPackages();
+            
             // Check if offline components are already installed
-            if (localStorage.getItem('offlineInstalled') === 'true') {
+            if (localStorage.getItem(STORAGE_KEYS.OFFLINE_INSTALLED) === 'true') {
                 document.getElementById('downloadSection').style.display = 'none';
                 
                 // Initialize the integration manager - it will handle showing sections
                 initializeOfflineMode();
             }
+        }
+
+        // Helper function to show/hide package section
+        function showPackageSection(packages) {
+            if (packages && packages.length > 0) {
+                displayInstalledPackages(packages);
+                document.getElementById('installedPackagesSection').style.display = 'block';
+            } else {
+                document.getElementById('installedPackagesSection').style.display = 'none';
+            }
+        }
+
+        // Check and display installed packages with caching
+        async function checkInstalledPackages() {
+            try {
+                // Use cached data if available and fresh (within 60 seconds)
+                const now = Date.now();
+                if (packageStatusCache && (now - packageStatusCacheTime) < CACHE_DURATION) {
+                    showPackageSection(packageStatusCache);
+                    return;
+                }
+                
+                const installedPackages = [];
+                
+                // Check localStorage for installation info
+                const isInstalled = localStorage.getItem(STORAGE_KEYS.OFFLINE_INSTALLED) === 'true';
+                const packageType = localStorage.getItem(STORAGE_KEYS.PACKAGE_TYPE) || 'unknown';
+                const installDate = localStorage.getItem(STORAGE_KEYS.INSTALL_DATE);
+                
+                if (isInstalled) {
+                    // Get package details
+                    const packageInfo = {
+                        type: packageType,
+                        installDate: installDate ? new Date(installDate).toLocaleDateString() : 'Unknown',
+                        status: 'installed'
+                    };
+                    
+                    // Try to get size information from IndexedDB
+                    if ('indexedDB' in window) {
+                        try {
+                            const dbSize = await estimateStorageSize();
+                            packageInfo.size = formatBytes(dbSize);
+                        } catch (e) {
+                            packageInfo.size = 'Unknown';
+                        }
+                    }
+                    
+                    // Check component status
+                    const components = await checkComponentsStatus();
+                    packageInfo.components = components;
+                    
+                    installedPackages.push(packageInfo);
+                }
+                
+                // Cache the results
+                packageStatusCache = installedPackages;
+                packageStatusCacheTime = now;
+                
+                // Display the installed packages
+                showPackageSection(installedPackages);
+            } catch (error) {
+                console.error('Error checking installed packages:', error);
+            }
+        }
+
+        // Estimate storage size
+        // Note: Returns total browser storage usage, not package-specific usage.
+        // This includes all data stored by this origin (app, cache, IndexedDB, etc.)
+        async function estimateStorageSize() {
+            if (navigator.storage && navigator.storage.estimate) {
+                const estimate = await navigator.storage.estimate();
+                return estimate.usage || 0;
+            }
+            return 0;
+        }
+
+        // Check status of individual components
+        async function checkComponentsStatus() {
+            const components = {
+                aiModel: { name: 'AI Model', status: 'unknown' },
+                wikipedia: { name: 'Wikipedia Database', status: 'unknown' },
+                libraries: { name: 'Core Libraries', status: 'unknown' }
+            };
+            
+            // Check if databases exist
+            if ('indexedDB' in window) {
+                try {
+                    // Check for OfflineAI database
+                    const aiDb = await checkDatabase('OfflineAI');
+                    components.aiModel.status = aiDb ? 'installed' : 'not installed';
+                    
+                    // Check for WikipediaDB database
+                    const wikiDb = await checkDatabase('WikipediaDB');
+                    components.wikipedia.status = wikiDb ? 'installed' : 'not installed';
+                    
+                    // Libraries are loaded dynamically, so check localStorage
+                    components.libraries.status = localStorage.getItem(STORAGE_KEYS.LIBRARIES_LOADED) === 'true' ? 'installed' : 'not installed';
+                } catch (e) {
+                    console.error('Error checking components:', e);
+                }
+            }
+            
+            return components;
+        }
+
+        // Check if a database exists
+        function checkDatabase(dbName) {
+            return new Promise((resolve) => {
+                try {
+                    const request = indexedDB.open(dbName);
+                    let resolved = false;
+                    
+                    request.onsuccess = () => {
+                        if (!resolved) {
+                            resolved = true;
+                            request.result.close();
+                            resolve(true);
+                        }
+                    };
+                    
+                    request.onerror = () => {
+                        if (!resolved) {
+                            resolved = true;
+                            resolve(false);
+                        }
+                    };
+                    
+                    request.onupgradeneeded = (event) => {
+                        // Database is being created (doesn't exist yet)
+                        // Abort the transaction to prevent creating it
+                        if (!resolved) {
+                            resolved = true;
+                            event.target.transaction.abort();
+                            resolve(false);
+                        }
+                    };
+                } catch (e) {
+                    resolve(false);
+                }
+            });
+        }
+
+        // Display installed packages
+        function displayInstalledPackages(packages) {
+            const container = document.getElementById('installedPackagesContainer');
+            container.innerHTML = '';
+            
+            packages.forEach(pkg => {
+                const packageCard = document.createElement('div');
+                packageCard.className = 'installed-package-card';
+                
+                // Package header
+                const header = document.createElement('div');
+                header.className = 'package-header';
+                
+                const title = document.createElement('h3');
+                title.className = 'package-title';
+                title.textContent = `${pkg.type.charAt(0).toUpperCase() + pkg.type.slice(1)} Package`;
+                
+                const statusBadge = document.createElement('span');
+                statusBadge.className = 'package-status-badge';
+                statusBadge.textContent = '✓ Installed';
+                
+                header.appendChild(title);
+                header.appendChild(statusBadge);
+                
+                // Package details
+                const details = document.createElement('div');
+                details.className = 'package-details';
+                
+                // Create detail elements safely without innerHTML
+                const installDateDiv = document.createElement('div');
+                const installDateLabel = document.createElement('strong');
+                installDateLabel.textContent = 'Install Date: ';
+                installDateDiv.appendChild(installDateLabel);
+                installDateDiv.appendChild(document.createTextNode(pkg.installDate));
+                
+                const storageDiv = document.createElement('div');
+                const storageLabel = document.createElement('strong');
+                storageLabel.textContent = 'Storage Used: ';
+                storageDiv.appendChild(storageLabel);
+                storageDiv.appendChild(document.createTextNode(pkg.size || 'Unknown'));
+                
+                details.appendChild(installDateDiv);
+                details.appendChild(storageDiv);
+                
+                // Components status
+                if (pkg.components) {
+                    const componentsDiv = document.createElement('div');
+                    componentsDiv.className = 'package-components';
+                    
+                    const componentsTitle = document.createElement('div');
+                    componentsTitle.className = 'components-title';
+                    componentsTitle.textContent = 'Components:';
+                    
+                    componentsDiv.appendChild(componentsTitle);
+                    
+                    Object.values(pkg.components).forEach(component => {
+                        const componentItem = document.createElement('div');
+                        componentItem.className = 'component-item';
+                        
+                        const componentName = document.createElement('span');
+                        componentName.textContent = component.name;
+                        
+                        const componentStatus = document.createElement('span');
+                        const isInstalled = component.status === 'installed';
+                        componentStatus.className = isInstalled ? 'component-status-installed' : 'component-status-not-installed';
+                        componentStatus.textContent = isInstalled ? '✓ Installed' : '✗ Not Installed';
+                        
+                        componentItem.appendChild(componentName);
+                        componentItem.appendChild(componentStatus);
+                        componentsDiv.appendChild(componentItem);
+                    });
+                    
+                    details.appendChild(componentsDiv);
+                }
+                
+                packageCard.appendChild(header);
+                packageCard.appendChild(details);
+                container.appendChild(packageCard);
+            });
+        }
+
+        // Format bytes to human readable format
+        function formatBytes(bytes) {
+            // Validate input
+            if (typeof bytes !== 'number' || isNaN(bytes) || bytes < 0) {
+                return 'Unknown';
+            }
+            if (bytes === 0) return '0 Bytes';
+            
+            const k = 1024;
+            const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+            const i = Math.min(Math.floor(Math.log(bytes) / Math.log(k)), sizes.length - 1);
+            return Math.round((bytes / Math.pow(k, i)) * 100) / 100 + ' ' + sizes[i];
         }
 
         // Start download process
@@ -328,6 +585,12 @@
                 onComplete: () => {
                     document.getElementById('progressText').textContent = 'Download Complete!';
                     document.getElementById('progressDetails').textContent = 'Initializing offline mode...';
+                    
+                    // Save installation info after successful download
+                    // Libraries are considered loaded since download completed successfully
+                    localStorage.setItem(STORAGE_KEYS.PACKAGE_TYPE, selectedPackage);
+                    localStorage.setItem(STORAGE_KEYS.INSTALL_DATE, new Date().toISOString());
+                    localStorage.setItem(STORAGE_KEYS.LIBRARIES_LOADED, 'true');
                     
                     // Initialize offline mode after download
                     setTimeout(() => {
@@ -405,7 +668,7 @@
             
             // Let the integration manager handle showing sections via checkInitializationComplete
             integrationManager.initialize().then(() => {
-                localStorage.setItem('offlineInstalled', 'true');
+                localStorage.setItem(STORAGE_KEYS.OFFLINE_INSTALLED, 'true');
             });
         }
 
@@ -540,7 +803,10 @@
         function clearAllCache() {
             if (confirm('This will remove all downloaded AI models and Wikipedia data. Are you sure?')) {
                 // Clear localStorage
-                localStorage.removeItem('offlineInstalled');
+                localStorage.removeItem(STORAGE_KEYS.OFFLINE_INSTALLED);
+                localStorage.removeItem(STORAGE_KEYS.PACKAGE_TYPE);
+                localStorage.removeItem(STORAGE_KEYS.INSTALL_DATE);
+                localStorage.removeItem(STORAGE_KEYS.LIBRARIES_LOADED);
                 
                 // Clear IndexedDB (simplified)
                 if ('indexedDB' in window) {

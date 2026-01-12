@@ -1065,6 +1065,100 @@ header {
     background-color: #f59e0b;
 }
 
+/* Installed Packages Section */
+.offline-page .installed-packages-section {
+    background: white;
+    border-radius: 12px;
+    padding: 30px;
+    margin-bottom: 30px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+}
+
+.offline-page .installed-packages-section h2 {
+    color: #1f2937;
+    margin-bottom: 20px;
+    font-size: 1.5rem;
+}
+
+.offline-page .installed-packages-container {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+.offline-page .installed-package-card {
+    background: white;
+    border: 2px solid #10b981;
+    border-radius: 8px;
+    padding: 20px;
+    transition: all 0.3s ease;
+}
+
+.offline-page .installed-package-card:hover {
+    box-shadow: 0 4px 12px rgba(16, 185, 129, 0.15);
+    transform: translateY(-2px);
+}
+
+.offline-page .package-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+}
+
+.offline-page .package-title {
+    margin: 0;
+    color: #1f2937;
+    font-size: 1.2em;
+}
+
+.offline-page .package-status-badge {
+    background: #10b981;
+    color: white;
+    padding: 4px 12px;
+    border-radius: 12px;
+    font-size: 0.85em;
+    font-weight: 600;
+}
+
+.offline-page .package-details {
+    color: #6b7280;
+    font-size: 0.95em;
+    line-height: 1.6;
+}
+
+.offline-page .package-details > div {
+    margin-bottom: 8px;
+}
+
+.offline-page .package-components {
+    margin-top: 15px;
+    padding-top: 15px;
+    border-top: 1px solid #e5e7eb;
+}
+
+.offline-page .components-title {
+    font-weight: 600;
+    color: #374151;
+    margin-bottom: 10px;
+}
+
+.offline-page .component-item {
+    display: flex;
+    justify-content: space-between;
+    padding: 6px 0;
+}
+
+.offline-page .component-status-installed {
+    color: #10b981;
+    font-weight: 500;
+}
+
+.offline-page .component-status-not-installed {
+    color: #ef4444;
+    font-weight: 500;
+}
+
 .offline-page .download-section {
     background: white;
     border-radius: 12px;
