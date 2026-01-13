@@ -165,15 +165,10 @@ class LocalAIModel {
             const modelExists = await this.checkModelExists(modelPath);
             
             if (!modelExists) {
-                // Model not downloaded - create fallback local model
-                console.warn(`Model file not found: ${modelPath}. Using local fallback.`);
-                const fallbackModel = this.createFallbackModel(modelId, modelInfo);
-                this.models.set(modelId, fallbackModel);
-                this.currentModel = modelId;
                 this.isLoading = false;
-                this.emit('loadProgress', { modelId, progress: 100 });
-                this.emit('loadSuccess', { modelId, modelInfo, fallback: true });
-                return fallbackModel;
+                const error = new Error(`Model file not found: ${modelPath}. Please download the model first.`);
+                this.emit('loadError', { modelId, error });
+                throw error;
             }
 
             // Load with ONNX Runtime
@@ -192,9 +187,10 @@ class LocalAIModel {
                     executionProvider: executionProviders[0]
                 });
             } else {
-                // No ONNX Runtime - use fallback
-                const fallbackModel = this.createFallbackModel(modelId, modelInfo);
-                this.models.set(modelId, fallbackModel);
+                this.isLoading = false;
+                const error = new Error('ONNX Runtime is not available. Cannot load AI models.');
+                this.emit('loadError', { modelId, error });
+                throw error;
             }
 
             this.currentModel = modelId;
@@ -204,13 +200,8 @@ class LocalAIModel {
         } catch (error) {
             this.isLoading = false;
             console.error(`Failed to load model ${modelId}:`, error);
-            
-            // Create fallback on error
-            const fallbackModel = this.createFallbackModel(modelId, this.modelRegistry[modelId]);
-            this.models.set(modelId, fallbackModel);
-            this.currentModel = modelId;
-            this.emit('loadError', { modelId, error, fallback: true });
-            return fallbackModel;
+            this.emit('loadError', { modelId, error });
+            throw error;
         }
     }
 
@@ -263,52 +254,7 @@ class LocalAIModel {
         }
     }
 
-    /**
-     * Create fallback model when ONNX model is not available
-     */
-    createFallbackModel(modelId, modelInfo) {
-        const self = this;
-        return {
-            id: modelId,
-            ...modelInfo,
-            isFallback: true,
-            
-            async infer(input, options = {}) {
-                if (modelInfo.type === 'question-answering') {
-                    return self.generateQAResponse(input);
-                }
-                return self.generateTextResponse(input);
-            }
-        };
-    }
 
-    /**
-     * Generate QA response (fallback)
-     */
-    generateQAResponse(question) {
-        const q = question.toLowerCase();
-        const responses = {
-            'what': `Based on available information, ${question.replace(/what/i, 'this')} relates to several factors including historical context and practical applications.`,
-            'who': `The person involved in ${question.replace(/who/i, 'this matter')} was a significant contributor to the field.`,
-            'where': `The location of ${question.replace(/where/i, 'this')} is in a region known for its historical significance.`,
-            'when': `The timing of ${question.replace(/when/i, 'this event')} occurred during a period of significant developments.`,
-            'why': `The reason for ${question.replace(/why/i, 'this')} involves multiple factors including technological and social changes.`,
-            'how': `The process of ${question.replace(/how/i, 'this')} involves several steps including preparation and execution.`
-        };
-        
-        for (const [prefix, response] of Object.entries(responses)) {
-            if (q.startsWith(prefix)) return response;
-        }
-        
-        return `I've analyzed your question about "${question}" and found it relates to concepts requiring specific domain knowledge.`;
-    }
-
-    /**
-     * Generate text response (fallback)
-     */
-    generateTextResponse(prompt) {
-        return `As an AI assistant in offline mode, I can respond to: "${prompt}". For full functionality, please ensure the AI model is downloaded.`;
-    }
 
     /**
      * Run inference on a loaded model

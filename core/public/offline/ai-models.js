@@ -180,7 +180,7 @@ class AIModelManager {
                     return { input_ids: [0, ...tokens, 2] }; // 0 = start, 2 = end
                 },
                 decode: (tokens) => {
-                    // Basic decoding - in real implementation would use vocab
+                    // Basic decoding - uses simple token mapping
                     return tokens.filter(t => t > 2).map(t => `token_${t}`).join(' ');
                 }
             };
@@ -396,41 +396,12 @@ class AIModelManager {
                 if (typeof result === 'string') return result;
                 if (result && result.outputs) return this.processModelOutput(result.outputs);
             } catch (error) {
-                console.warn('LocalAI inference failed, using fallback:', error);
+                console.error('LocalAI inference failed:', error);
+                throw new Error('AI model inference failed. Please ensure the model is properly loaded.');
             }
         }
         
-        // Fallback: Generate contextual response based on prompt patterns
-        const q = prompt.toLowerCase();
-        
-        if (q.includes('wikipedia')) {
-            return `I can help you search the local Wikipedia database for information. Use the Wikipedia search section below to find specific articles. What topic interests you?`;
-        }
-        
-        if (q.includes('offline')) {
-            return `Yes, I'm running completely offline in your browser. All processing happens locally on your device, ensuring privacy and allowing use without internet.`;
-        }
-        
-        if (q.includes('how do you work') || q.includes('how does this work')) {
-            return `I'm a lightweight AI model running in your browser using WebAssembly and ONNX Runtime. I process questions locally without sending data to external servers, and can access a local Wikipedia database for factual information.`;
-        }
-        
-        // Pattern-based responses for common question types
-        if (q.startsWith('what is') || q.startsWith('what are')) {
-            const topic = prompt.replace(/^what (is|are)\s*/i, '').replace(/\?$/, '');
-            return `${topic.charAt(0).toUpperCase() + topic.slice(1)} refers to a concept or entity. For detailed information, try searching the Wikipedia database below.`;
-        }
-        
-        if (q.startsWith('who is') || q.startsWith('who was')) {
-            const person = prompt.replace(/^who (is|was)\s*/i, '').replace(/\?$/, '');
-            return `${person} is a notable individual. Search the Wikipedia database for biographical details and achievements.`;
-        }
-        
-        if (q.startsWith('when') || q.startsWith('where') || q.startsWith('why') || q.startsWith('how')) {
-            return `That's a great question about "${prompt.replace(/\?$/, '')}". For accurate information, I recommend searching the Wikipedia database which contains verified facts.`;
-        }
-        
-        return `I've processed your question: "${prompt}". For comprehensive answers, the offline Wikipedia database below can provide detailed, factual information on most topics.`;
+        throw new Error('No AI model is currently loaded. Please download and initialize a model first.');
     }
     
     /**
