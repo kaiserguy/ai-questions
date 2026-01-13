@@ -36,6 +36,20 @@ class ModelStorage extends IndexedDBManager {
      * @returns {Promise<void>}
      */
     async storeModelFile(modelId, fileName, blob, checksum) {
+        // Validate inputs
+        if (!modelId || typeof modelId !== 'string') {
+            throw new Error('Invalid modelId: must be a non-empty string');
+        }
+        if (!fileName || typeof fileName !== 'string') {
+            throw new Error('Invalid fileName: must be a non-empty string');
+        }
+        if (!blob || typeof blob.size !== 'number') {
+            throw new Error('Invalid blob: must be a Blob object');
+        }
+        if (!checksum || typeof checksum !== 'string') {
+            throw new Error('Invalid checksum: must be a non-empty string');
+        }
+        
         const fileData = {
             name: fileName,
             modelId: modelId,
@@ -51,12 +65,12 @@ class ModelStorage extends IndexedDBManager {
     /**
      * Get model file
      * @param {string} fileName - File name
-     * @returns {Promise<Blob>}
+     * @returns {Promise<Blob|null>} - Returns the file Blob, or null if not found
      */
     async getModelFile(fileName) {
         const fileData = await this.get('model-files', fileName);
         if (!fileData) {
-            throw new Error(`Model file not found: ${fileName}`);
+            return null;
         }
         return fileData.blob;
     }

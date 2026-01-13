@@ -89,7 +89,7 @@ class IndexedDBManager {
             const store = transaction.objectStore(storeName);
             const request = store.get(key);
 
-            request.onsuccess = () => resolve(request.result);
+            request.onsuccess = () => resolve(request.result || null);
             request.onerror = () => reject(new Error(`Failed to get data: ${request.error}`));
         });
     }
