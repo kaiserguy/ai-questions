@@ -199,7 +199,10 @@ class DownloadManagerV2 {
     }
 }
 
-// Export for use in browser
+// Export for use in browser and Node.js
 if (typeof window !== 'undefined') {
     window.DownloadManagerV2 = DownloadManagerV2;
+}
+if (typeof module !== 'undefined' && module.exports) {
+    module.exports = { DownloadManagerV2 };
 }

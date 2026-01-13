@@ -117,7 +117,10 @@ class ModelStorage extends IndexedDBManager {
     }
 }
 
-// Export for use in browser
+// Export for use in browser and Node.js
 if (typeof window !== 'undefined') {
     window.ModelStorage = ModelStorage;
+}
+if (typeof module !== 'undefined' && module.exports) {
+    module.exports = { ModelStorage };
 }
