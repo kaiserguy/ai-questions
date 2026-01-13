@@ -237,6 +237,20 @@ class OfflineIntegrationManager {
     }
     
     /**
+     * Send a chat message and get a response (used by offline.ejs)
+     * @param {string} message - The user's message
+     * @returns {Promise<Object>} Response object with response property
+     */
+    async sendChatMessage(message) {
+        if (!this.initialized || !this.aiManager) {
+            throw new Error('AI components not initialized');
+        }
+        
+        const response = await this.aiManager.generateResponse(message);
+        return { response };
+    }
+    
+    /**
      * Generate a chat response
      */
     async generateChatResponse(prompt) {
