@@ -6,5 +6,8 @@ local/wikipedia.db-shm
 local/wikipedia.db-wal
 local/__pycache__/*
 local/wikipedia_data/*
+scripts/__pycache__/*
+scripts/wikipedia_output/*
+scripts/wikipedia_packages/*
 **.log
 .env
