@@ -43,9 +43,15 @@ logger = logging.getLogger(__name__)
 class WikipediaExtractor:
     """Extract and process Wikipedia articles"""
     
-    def __init__(self, output_dir='./wikipedia_output'):
+    # Configuration constants
+    PAGEVIEWS_PARSE_LIMIT = 100000  # Max pageview lines to parse for performance
+    
+    def __init__(self, output_dir='./wikipedia_output', pageviews_limit=None):
         self.output_dir = Path(output_dir)
         self.output_dir.mkdir(exist_ok=True, parents=True)
+        
+        # Allow override of pageviews parse limit
+        self.pageviews_limit = pageviews_limit or self.PAGEVIEWS_PARSE_LIMIT
         
         # Wikipedia dump URLs
         self.base_url = "https://dumps.wikimedia.org"
@@ -154,7 +160,7 @@ class WikipediaExtractor:
         try:
             with gzip.open(pageviews_file, 'rt', encoding='utf-8') as f:
                 for line_num, line in enumerate(f):
-                    if line_num > 100000:  # Limit for performance
+                    if line_num > self.pageviews_limit:
                         break
                     parts = line.strip().split()
                     if len(parts) >= 3:

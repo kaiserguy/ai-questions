@@ -174,9 +174,10 @@ def main():
         print("\n✅ All tests passed successfully!")
         return 0
     else:
-        print("\n⚠️  Tests skipped or failed (see above for details)")
-        print("    This is expected if dependencies are not installed.")
-        return 0  # Return 0 to not fail CI
+        print("\n⚠️  Tests skipped due to missing dependencies")
+        print("    Install dependencies with: pip install -r requirements.txt")
+        print("    This is expected in CI without Python packages installed.")
+        return 77  # Exit code 77 indicates skipped tests in many CI systems
 
 
 if __name__ == "__main__":

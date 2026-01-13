@@ -120,13 +120,15 @@ class PackageBuilder:
     
     def compress_package(self, json_file):
         """Compress package with gzip"""
+        import shutil
+        
         output_file = Path(str(json_file) + '.gz')
         
         logger.info(f"Compressing {json_file}")
         
         with open(json_file, 'rb') as f_in:
             with gzip.open(output_file, 'wb', compresslevel=9) as f_out:
-                f_out.writelines(f_in)
+                shutil.copyfileobj(f_in, f_out)  # Memory-efficient streaming
         
         original_size = json_file.stat().st_size / (1024 * 1024)
         compressed_size = output_file.stat().st_size / (1024 * 1024)
