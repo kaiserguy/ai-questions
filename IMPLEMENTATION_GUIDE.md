@@ -696,9 +696,11 @@ async loadModel(modelId) {
     const modelBlob = await modelStorage.getModelFile('phi3-mini-4k-instruct-web.onnx');
     const modelArrayBuffer = await modelBlob.arrayBuffer();
 
-    // Create ONNX Runtime session
+    // Create ONNX Runtime session with WebGPU if available, otherwise fall back to WASM
+    const hasWebGPU = typeof navigator !== 'undefined' && !!navigator.gpu;
+    const executionProviders = hasWebGPU ? ['webgpu'] : ['wasm'];
     const session = await ort.InferenceSession.create(modelArrayBuffer, {
-        executionProviders: ['webgpu'],
+        executionProviders,
         graphOptimizationLevel: 'all'
     });
 

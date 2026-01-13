@@ -9,6 +9,9 @@ const { describe, test, expect, beforeEach, afterEach } = require('@jest/globals
 global.indexedDB = require('fake-indexeddb');
 global.IDBKeyRange = require('fake-indexeddb/lib/FDBKeyRange');
 
+// Load IndexedDBManager base class first
+require('../../../core/public/offline/storage/indexeddb-manager');
+
 describe('WikipediaStorage', () => {
     let wikipediaStorage;
     
