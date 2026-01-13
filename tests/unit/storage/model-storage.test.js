@@ -5,57 +5,10 @@
 
 const { describe, test, expect, beforeEach, afterEach } = require('@jest/globals');
 const { Blob } = require('node:buffer');
+const { setupIndexedDBEnvironment } = require('../../test-utils');
 
-// Make Blob globally available for tests
-if (typeof global.Blob === 'undefined') {
-    global.Blob = Blob;
-}
-
-// Mock IndexedDB for Node.js environment
-const fakeIndexedDB = require('fake-indexeddb');
-global.indexedDB = fakeIndexedDB.default || fakeIndexedDB;
-global.IDBKeyRange = require('fake-indexeddb/lib/FDBKeyRange');
-
-// Polyfill structuredClone for Node.js < 17
-if (typeof global.structuredClone === 'undefined') {
-    const { Blob } = require('node:buffer');
-    
-    global.structuredClone = (obj) => {
-        // Handle null and undefined
-        if (obj === null || obj === undefined) {
-            return obj;
-        }
-        
-        // Handle primitives
-        if (typeof obj !== 'object') {
-            return obj;
-        }
-        
-        // Handle Blob
-        if (obj instanceof Blob) {
-            return new Blob([obj], { type: obj.type });
-        }
-        
-        // Handle Array
-        if (Array.isArray(obj)) {
-            return obj.map(item => global.structuredClone(item));
-        }
-        
-        // Handle Date
-        if (obj instanceof Date) {
-            return new Date(obj.getTime());
-        }
-        
-        // Handle plain objects
-        const cloned = {};
-        for (const key in obj) {
-            if (obj.hasOwnProperty(key)) {
-                cloned[key] = global.structuredClone(obj[key]);
-            }
-        }
-        return cloned;
-    };
-}
+// Setup test environment
+setupIndexedDBEnvironment();
 
 // Load IndexedDBManager base class first
 require('../../../core/public/offline/storage/indexeddb-manager');
