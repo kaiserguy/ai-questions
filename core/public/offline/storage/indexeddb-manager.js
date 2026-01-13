@@ -190,17 +190,30 @@ class IndexedDBManager {
             const store = transaction.objectStore(storeName);
 
             let completed = 0;
+            let hasFailed = false;
             const total = records.length;
 
             records.forEach(record => {
                 const request = store.put(record);
                 request.onsuccess = () => {
+                    if (hasFailed) {
+                        return;
+                    }
                     completed++;
                     if (completed === total) {
                         resolve();
                     }
                 };
                 request.onerror = () => {
+                    if (hasFailed) {
+                        return;
+                    }
+                    hasFailed = true;
+                    try {
+                        transaction.abort();
+                    } catch (e) {
+                        // Ignore abort errors; primary failure is reported via reject below.
+                    }
                     reject(new Error(`Failed to batch put: ${request.error}`));
                 };
             });
