@@ -8,6 +8,7 @@
     <meta name="theme-color" content="#3498db">
     <link rel="stylesheet" href="/css/styles.css">
     <link rel="stylesheet" href="/css/toast.css">
+    <link rel="stylesheet" href="/css/offline-progress.css">
 </head>
 <body class="offline-page">
     <!-- Site Navigation -->
@@ -237,6 +238,22 @@
     </div>
 
     <!-- Load required scripts -->
+    <!-- External Dependencies -->
+    <script src="https://cdn.jsdelivr.net/npm/onnxruntime-web@1.17.1/dist/ort.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/lunr@2.3.9/lunr.min.js"></script>
+    
+    <!-- Storage Layer -->
+    <script src="/offline/storage/indexeddb-manager.js"></script>
+    <script src="/offline/storage/model-storage.js"></script>
+    <script src="/offline/storage/wikipedia-storage.js"></script>
+    
+    <!-- Download Manager V2 -->
+    <script src="/offline/download/download-manager-v2.js"></script>
+    
+    <!-- Search -->
+    <script src="/offline/search/lunr-search.js"></script>
+    
+    <!-- Legacy Scripts (to be migrated) -->
     <script src="download-manager.js"></script>
     <script src="integration-manager.js"></script>
     <script src="offline-ai-chat.js"></script>
