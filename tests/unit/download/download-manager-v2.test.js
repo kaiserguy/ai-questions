@@ -3,7 +3,7 @@
  * Tests file downloads, progress tracking, checksum validation, and retry logic
  */
 
-const { describe, test, expect, beforeEach, afterEach, jest } = require('@jest/globals');
+const { describe, test, expect, beforeEach, afterEach } = require('@jest/globals');
 
 // Mock fetch for testing
 global.fetch = jest.fn();
@@ -21,7 +21,18 @@ describe('DownloadManagerV2', () => {
     beforeEach(() => {
         const { DownloadManagerV2 } = require('../../../core/public/offline/download/download-manager-v2.js');
         downloadManager = new DownloadManagerV2();
-        jest.clearAllMocks();
+        
+        // Reset fetch mock
+        global.fetch.mockReset();
+        
+        // Reinitialize crypto mock (clearAllMocks clears the structure)
+        if (!global.crypto) {
+            global.crypto = {};
+        }
+        if (!global.crypto.subtle) {
+            global.crypto.subtle = {};
+        }
+        global.crypto.subtle.digest = jest.fn();
     });
     
     afterEach(() => {
@@ -35,7 +46,7 @@ describe('DownloadManagerV2', () => {
             const mockBlob = new Blob(['test data']);
             const mockResponse = {
                 ok: true,
-                headers: new Map([['content-length', '9']]),
+                headers: new Map([['Content-Length', '3']]),
                 body: {
                     getReader: () => ({
                         read: jest.fn()
@@ -79,7 +90,7 @@ describe('DownloadManagerV2', () => {
                 .mockRejectedValueOnce(new Error('Network error'))
                 .mockResolvedValueOnce({
                     ok: true,
-                    headers: new Map([['content-length', '4']]),
+                    headers: new Map([['Content-Length', '4']]),
                     body: {
                         getReader: () => ({
                             read: jest.fn()
@@ -92,7 +103,7 @@ describe('DownloadManagerV2', () => {
             const result = await downloadManager.downloadFile(
                 'https://example.com/test.txt',
                 'test.txt',
-                { maxRetries: 3 }
+                { retryAttempts: 3 }
             );
             
             expect(result).toBeInstanceOf(Blob);
@@ -106,7 +117,7 @@ describe('DownloadManagerV2', () => {
                 downloadManager.downloadFile(
                     'https://example.com/test.txt',
                     'test.txt',
-                    { maxRetries: 2 }
+                    { retryAttempts: 2 }
                 )
             ).rejects.toThrow('Network error');
             
@@ -118,7 +129,7 @@ describe('DownloadManagerV2', () => {
         test('should download multiple files', async () => {
             const mockResponse = {
                 ok: true,
-                headers: new Map([['content-length', '10']]),
+                headers: new Map([['Content-Length', '10']]),
                 body: {
                     getReader: () => ({
                         read: jest.fn()
@@ -150,7 +161,7 @@ describe('DownloadManagerV2', () => {
             global.fetch
                 .mockResolvedValueOnce({
                     ok: true,
-                    headers: new Map([['content-length', '10']]),
+                    headers: new Map([['Content-Length', '10']]),
                     body: {
                         getReader: () => ({
                             read: jest.fn()
@@ -162,7 +173,7 @@ describe('DownloadManagerV2', () => {
                 .mockRejectedValueOnce(new Error('Failed'))
                 .mockResolvedValueOnce({
                     ok: true,
-                    headers: new Map([['content-length', '10']]),
+                    headers: new Map([['Content-Length', '10']]),
                     body: {
                         getReader: () => ({
                             read: jest.fn()
@@ -179,7 +190,7 @@ describe('DownloadManagerV2', () => {
             ];
             
             await expect(
-                downloadManager.downloadMultiple(files, null, { maxRetries: 1 })
+                downloadManager.downloadMultiple(files, null, { retryAttempts: 1 })
             ).rejects.toThrow();
         });
     });
@@ -230,7 +241,7 @@ describe('DownloadManagerV2', () => {
         test('should cancel ongoing download', async () => {
             const mockResponse = {
                 ok: true,
-                headers: new Map([['content-length', '1000']]),
+                headers: new Map([['Content-Length', '1000']]),
                 body: {
                     getReader: () => ({
                         read: jest.fn().mockImplementation(() => {
