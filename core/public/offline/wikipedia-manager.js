@@ -109,8 +109,8 @@ class WikipediaManager {
             await this.searchIndex.buildIndex(articles);
             this.useSearch = true;
             
-            // Store index in storage if available
-            if (this.storage) {
+            // Store index in storage if available and initialized
+            if (this.storage && this.storage.db) {
                 const serializedIndex = this.searchIndex.getIndexData();
                 await this.storage.storeSearchIndex(serializedIndex);
             }

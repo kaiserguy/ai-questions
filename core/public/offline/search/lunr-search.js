@@ -4,16 +4,23 @@
  */
 
 // Import lunr.js - works in both Node.js and browser
+// Lazy initialization to handle script loading order
 let lunr;
-if (typeof require !== 'undefined') {
-    try {
-        lunr = require('lunr');
-    } catch (e) {
-        // If lunr is not available in Node, it might be loaded globally in browser
-        if (typeof window !== 'undefined' && window.lunr) {
-            lunr = window.lunr;
+function getLunr() {
+    if (lunr) return lunr;
+    if (typeof require !== 'undefined') {
+        try {
+            lunr = require('lunr');
+            return lunr;
+        } catch (e) {
+            // Fall through to browser check
         }
     }
+    if (typeof window !== 'undefined' && window.lunr) {
+        lunr = window.lunr;
+        return lunr;
+    }
+    return null;
 }
 
 class LunrSearch {
@@ -34,7 +41,8 @@ class LunrSearch {
             throw new Error('Articles array is required and must not be empty');
         }
 
-        if (!lunr) {
+        const lunrLib = getLunr();
+        if (!lunrLib) {
             throw new Error('Lunr.js is not available');
         }
 
@@ -43,7 +51,7 @@ class LunrSearch {
             this.articles = articles;
 
             // Build the Lunr index
-            this.index = lunr(function() {
+            this.index = lunrLib(function() {
                 // Define fields to index with optional boosting
                 this.ref('id');
                 this.field('title', { boost: 10 });
@@ -89,13 +97,14 @@ class LunrSearch {
             throw new Error('Articles array is required');
         }
 
-        if (!lunr) {
+        const lunrLib = getLunr();
+        if (!lunrLib) {
             throw new Error('Lunr.js is not available');
         }
 
         try {
             // Load the serialized index
-            this.index = lunr.Index.load(indexData);
+            this.index = lunrLib.Index.load(indexData);
             this.articles = articles;
             this.indexReady = true;
             this.indexData = indexData;
