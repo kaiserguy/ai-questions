@@ -20,10 +20,12 @@ class OfflineUIManager {
             progressDetails: document.getElementById('progressDetails'),
             chatInput: document.getElementById('chatInput'),
             sendBtn: document.getElementById('sendBtn'),
-            chatMessages: document.getElementById('chatMessages'),
+            chatMessages: document.getElementById('chatMessages') || document.getElementById('chatContainer'),
+            chatSection: document.getElementById('chatSection'),
             wikiSearchInput: document.getElementById('wikiSearchInput'),
             wikiSearchBtn: document.getElementById('wikiSearchBtn'),
             wikiResults: document.getElementById('wikiResults'),
+            wikiSection: document.getElementById('wikiSection'),
             clearCacheBtn: document.getElementById('clearCacheBtn'),
             optionCards: document.querySelectorAll('.option-card')
         };
@@ -33,43 +35,115 @@ class OfflineUIManager {
      * Initialize the UI manager
      */
     async initialize(integrationManager) {
-        this.integrationManager = integrationManager;
-        
-        // Set up event handlers
-        this.setupPackageSelection();
-        this.setupDownloadButton();
-        this.setupChatHandlers();
-        this.setupWikiSearchHandlers();
-        this.setupClearCacheHandler();
-        
-        // Check browser compatibility
-        await this.checkBrowserCompatibility();
-        
-        // Check for existing data
-        await this.checkExistingData();
+        try {
+            // Validate integration manager
+            if (!integrationManager) {
+                throw new Error('Integration manager is required');
+            }
+            
+            this.integrationManager = integrationManager;
+            
+            // Set up event handlers
+            this.setupPackageSelection();
+            this.setupDownloadButton();
+            this.setupChatHandlers();
+            this.setupWikiSearchHandlers();
+            this.setupClearCacheHandler();
+            
+            // Check browser compatibility
+            await this.checkBrowserCompatibility();
+            
+            // Check for existing data
+            await this.checkExistingData();
+            
+            // Set up keyboard shortcuts
+            this.setupKeyboardShortcuts();
+            
+        } catch (error) {
+            console.error('Failed to initialize UI manager:', error);
+            this.showToast('Failed to initialize UI. Please refresh the page.', 'error');
+            throw error;
+        }
+    }
+    
+    /**
+     * Set up global keyboard shortcuts
+     */
+    setupKeyboardShortcuts() {
+        document.addEventListener('keydown', (e) => {
+            // Ctrl/Cmd + K to focus chat input
+            if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+                e.preventDefault();
+                this.elements.chatInput?.focus();
+            }
+            
+            // Ctrl/Cmd + / to focus wiki search
+            if ((e.ctrlKey || e.metaKey) && e.key === '/') {
+                e.preventDefault();
+                this.elements.wikiSearchInput?.focus();
+            }
+            
+            // Escape to clear focus
+            if (e.key === 'Escape') {
+                document.activeElement?.blur();
+            }
+        });
     }
     
     /**
      * Check browser compatibility for offline features
      */
     async checkBrowserCompatibility() {
-        const features = {
-            indexedDB: 'indexedDB' in window,
-            serviceWorker: 'serviceWorker' in navigator,
-            webWorkers: 'Worker' in window,
-            localStorage: 'localStorage' in window,
-            fetch: 'fetch' in window
-        };
-        
-        const allSupported = Object.values(features).every(v => v);
-        const missingFeatures = Object.entries(features)
-            .filter(([, supported]) => !supported)
-            .map(([name]) => name);
-        
-        if (allSupported) {
-            this.updateStatus('compatible', 'Your browser supports all offline features', 'Ready to download and use offline mode.');
-        } else {
-            this.updateStatus('incompatible', 'Browser compatibility issues detected', `Missing features: ${missingFeatures.join(', ')}`);
+        try {
+            const features = {
+                indexedDB: 'indexedDB' in window,
+                serviceWorker: 'serviceWorker' in navigator,
+                webWorkers: 'Worker' in window,
+                localStorage: (() => {
+                    try {
+                        const test = '__storage_test__';
+                        localStorage.setItem(test, test);
+                        localStorage.removeItem(test);
+                        return true;
+                    } catch (e) {
+                        return false;
+                    }
+                })(),
+                fetch: 'fetch' in window,
+                webAssembly: 'WebAssembly' in window
+            };
+            
+            const allSupported = Object.values(features).every(v => v);
+            const missingFeatures = Object.entries(features)
+                .filter(([, supported]) => !supported)
+                .map(([name]) => name);
+            
+            if (allSupported) {
+                this.updateStatus(
+                    'compatible', 
+                    'Your browser supports all offline features', 
+                    'Ready to download and use offline mode.'
+                );
+                this.announceToScreenReader('Browser is compatible with offline features');
+            } else {
+                const featureList = missingFeatures.join(', ');
+                this.updateStatus(
+                    'incompatible', 
+                    'Browser compatibility issues detected', 
+                    `Missing features: ${featureList}. Some offline features may not work correctly.`
+                );
+                this.announceToScreenReader('Browser compatibility issues detected');
+                
+                // Show detailed warning
+                console.warn('Missing browser features:', missingFeatures);
+            }
+        } catch (error) {
+            console.error('Compatibility check failed:', error);
+            this.updateStatus(
+                'error',
+                'Could not check browser compatibility',
+                'Please ensure you are using a modern browser.'
+            );
         }
     }
     
@@ -86,10 +160,20 @@ class OfflineUIManager {
                 if (hasModel) {
                     this.updateStatus('ready', 'Offline mode ready', 'AI model and data are available for offline use.');
                     this.enableChat();
+                    this.announceToScreenReader('Offline data is available');
+                    
+                    // Show chat and wiki sections
+                    if (this.elements.chatSection) {
+                        this.elements.chatSection.style.display = 'block';
+                    }
+                    if (this.elements.wikiSection) {
+                        this.elements.wikiSection.style.display = 'block';
+                    }
                 }
             }
         } catch (error) {
-            console.log('No existing offline data found');
+            // Not an error - just no existing data
+            console.log('No existing offline data found:', error.message);
         }
     }
     
@@ -122,20 +206,40 @@ class OfflineUIManager {
      */
     setupPackageSelection() {
         this.elements.optionCards.forEach(card => {
-            card.addEventListener('click', () => {
+            // Make cards keyboard accessible
+            card.setAttribute('role', 'radio');
+            card.setAttribute('tabindex', '0');
+            card.setAttribute('aria-checked', 'false');
+            
+            const handleSelect = () => {
+                // Prevent selection during download
+                if (this.isDownloading) {
+                    this.showToast('Cannot change package during download', 'warning');
+                    return;
+                }
+                
                 // Remove selected class from all cards
-                this.elements.optionCards.forEach(c => c.classList.remove('selected'));
+                this.elements.optionCards.forEach(c => {
+                    c.classList.remove('selected');
+                    c.setAttribute('aria-checked', 'false');
+                });
                 
                 // Add selected class to clicked card
                 card.classList.add('selected');
+                card.setAttribute('aria-checked', 'true');
                 
                 // Store selected package
                 this.selectedPackage = card.dataset.package;
                 
+                // Announce selection to screen readers
+                const packageName = this.getPackageName(this.selectedPackage);
+                this.announceToScreenReader(`${packageName} package selected`);
+                
                 // Enable download button
                 if (this.elements.downloadBtn) {
                     this.elements.downloadBtn.disabled = false;
-                    this.elements.downloadBtn.textContent = `Download ${this.getPackageName(this.selectedPackage)} Package`;
+                    this.elements.downloadBtn.textContent = `Download ${packageName} Package`;
+                    this.elements.downloadBtn.setAttribute('aria-label', `Download ${packageName} Package`);
                 }
                 
                 // Update integration manager
@@ -144,7 +248,33 @@ class OfflineUIManager {
                         this.integrationManager.setPackageType(this.selectedPackage);
                     } catch (error) {
                         console.error('Failed to set package type:', error);
+                        this.showToast('Failed to select package. Please try again.', 'error');
                     }
+                }
+            };
+            
+            // Click handler
+            card.addEventListener('click', handleSelect);
+            
+            // Keyboard navigation
+            card.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    handleSelect();
+                }
+                
+                // Arrow key navigation
+                const cards = Array.from(this.elements.optionCards);
+                const currentIndex = cards.indexOf(card);
+                
+                if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
+                    e.preventDefault();
+                    const nextCard = cards[(currentIndex + 1) % cards.length];
+                    nextCard.focus();
+                } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
+                    e.preventDefault();
+                    const prevCard = cards[(currentIndex - 1 + cards.length) % cards.length];
+                    prevCard.focus();
                 }
             });
         });
@@ -187,33 +317,71 @@ class OfflineUIManager {
      * Start the download process
      */
     startDownload() {
+        // Validate state
+        if (this.isDownloading) {
+            this.showToast('Download already in progress', 'info');
+            return;
+        }
+        
+        if (!this.selectedPackage) {
+            this.showToast('Please select a package first', 'warning');
+            return;
+        }
+        
         this.isDownloading = true;
         
         // Update UI
         if (this.elements.downloadBtn) {
             this.elements.downloadBtn.disabled = true;
             this.elements.downloadBtn.textContent = 'Downloading...';
+            this.elements.downloadBtn.setAttribute('aria-busy', 'true');
         }
+        
+        // Disable package selection during download
+        this.elements.optionCards.forEach(card => {
+            card.style.pointerEvents = 'none';
+            card.style.opacity = '0.6';
+        });
         
         if (this.elements.progressSection) {
             this.elements.progressSection.style.display = 'block';
+            this.elements.progressSection.setAttribute('aria-hidden', 'false');
         }
         
         this.updateProgress(0, 'Starting download...');
+        this.announceToScreenReader('Download started');
         
         // Start download via integration manager
         if (this.integrationManager && typeof this.integrationManager.startDownload === 'function') {
             try {
                 this.integrationManager.startDownload();
             } catch (error) {
-                this.showToast(`Download failed: ${error.message}`, 'error');
-                this.isDownloading = false;
-                this.resetDownloadButton();
+                console.error('Download error:', error);
+                this.showToast(`Download failed: ${error.message || 'Unknown error'}`, 'error');
+                this.handleDownloadFailure();
             }
         } else {
             this.showToast('Download manager not available. Please refresh the page.', 'error');
-            this.isDownloading = false;
-            this.resetDownloadButton();
+            this.handleDownloadFailure();
+        }
+    }
+    
+    /**
+     * Handle download failure and reset state
+     */
+    handleDownloadFailure() {
+        this.isDownloading = false;
+        this.resetDownloadButton();
+        
+        // Re-enable package selection
+        this.elements.optionCards.forEach(card => {
+            card.style.pointerEvents = '';
+            card.style.opacity = '';
+        });
+        
+        if (this.elements.progressSection) {
+            this.elements.progressSection.style.display = 'none';
+            this.elements.progressSection.setAttribute('aria-hidden', 'true');
         }
     }
     
@@ -221,16 +389,65 @@ class OfflineUIManager {
      * Update download progress
      */
     updateProgress(percent, details) {
+        // Validate percent value
+        const validPercent = Math.max(0, Math.min(100, percent || 0));
+        
         if (this.elements.progressText) {
-            this.elements.progressText.textContent = `Downloading... ${Math.round(percent)}%`;
+            this.elements.progressText.textContent = `Downloading... ${Math.round(validPercent)}%`;
         }
         
         if (this.elements.progressFill) {
-            this.elements.progressFill.style.width = `${percent}%`;
+            this.elements.progressFill.style.width = `${validPercent}%`;
+            this.elements.progressFill.setAttribute('aria-valuenow', validPercent);
         }
         
         if (this.elements.progressDetails && details) {
-            this.elements.progressDetails.textContent = details;
+            const sanitizedDetails = this.sanitizeHTML(details);
+            this.elements.progressDetails.textContent = sanitizedDetails;
+        }
+        
+        // Announce progress milestones to screen readers
+        if (validPercent === 25 || validPercent === 50 || validPercent === 75 || validPercent === 100) {
+            this.announceToScreenReader(`Download ${validPercent}% complete`);
+        }
+        
+        // Handle completion
+        if (validPercent >= 100) {
+            this.handleDownloadComplete();
+        }
+    }
+    
+    /**
+     * Handle download completion
+     */
+    handleDownloadComplete() {
+        this.isDownloading = false;
+        
+        // Update button
+        if (this.elements.downloadBtn) {
+            this.elements.downloadBtn.textContent = 'Download Complete';
+            this.elements.downloadBtn.removeAttribute('aria-busy');
+        }
+        
+        // Re-enable package selection
+        this.elements.optionCards.forEach(card => {
+            card.style.pointerEvents = '';
+            card.style.opacity = '';
+        });
+        
+        // Show success message
+        this.showToast('Offline package downloaded successfully!', 'success');
+        this.announceToScreenReader('Download completed successfully');
+        
+        // Enable chat
+        this.enableChat();
+        
+        // Show chat and wiki sections
+        if (this.elements.chatSection) {
+            this.elements.chatSection.style.display = 'block';
+        }
+        if (this.elements.wikiSection) {
+            this.elements.wikiSection.style.display = 'block';
         }
     }
     
@@ -255,9 +472,22 @@ class OfflineUIManager {
         }
         
         if (this.elements.chatInput) {
+            // Support Enter to send, Shift+Enter for new line
             this.elements.chatInput.addEventListener('keypress', (e) => {
-                if (e.key === 'Enter') {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault(); // Prevent default to avoid form submission
                     this.sendMessage();
+                }
+            });
+            
+            // Add input validation feedback
+            this.elements.chatInput.addEventListener('input', (e) => {
+                const length = e.target.value.length;
+                if (length > 5000) {
+                    e.target.setAttribute('aria-invalid', 'true');
+                    this.showToast('Message is too long (max 5000 characters)', 'warning');
+                } else {
+                    e.target.removeAttribute('aria-invalid');
                 }
             });
         }
@@ -267,10 +497,22 @@ class OfflineUIManager {
      * Send a chat message
      */
     async sendMessage() {
+        // Prevent sending if already processing
+        if (this.elements.sendBtn?.disabled) {
+            return;
+        }
+        
         const message = this.elements.chatInput?.value?.trim();
         
         if (!message) {
             this.showToast('Please enter a message', 'warning');
+            this.elements.chatInput?.focus();
+            return;
+        }
+        
+        // Check message length
+        if (message.length > 5000) {
+            this.showToast('Message is too long. Please keep it under 5000 characters.', 'warning');
             return;
         }
         
@@ -278,6 +520,12 @@ class OfflineUIManager {
         if (!this.integrationManager || !this.integrationManager.isInitialized) {
             this.showToast('Please download the offline package first', 'warning');
             return;
+        }
+        
+        // Disable send button during processing
+        if (this.elements.sendBtn) {
+            this.elements.sendBtn.disabled = true;
+            this.elements.sendBtn.setAttribute('aria-busy', 'true');
         }
         
         // Add user message to chat
@@ -290,8 +538,20 @@ class OfflineUIManager {
         const loadingId = this.addChatMessage('Thinking...', 'assistant', true);
         
         try {
-            // Get AI response
-            const response = await this.integrationManager.chat(message);
+            // Get AI response with timeout
+            const timeoutPromise = new Promise((_, reject) => 
+                setTimeout(() => reject(new Error('Request timeout - AI is taking too long to respond')), 60000)
+            );
+            
+            const response = await Promise.race([
+                this.integrationManager.chat(message),
+                timeoutPromise
+            ]);
+            
+            // Validate response
+            if (!response || typeof response !== 'string') {
+                throw new Error('Invalid response from AI');
+            }
             
             // Remove loading message
             this.removeChatMessage(loadingId);
@@ -299,12 +559,33 @@ class OfflineUIManager {
             // Add AI response
             this.addChatMessage(response, 'assistant');
         } catch (error) {
+            console.error('Chat error:', error);
+            
             // Remove loading message
             this.removeChatMessage(loadingId);
             
-            // Show error
-            this.addChatMessage(`Error: ${error.message}`, 'assistant', false, true);
+            // Show appropriate error message
+            let errorMessage = 'An unexpected error occurred';
+            if (error.message.includes('timeout')) {
+                errorMessage = 'Request timeout - AI is taking too long to respond';
+            } else if (error.message.includes('network')) {
+                errorMessage = 'Network error - Please check your connection';
+            } else if (error.message) {
+                errorMessage = error.message;
+            }
+            
+            // Show error in chat
+            this.addChatMessage(`Error: ${errorMessage}`, 'assistant', false, true);
             this.showToast('Failed to get AI response', 'error');
+        } finally {
+            // Re-enable send button
+            if (this.elements.sendBtn) {
+                this.elements.sendBtn.disabled = false;
+                this.elements.sendBtn.removeAttribute('aria-busy');
+            }
+            
+            // Refocus input for accessibility
+            this.elements.chatInput?.focus();
         }
     }
     
@@ -314,21 +595,27 @@ class OfflineUIManager {
     addChatMessage(text, sender, isLoading = false, isError = false) {
         if (!this.elements.chatMessages) return null;
         
-        const messageId = `msg-${Date.now()}`;
+        const messageId = `msg-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
         const messageDiv = document.createElement('div');
         messageDiv.id = messageId;
         messageDiv.className = `chat-message ${sender}-message`;
+        messageDiv.setAttribute('role', 'article');
+        messageDiv.setAttribute('aria-label', `${sender === 'user' ? 'User' : 'AI Assistant'} message`);
         
         if (isLoading) {
             messageDiv.classList.add('loading');
+            messageDiv.setAttribute('aria-busy', 'true');
         }
         
         if (isError) {
             messageDiv.classList.add('error');
+            messageDiv.setAttribute('aria-live', 'assertive');
         }
         
         const label = sender === 'user' ? 'You' : 'AI Assistant';
-        messageDiv.innerHTML = `<strong>${label}:</strong> ${text}`;
+        // Sanitize text to prevent XSS
+        const sanitizedText = this.sanitizeHTML(text);
+        messageDiv.innerHTML = `<strong>${label}:</strong> ${sanitizedText}`;
         
         this.elements.chatMessages.appendChild(messageDiv);
         this.elements.chatMessages.scrollTop = this.elements.chatMessages.scrollHeight;
@@ -369,7 +656,18 @@ class OfflineUIManager {
         if (this.elements.wikiSearchInput) {
             this.elements.wikiSearchInput.addEventListener('keypress', (e) => {
                 if (e.key === 'Enter') {
+                    e.preventDefault(); // Prevent form submission
                     this.searchWikipedia();
+                }
+            });
+            
+            // Add input validation
+            this.elements.wikiSearchInput.addEventListener('input', (e) => {
+                const length = e.target.value.length;
+                if (length > 200) {
+                    e.target.setAttribute('aria-invalid', 'true');
+                } else {
+                    e.target.removeAttribute('aria-invalid');
                 }
             });
         }
@@ -379,10 +677,27 @@ class OfflineUIManager {
      * Search Wikipedia
      */
     async searchWikipedia() {
+        // Prevent multiple simultaneous searches
+        if (this.elements.wikiSearchBtn?.disabled) {
+            return;
+        }
+        
         const query = this.elements.wikiSearchInput?.value?.trim();
         
         if (!query) {
             this.showToast('Please enter a search term', 'warning');
+            this.elements.wikiSearchInput?.focus();
+            return;
+        }
+        
+        // Validate query length
+        if (query.length < 2) {
+            this.showToast('Search term must be at least 2 characters', 'warning');
+            return;
+        }
+        
+        if (query.length > 200) {
+            this.showToast('Search term is too long (max 200 characters)', 'warning');
             return;
         }
         
@@ -392,19 +707,49 @@ class OfflineUIManager {
             return;
         }
         
+        // Disable search button
+        if (this.elements.wikiSearchBtn) {
+            this.elements.wikiSearchBtn.disabled = true;
+            this.elements.wikiSearchBtn.setAttribute('aria-busy', 'true');
+        }
+        
         // Show loading
         if (this.elements.wikiResults) {
-            this.elements.wikiResults.innerHTML = '<div class="loading">Searching...</div>';
+            this.elements.wikiResults.innerHTML = '<div class="loading" role="status" aria-live="polite">Searching...</div>';
         }
         
         try {
-            const results = await this.integrationManager.searchWikipedia(query);
+            // Search with timeout
+            const timeoutPromise = new Promise((_, reject) => 
+                setTimeout(() => reject(new Error('Search timeout')), 30000)
+            );
+            
+            const results = await Promise.race([
+                this.integrationManager.searchWikipedia(query),
+                timeoutPromise
+            ]);
+            
             this.displayWikiResults(results);
         } catch (error) {
+            console.error('Wikipedia search error:', error);
+            
+            let errorMessage = 'Search failed';
+            if (error.message.includes('timeout')) {
+                errorMessage = 'Search timeout - Please try again';
+            } else if (error.message) {
+                errorMessage = error.message;
+            }
+            
             if (this.elements.wikiResults) {
-                this.elements.wikiResults.innerHTML = `<div class="error">Search failed: ${error.message}</div>`;
+                this.elements.wikiResults.innerHTML = `<div class="error" role="alert">${this.sanitizeHTML(errorMessage)}</div>`;
             }
             this.showToast('Wikipedia search failed', 'error');
+        } finally {
+            // Re-enable search button
+            if (this.elements.wikiSearchBtn) {
+                this.elements.wikiSearchBtn.disabled = false;
+                this.elements.wikiSearchBtn.removeAttribute('aria-busy');
+            }
         }
     }
     
@@ -414,19 +759,37 @@ class OfflineUIManager {
     displayWikiResults(results) {
         if (!this.elements.wikiResults) return;
         
+        // Set aria-live for screen readers
+        this.elements.wikiResults.setAttribute('aria-live', 'polite');
+        
         if (!results || results.length === 0) {
-            this.elements.wikiResults.innerHTML = '<div class="no-results">No results found</div>';
+            this.elements.wikiResults.innerHTML = '<div class="no-results" role="status">No results found</div>';
             return;
         }
         
-        const html = results.map(result => `
-            <div class="wiki-result">
-                <h4>${result.title}</h4>
-                <p>${result.snippet || result.content?.substring(0, 200) + '...'}</p>
-            </div>
-        `).join('');
+        const html = results.map((result, index) => {
+            // Sanitize result data
+            const title = this.sanitizeHTML(result.title || 'Untitled');
+            const snippet = this.sanitizeHTML(
+                result.snippet || 
+                result.content?.substring(0, 200) + '...' || 
+                'No description available'
+            );
+            
+            return `
+                <article class="wiki-result" role="article" aria-label="Wikipedia result ${index + 1}">
+                    <h4>${title}</h4>
+                    <p>${snippet}</p>
+                </article>
+            `;
+        }).join('');
         
         this.elements.wikiResults.innerHTML = html;
+        
+        // Announce results count to screen readers
+        const resultCount = results.length;
+        const announcement = `Found ${resultCount} result${resultCount !== 1 ? 's' : ''}`;
+        this.announceToScreenReader(announcement);
     }
     
     /**
@@ -442,43 +805,110 @@ class OfflineUIManager {
      * Clear all cached data
      */
     async clearCache() {
-        // Confirm with user
-        if (!confirm('Are you sure you want to clear all offline data? This will remove downloaded AI models and Wikipedia data.')) {
+        // Prevent multiple simultaneous clear operations
+        if (this.elements.clearCacheBtn?.disabled) {
             return;
+        }
+        
+        // Confirm with user - use custom dialog for better UX
+        const confirmed = confirm(
+            'Are you sure you want to clear all offline data?\n\n' +
+            'This will remove:\n' +
+            '- Downloaded AI models\n' +
+            '- Wikipedia data\n' +
+            '- All cached files\n\n' +
+            'You will need to download the package again to use offline features.'
+        );
+        
+        if (!confirmed) {
+            return;
+        }
+        
+        // Disable clear button during operation
+        if (this.elements.clearCacheBtn) {
+            this.elements.clearCacheBtn.disabled = true;
+            this.elements.clearCacheBtn.setAttribute('aria-busy', 'true');
         }
         
         this.showToast('Clearing cache...', 'info');
         
         try {
             // Clear IndexedDB databases
-            const databases = await indexedDB.databases();
-            for (const db of databases) {
-                if (db.name) {
-                    await new Promise((resolve, reject) => {
-                        const request = indexedDB.deleteDatabase(db.name);
-                        request.onsuccess = resolve;
-                        request.onerror = reject;
-                    });
+            if ('databases' in indexedDB) {
+                const databases = await indexedDB.databases();
+                for (const db of databases) {
+                    if (db.name) {
+                        await new Promise((resolve, reject) => {
+                            const request = indexedDB.deleteDatabase(db.name);
+                            request.onsuccess = resolve;
+                            request.onerror = () => reject(new Error(`Failed to delete database: ${db.name}`));
+                            request.onblocked = () => {
+                                console.warn(`Database ${db.name} is blocked - close all tabs using it`);
+                                reject(new Error(`Database ${db.name} is blocked. Please close all other tabs.`));
+                            };
+                        });
+                    }
                 }
             }
             
-            // Clear localStorage
-            localStorage.clear();
+            // Clear localStorage with error handling
+            try {
+                localStorage.clear();
+            } catch (e) {
+                console.warn('Failed to clear localStorage:', e);
+            }
             
-            // Clear sessionStorage
-            sessionStorage.clear();
+            // Clear sessionStorage with error handling
+            try {
+                sessionStorage.clear();
+            } catch (e) {
+                console.warn('Failed to clear sessionStorage:', e);
+            }
+            
+            // Clear Service Worker caches if available
+            if ('caches' in window) {
+                try {
+                    const cacheNames = await caches.keys();
+                    await Promise.all(
+                        cacheNames.map(cacheName => caches.delete(cacheName))
+                    );
+                } catch (e) {
+                    console.warn('Failed to clear Service Worker caches:', e);
+                }
+            }
             
             this.showToast('All offline data cleared successfully', 'success');
             
-            // Reset UI
+            // Reset UI state
             this.selectedPackage = null;
+            this.isDownloading = false;
             this.elements.optionCards.forEach(c => c.classList.remove('selected'));
             this.resetDownloadButton();
             this.updateStatus('compatible', 'Cache cleared', 'Select a package to download offline data.');
             
+            // Clear chat messages
+            if (this.elements.chatMessages) {
+                this.elements.chatMessages.innerHTML = '';
+            }
+            
+            // Reset integrationManager
+            if (this.integrationManager) {
+                this.integrationManager.isInitialized = false;
+                this.integrationManager.initialized = false;
+            }
+            
         } catch (error) {
             console.error('Failed to clear cache:', error);
-            this.showToast(`Failed to clear cache: ${error.message}`, 'error');
+            this.showToast(
+                `Failed to clear cache: ${error.message || 'Unknown error'}`, 
+                'error'
+            );
+        } finally {
+            // Re-enable clear button
+            if (this.elements.clearCacheBtn) {
+                this.elements.clearCacheBtn.disabled = false;
+                this.elements.clearCacheBtn.removeAttribute('aria-busy');
+            }
         }
     }
     
@@ -487,7 +917,9 @@ class OfflineUIManager {
      */
     showToast(message, type = 'info') {
         // Use the toast.js if available
-        if (typeof showToast === 'function') {
+        if (typeof toast !== 'undefined' && typeof toast.show === 'function') {
+            toast.show(message, type);
+        } else if (typeof showToast === 'function') {
             showToast(message, type);
         } else if (typeof Toast !== 'undefined' && typeof Toast.show === 'function') {
             Toast.show(message, type);
@@ -498,6 +930,40 @@ class OfflineUIManager {
                 alert(message);
             }
         }
+    }
+    
+    /**
+     * Sanitize HTML to prevent XSS attacks
+     */
+    sanitizeHTML(text) {
+        if (!text) return '';
+        
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+    
+    /**
+     * Announce message to screen readers
+     */
+    announceToScreenReader(message) {
+        // Create or get aria-live region
+        let liveRegion = document.getElementById('sr-live-region');
+        if (!liveRegion) {
+            liveRegion = document.createElement('div');
+            liveRegion.id = 'sr-live-region';
+            liveRegion.setAttribute('aria-live', 'polite');
+            liveRegion.setAttribute('aria-atomic', 'true');
+            liveRegion.setAttribute('class', 'sr-only');
+            liveRegion.style.cssText = 'position:absolute;left:-10000px;width:1px;height:1px;overflow:hidden;';
+            document.body.appendChild(liveRegion);
+        }
+        
+        // Clear and set new message
+        liveRegion.textContent = '';
+        setTimeout(() => {
+            liveRegion.textContent = message;
+        }, 100);
     }
 }
 
