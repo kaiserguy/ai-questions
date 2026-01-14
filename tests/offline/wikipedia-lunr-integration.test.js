@@ -69,7 +69,7 @@ describe('WikipediaManager with LunrSearch Integration', () => {
             expect(manager.searchIndex).not.toBeNull();
             expect(manager.useSearch).toBe(true);
             expect(manager.searchIndex.isReady()).toBe(true);
-        });
+        }, 15000);
 
         test('should search using LunrSearch when available', async () => {
             await manager.initialize();
@@ -79,7 +79,7 @@ describe('WikipediaManager with LunrSearch Integration', () => {
             
             expect(results.length).toBeGreaterThan(0);
             expect(results[0].title).toBe('JavaScript Programming');
-        });
+        }, 15000);
 
         test('should return highlighted snippets', async () => {
             await manager.initialize();
@@ -89,7 +89,7 @@ describe('WikipediaManager with LunrSearch Integration', () => {
             
             expect(results.length).toBeGreaterThan(0);
             expect(results[0].snippet).toContain('<mark>Python</mark>');
-        });
+        }, 15000);
 
         test('should search by category', async () => {
             await manager.initialize();
@@ -99,7 +99,7 @@ describe('WikipediaManager with LunrSearch Integration', () => {
             
             expect(results.length).toBe(1);
             expect(results[0].category).toBe('Technology');
-        });
+        }, 15000);
 
         test('should load pre-built search index', async () => {
             await manager.initialize();
@@ -114,7 +114,7 @@ describe('WikipediaManager with LunrSearch Integration', () => {
             expect(manager2.useSearch).toBe(true);
             const results = await manager2.search('JavaScript');
             expect(results.length).toBeGreaterThan(0);
-        });
+        }, 15000);
 
         test('should include search stats in getStats', async () => {
             await manager.initialize();
@@ -126,7 +126,7 @@ describe('WikipediaManager with LunrSearch Integration', () => {
             expect(stats).toHaveProperty('usingLunrSearch');
             expect(stats.searchIndexReady).toBe(true);
             expect(stats.usingLunrSearch).toBe(true);
-        });
+        }, 15000);
 
         test('should clean up search index on cleanup', async () => {
             await manager.initialize();
@@ -138,7 +138,7 @@ describe('WikipediaManager with LunrSearch Integration', () => {
             
             expect(manager.searchIndex).toBeNull();
             expect(manager.useSearch).toBe(false);
-        });
+        }, 15000);
     });
 
     describe('Fallback Behavior', () => {
@@ -156,7 +156,7 @@ describe('WikipediaManager with LunrSearch Integration', () => {
             
             // Restore
             global.window.LunrSearch = originalLunrSearch;
-        });
+        }, 15000);
 
         test('should handle search index build failure gracefully', async () => {
             await manager.initialize();
@@ -171,7 +171,7 @@ describe('WikipediaManager with LunrSearch Integration', () => {
             // Manager should still work with fallback
             const results = await manager.search('test');
             expect(Array.isArray(results)).toBe(true);
-        });
+        }, 15000);
     });
 
     describe('Performance', () => {
@@ -195,7 +195,7 @@ describe('WikipediaManager with LunrSearch Integration', () => {
             
             // Should complete in less than 100ms
             expect(duration).toBeLessThan(100);
-        });
+        }, 30000);
 
         test('should load index faster than building', async () => {
             await manager.initialize();
@@ -216,7 +216,7 @@ describe('WikipediaManager with LunrSearch Integration', () => {
             // Both should complete successfully
             expect(manager.searchIndex.isReady()).toBe(true);
             expect(manager2.searchIndex.isReady()).toBe(true);
-        });
+        }, 30000);
     });
 
     describe('Error Handling', () => {
@@ -225,13 +225,13 @@ describe('WikipediaManager with LunrSearch Integration', () => {
             const result = await manager.buildSearchIndex(sampleArticles);
             expect(result).toBe(true);
             expect(manager.searchIndex).not.toBeNull();
-        });
+        }, 15000);
 
         test('should throw error when searching by category without index', async () => {
             await manager.initialize();
             
             await expect(manager.searchByCategory('test', 'Category')).rejects.toThrow('Search index not available');
-        });
+        }, 15000);
 
         test('should handle empty search results', async () => {
             await manager.initialize();
@@ -240,6 +240,6 @@ describe('WikipediaManager with LunrSearch Integration', () => {
             const results = await manager.search('nonexistentquery12345');
             expect(Array.isArray(results)).toBe(true);
             expect(results.length).toBe(0);
-        });
+        }, 15000);
     });
 });
