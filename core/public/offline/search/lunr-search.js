@@ -3,9 +3,23 @@
  * Provides fast, client-side search with ranking, highlighting, and category filtering
  */
 
-// Import lunr.js - works in both Node.js and browser
-// Lazy initialization to handle script loading order
+/**
+ * Lunr.js library reference - cached at module level for performance.
+ * 
+ * This lazy initialization pattern is necessary because:
+ * 1. In Node.js: lunr is loaded via require() on first use
+ * 2. In browser: lunr must be loaded via <script> tag before this module
+ * 3. The cached reference avoids repeated lookups and ensures consistent state
+ * 
+ * The module-level caching is intentional and safe because lunr.js is stateless -
+ * each LunrSearch instance creates its own index using the shared lunr library.
+ */
 let lunr;
+
+/**
+ * Get the lunr library, initializing it lazily if needed.
+ * @returns {Object|null} The lunr library or null if not available
+ */
 function getLunr() {
     if (lunr) return lunr;
     if (typeof require !== 'undefined') {

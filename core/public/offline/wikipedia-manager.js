@@ -8,6 +8,17 @@ if (typeof require !== 'undefined') {
     var LunrSearch = require('./search/lunr-search');
 }
 
+/**
+ * Cross-environment logging utility.
+ * Uses console.log which works in both Node.js and browser environments.
+ * @param {string} message - The message to log
+ */
+function logMessage(message) {
+    if (typeof console !== 'undefined' && typeof console.log === 'function') {
+        console.log(message);
+    }
+}
+
 class WikipediaManager {
     constructor(packageType = null) {
         // Validate package type - tests expect error when null/undefined/empty
@@ -56,7 +67,7 @@ class WikipediaManager {
         this.error = null;
 
         try {
-            process.stderr.write(`[WikipediaManager] Initializing database for package: ${this.packageType}`);
+            logMessage(`[WikipediaManager] Initializing database for package: ${this.packageType}`);
             
             // Initialize storage if available
             if (this.storage) {
@@ -119,7 +130,7 @@ class WikipediaManager {
             this.ready = true;
             this.initialized = true;
             
-            process.stderr.write(`[WikipediaManager] Search index built for ${articles.length} articles\n`);
+            logMessage(`[WikipediaManager] Search index built for ${articles.length} articles`);
             return true;
         } catch (error) {
             console.error('[WikipediaManager] Failed to build search index:', error);
@@ -167,7 +178,7 @@ class WikipediaManager {
         }
 
         try {
-            process.stderr.write(`[WikipediaManager] Searching for: ${query}`);
+            logMessage(`[WikipediaManager] Searching for: ${query}`);
             
             if (this.useSearch && this.searchIndex) {
                 return await this.searchIndex.search(query, { limit });
@@ -273,7 +284,7 @@ class WikipediaManager {
         this.loading = false;
         this.error = null;
         this.articleCount = 0;
-        process.stderr.write('[WikipediaManager] Cleaned up resources\n');
+        logMessage('[WikipediaManager] Cleaned up resources');
     }
 }
 
