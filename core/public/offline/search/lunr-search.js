@@ -3,17 +3,38 @@
  * Provides fast, client-side search with ranking, highlighting, and category filtering
  */
 
-// Import lunr.js - works in both Node.js and browser
+/**
+ * Lunr.js library reference - cached at module level for performance.
+ * 
+ * This lazy initialization pattern is necessary because:
+ * 1. In Node.js: lunr is loaded via require() on first use
+ * 2. In browser: lunr must be loaded via <script> tag before this module
+ * 3. The cached reference avoids repeated lookups and ensures consistent state
+ * 
+ * The module-level caching is intentional and safe because lunr.js is stateless -
+ * each LunrSearch instance creates its own index using the shared lunr library.
+ */
 let lunr;
-if (typeof require !== 'undefined') {
-    try {
-        lunr = require('lunr');
-    } catch (e) {
-        // If lunr is not available in Node, it might be loaded globally in browser
-        if (typeof window !== 'undefined' && window.lunr) {
-            lunr = window.lunr;
+
+/**
+ * Get the lunr library, initializing it lazily if needed.
+ * @returns {Object|null} The lunr library or null if not available
+ */
+function getLunr() {
+    if (lunr) return lunr;
+    if (typeof require !== 'undefined') {
+        try {
+            lunr = require('lunr');
+            return lunr;
+        } catch (e) {
+            // Fall through to browser check
         }
     }
+    if (typeof window !== 'undefined' && window.lunr) {
+        lunr = window.lunr;
+        return lunr;
+    }
+    return null;
 }
 
 class LunrSearch {
@@ -34,7 +55,8 @@ class LunrSearch {
             throw new Error('Articles array is required and must not be empty');
         }
 
-        if (!lunr) {
+        const lunrLib = getLunr();
+        if (!lunrLib) {
             throw new Error('Lunr.js is not available');
         }
 
@@ -43,7 +65,7 @@ class LunrSearch {
             this.articles = articles;
 
             // Build the Lunr index
-            this.index = lunr(function() {
+            this.index = lunrLib(function() {
                 // Define fields to index with optional boosting
                 this.ref('id');
                 this.field('title', { boost: 10 });
@@ -89,13 +111,14 @@ class LunrSearch {
             throw new Error('Articles array is required');
         }
 
-        if (!lunr) {
+        const lunrLib = getLunr();
+        if (!lunrLib) {
             throw new Error('Lunr.js is not available');
         }
 
         try {
             // Load the serialized index
-            this.index = lunr.Index.load(indexData);
+            this.index = lunrLib.Index.load(indexData);
             this.articles = articles;
             this.indexReady = true;
             this.indexData = indexData;
