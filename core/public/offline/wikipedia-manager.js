@@ -119,7 +119,7 @@ class WikipediaManager {
             this.ready = true;
             this.initialized = true;
             
-            process.stderr.write('[WikipediaManager] Search index built for', articles.length, 'articles');
+            process.stderr.write(`[WikipediaManager] Search index built for ${articles.length} articles\n`);
             return true;
         } catch (error) {
             console.error('[WikipediaManager] Failed to build search index:', error);
@@ -273,7 +273,7 @@ class WikipediaManager {
         this.loading = false;
         this.error = null;
         this.articleCount = 0;
-        process.stderr.write('[WikipediaManager] Cleaned up resources');
+        process.stderr.write('[WikipediaManager] Cleaned up resources\n');
     }
 }
 
