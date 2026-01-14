@@ -2,21 +2,24 @@
  * Unit tests for ModelStorage class
  * Tests model file storage, retrieval, and management in IndexedDB
  */
-
+console.log("Blob type:", typeof Blob);
+{ global.structuredClone = (val) => { if (val && typeof val === "object" && "size" in val && "type" in val) process.stderr.write("Polyfill used for Blob\n"); return val; return JSON.parse(JSON.stringify(val)); }; }
 const { describe, test, expect, beforeEach, afterEach } = require('@jest/globals');
 
 // Mock IndexedDB for Node.js environment
-global.indexedDB = require('fake-indexeddb');
-global.IDBKeyRange = require('fake-indexeddb/lib/FDBKeyRange');
+const { indexedDB, IDBKeyRange } = require('fake-indexeddb');
+global.indexedDB = indexedDB;
+global.IDBKeyRange = IDBKeyRange;
 
 // Load IndexedDBManager base class first
-require('../../../core/public/offline/storage/indexeddb-manager');
+const IndexedDBManager = require('../../../core/public/offline/storage/indexeddb-manager');
+global.IndexedDBManager = IndexedDBManager;
 
 describe('ModelStorage', () => {
     let modelStorage;
     
     beforeEach(async () => {
-        // Import ModelStorage (will need to be adapted for browser/node compatibility)
+        // Import ModelStorage
         const { ModelStorage } = require('../../../core/public/offline/storage/model-storage.js');
         modelStorage = new ModelStorage();
         await modelStorage.initialize();
@@ -24,8 +27,7 @@ describe('ModelStorage', () => {
     
     afterEach(async () => {
         if (modelStorage) {
-            await modelStorage.deleteModel('test-model');
-            // Close database connection
+            modelStorage.close();
         }
     });
     
@@ -124,7 +126,7 @@ describe('ModelStorage', () => {
         test('should retrieve model metadata', async () => {
             const modelId = 'meta-model';
             const metadata = {
-                modelId,
+                id: modelId,
                 name: 'Phi-3 Mini',
                 version: '1.0',
                 size: 4000000000
@@ -145,8 +147,8 @@ describe('ModelStorage', () => {
     describe('updateModelMetadata', () => {
         test('should update existing metadata', async () => {
             const modelId = 'update-model';
-            const initialMetadata = { modelId, version: '1.0' };
-            const updatedMetadata = { modelId, version: '2.0' };
+            const initialMetadata = { id: modelId, version: '1.0' };
+            const updatedMetadata = { id: modelId, version: '2.0' };
             
             await modelStorage.updateModelMetadata(modelId, initialMetadata);
             await modelStorage.updateModelMetadata(modelId, updatedMetadata);
@@ -164,7 +166,7 @@ describe('ModelStorage', () => {
             for (const fileName of files) {
                 await modelStorage.storeModelFile(modelId, fileName, new Blob(['data']), 'checksum');
             }
-            await modelStorage.updateModelMetadata(modelId, { modelId });
+            await modelStorage.updateModelMetadata(modelId, { id: modelId });
             
             await modelStorage.deleteModel(modelId);
             

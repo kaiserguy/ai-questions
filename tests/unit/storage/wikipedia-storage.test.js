@@ -2,15 +2,18 @@
  * Unit tests for WikipediaStorage class
  * Tests Wikipedia article storage, retrieval, and search index management
  */
+{ global.structuredClone = (val) => { if (val && typeof val === "object" && "size" in val && "type" in val) return val; return JSON.parse(JSON.stringify(val)); }; }
 
 const { describe, test, expect, beforeEach, afterEach } = require('@jest/globals');
 
 // Mock IndexedDB for Node.js environment
-global.indexedDB = require('fake-indexeddb');
-global.IDBKeyRange = require('fake-indexeddb/lib/FDBKeyRange');
+const { indexedDB, IDBKeyRange } = require('fake-indexeddb');
+global.indexedDB = indexedDB;
+global.IDBKeyRange = IDBKeyRange;
 
 // Load IndexedDBManager base class first
-require('../../../core/public/offline/storage/indexeddb-manager');
+const IndexedDBManager = require('../../../core/public/offline/storage/indexeddb-manager');
+global.IndexedDBManager = IndexedDBManager;
 
 describe('WikipediaStorage', () => {
     let wikipediaStorage;
@@ -24,6 +27,7 @@ describe('WikipediaStorage', () => {
     afterEach(async () => {
         if (wikipediaStorage) {
             await wikipediaStorage.clearAll();
+            wikipediaStorage.close();
         }
     });
     

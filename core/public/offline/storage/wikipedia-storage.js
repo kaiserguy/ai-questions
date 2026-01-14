@@ -2,6 +2,10 @@
  * Wikipedia Storage Manager
  * Handles Wikipedia article database storage in IndexedDB
  */
+if (typeof require !== 'undefined' && typeof IndexedDBManager === 'undefined') {
+    var IndexedDBManager = require('./indexeddb-manager');
+}
+
 class WikipediaStorage extends IndexedDBManager {
     constructor() {
         super('wikipedia-offline', 1);
@@ -36,6 +40,9 @@ class WikipediaStorage extends IndexedDBManager {
      * @returns {Promise<void>}
      */
     async storeArticle(article) {
+        if (!article || !article.id) {
+            throw new Error('Invalid article: ID is required');
+        }
         await this.put('articles', article);
     }
 

@@ -2,6 +2,10 @@
  * Model Storage Manager
  * Handles Phi-3 ONNX model storage in IndexedDB
  */
+if (typeof require !== 'undefined' && typeof IndexedDBManager === 'undefined') {
+    var IndexedDBManager = require('./indexeddb-manager');
+}
+
 class ModelStorage extends IndexedDBManager {
     constructor() {
         super('phi3-models', 1);
@@ -36,6 +40,10 @@ class ModelStorage extends IndexedDBManager {
      * @returns {Promise<void>}
      */
     async storeModelFile(modelId, fileName, blob, checksum) {
+        if (!modelId || !fileName || !blob) {
+            throw new Error('Model ID, file name, and blob are required');
+        }
+
         const fileData = {
             name: fileName,
             modelId: modelId,
@@ -51,14 +59,11 @@ class ModelStorage extends IndexedDBManager {
     /**
      * Get model file
      * @param {string} fileName - File name
-     * @returns {Promise<Blob>}
+     * @returns {Promise<Blob|null>}
      */
     async getModelFile(fileName) {
         const fileData = await this.get('model-files', fileName);
-        if (!fileData) {
-            throw new Error(`Model file not found: ${fileName}`);
-        }
-        return fileData.blob;
+        return fileData ? fileData.blob : null;
     }
 
     /**
@@ -113,7 +118,7 @@ class ModelStorage extends IndexedDBManager {
      */
     async getTotalStorageUsed() {
         const files = await this.getAll('model-files');
-        return files.reduce((total, file) => total + file.size, 0);
+        return files.reduce((total, file) => total + (file.size || 0), 0);
     }
 }
 
