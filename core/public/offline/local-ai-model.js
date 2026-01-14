@@ -180,7 +180,10 @@ class LocalAIModel {
             const modelExists = await this.checkModelExists(modelPath);
             
             if (!modelExists) {
-                throw new Error(`Model file not found: ${modelPath}. Please download the model first.`);
+                this.isLoading = false;
+                const error = new Error(`Model file not found: ${modelPath}. Please download the model first.`);
+                this.emit('loadError', { modelId, error });
+                throw error;
             }
 
             // Use Phi3Inference for Phi-3 models
@@ -289,11 +292,13 @@ class LocalAIModel {
         while (true) {
             const { done, value } = await reader.read();
             if (done) break;
+            
             chunks.push(value);
             loaded += value.length;
+            
             if (total > 0) {
-                const progress = Math.round((loaded / total) * 100);
-                this.emit('loadProgress', { modelId, progress, loaded, total });
+                const percent = Math.round((loaded / total) * 100);
+                this.emit('loadProgress', { modelId, progress: percent, loaded, total });
             }
         }
 
@@ -320,278 +325,70 @@ class LocalAIModel {
     }
 
     /**
-     * Generate a chat response using the loaded model
-     * @param {Array} messages - Array of {role, content} messages
-     * @param {Object} options - Generation options
-     * @returns {Promise<string>} Generated response
+     * Generate response from model
      */
-    async generateResponse(messages, options = {}) {
-        const modelId = this.currentModel;
-        
-        if (!modelId) {
-            throw new Error('No model loaded. Call loadModel() first.');
+    async generate(prompt, options = {}) {
+        if (!this.currentModel) {
+            throw new Error('No model loaded');
         }
 
-        const model = this.models.get(modelId);
+        const model = this.models.get(this.currentModel);
         
-        if (!model) {
-            throw new Error(`Model ${modelId} not found`);
-        }
-
-        this.emit('inferenceStart', { modelId, messages });
-
-        try {
-            let response;
-
-            if (model.isPhi3 && this.phi3Inference) {
-                // Use Phi-3 inference engine
-                response = await this.phi3Inference.chat(messages, {
-                    maxNewTokens: options.maxTokens || 512,
-                    temperature: options.temperature || 0.7,
-                    topK: options.topK || 50,
-                    topP: options.topP || 0.9,
-                    onToken: options.onToken
-                });
-            } else {
-                // Standard inference (for non-Phi3 models)
-                const prompt = this.formatPrompt(messages);
-                response = await this.runInference(modelId, prompt, options);
-            }
-
-            this.emit('inferenceComplete', { modelId, messages, response });
-            return response;
-
-        } catch (error) {
-            console.error('Generation error:', error);
-            this.emit('inferenceError', { modelId, error });
-            throw error;
+        if (model.isPhi3) {
+            return await this.generatePhi3(prompt, options);
+        } else {
+            return await this.generateStandard(prompt, options);
         }
     }
 
     /**
-     * Stream chat response with token callbacks
-     * @param {Array} messages - Chat messages
-     * @param {Function} onToken - Callback for each generated token
-     * @param {Object} options - Generation options
-     * @returns {Promise<string>} Complete response
+     * Generate with Phi-3
      */
-    async streamResponse(messages, onToken, options = {}) {
-        return this.generateResponse(messages, {
+    async generatePhi3(prompt, options) {
+        const { onToken = null } = options;
+        
+        // Format prompt for Phi-3 if not already formatted
+        let formattedPrompt = prompt;
+        if (!prompt.includes('<|user|>')) {
+            formattedPrompt = `<|user|>\n${prompt}<|end|>\n<|assistant|>`;
+        }
+
+        return await this.phi3Inference.generate(formattedPrompt, {
             ...options,
-            onToken
+            onToken: (token) => {
+                if (onToken) onToken(token);
+                this.emit('token', { token });
+            }
         });
     }
 
     /**
-     * Stop ongoing generation
+     * Generate with standard model
      */
-    stopGeneration() {
-        if (this.phi3Inference) {
-            this.phi3Inference.stop();
-        }
+    async generateStandard(prompt, options) {
+        // Standard models (like TinyML QA) need specific input formatting
+        // This is a simplified implementation
+        throw new Error('Standard model generation not fully implemented. Use Phi-3 models.');
     }
 
     /**
-     * Format messages into a prompt string (for non-Phi3 models)
+     * Event emitter implementation
      */
-    formatPrompt(messages) {
-        return messages.map(m => {
-            if (m.role === 'system') return `System: ${m.content}`;
-            if (m.role === 'user') return `User: ${m.content}`;
-            if (m.role === 'assistant') return `Assistant: ${m.content}`;
-            return m.content;
-        }).join('\n') + '\nAssistant:';
-    }
-
-    /**
-     * Run inference on a loaded model
-     */
-    async runInference(modelId, input, options = {}) {
-        if (!this.models.has(modelId)) {
-            await this.loadModel(modelId);
-        }
-
-        const model = this.models.get(modelId);
-        this.emit('inferenceStart', { modelId, input });
-
-        try {
-            let result;
-            
-            if (model.isPhi3 && this.phi3Inference) {
-                // Use Phi-3 inference
-                result = await this.phi3Inference.generate(input, options);
-            } else if (this.sessions.has(modelId)) {
-                // Real ONNX inference
-                const session = this.sessions.get(modelId);
-                const feeds = this.prepareTensors(input);
-                const startTime = performance.now();
-                const outputs = await session.run(feeds);
-                const inferenceTime = performance.now() - startTime;
-                result = { outputs, inferenceTime };
-            } else {
-                throw new Error(`No inference session available for model ${modelId}`);
-            }
-
-            this.emit('inferenceComplete', { modelId, input, result });
-            return result;
-        } catch (error) {
-            console.error('Inference error:', error);
-            this.emit('inferenceError', { modelId, error });
-            throw error;
-        }
-    }
-
-    /**
-     * Prepare input tensors for ONNX
-     */
-    prepareTensors(input) {
-        if (typeof input === 'string') {
-            const tokens = this.simpleTokenize(input);
-            return {
-                input_ids: new ort.Tensor('int64', BigInt64Array.from(tokens.map(BigInt)), [1, tokens.length]),
-                attention_mask: new ort.Tensor('int64', BigInt64Array.from(tokens.map(() => 1n)), [1, tokens.length])
-            };
-        }
-        return input;
-    }
-
-    /**
-     * Simple tokenizer (fallback for non-Phi3 models)
-     */
-    simpleTokenize(text) {
-        return text.toLowerCase()
-            .replace(/[^\w\s]/g, ' ')
-            .split(/\s+/)
-            .filter(t => t.length > 0)
-            .map(t => {
-                let hash = 0;
-                for (let i = 0; i < t.length; i++) {
-                    hash = ((hash << 5) - hash) + t.charCodeAt(i);
-                    hash = hash & hash;
-                }
-                return Math.abs(hash) % 30000;
-            });
-    }
-
-    /**
-     * Unload a model
-     */
-    async unloadModel(modelId) {
-        if (!this.models.has(modelId)) return false;
-
-        try {
-            const model = this.models.get(modelId);
-            
-            // Release Phi-3 inference engine if applicable
-            if (model.isPhi3 && this.phi3Inference) {
-                await this.phi3Inference.release();
-                this.phi3Inference = null;
-            }
-            
-            // Release standard ONNX session
-            if (this.sessions.has(modelId)) {
-                const session = this.sessions.get(modelId);
-                if (session.release) await session.release();
-                this.sessions.delete(modelId);
-            }
-            
-            this.models.delete(modelId);
-            if (this.currentModel === modelId) this.currentModel = null;
-            this.emit('unload', { modelId });
-            return true;
-        } catch (error) {
-            console.error(`Failed to unload model ${modelId}:`, error);
-            return false;
-        }
-    }
-
-    /**
-     * Get available models
-     */
-    async getAvailableModels() {
-        const models = [];
-        for (const [id, info] of Object.entries(this.modelRegistry)) {
-            const modelPath = `${this.options.modelPath}${info.file}`;
-            const isDownloaded = await this.checkModelExists(modelPath);
-            models.push({
-                id,
-                ...info,
-                isDownloaded,
-                isLoaded: this.models.has(id)
-            });
-        }
-        return models;
-    }
-
-    /**
-     * Get inference statistics
-     */
-    getStats() {
-        if (this.phi3Inference) {
-            return this.phi3Inference.getStats();
-        }
-        return null;
-    }
-
-    /**
-     * Check if model is ready for inference
-     */
-    isReady() {
-        if (this.phi3Inference) {
-            return this.phi3Inference.isReady();
-        }
-        return this.currentModel !== null && this.models.has(this.currentModel);
-    }
-
-    // Event emitter methods
     on(event, callback) {
         if (!this.events[event]) this.events[event] = [];
         this.events[event].push(callback);
-        return this;
-    }
-
-    off(event, callback) {
-        if (this.events[event]) {
-            this.events[event] = this.events[event].filter(cb => cb !== callback);
-        }
-        return this;
     }
 
     emit(event, data) {
         if (this.events[event]) {
-            this.events[event].forEach(cb => {
-                try { cb(data); } catch (e) { console.error(`Event handler error:`, e); }
-            });
+            this.events[event].forEach(callback => callback(data));
         }
-        return this;
     }
 }
 
-// Initialize on DOM load
-document.addEventListener('DOMContentLoaded', () => {
-    window.localAI = new LocalAIModel();
-    
-    window.localAI.on('backendsDetected', (backends) => {
-        console.log('Available backends:', backends);
-    });
-    
-    window.localAI.on('loadProgress', (data) => {
-        console.log(`Loading ${data.modelId}: ${data.progress}%`);
-    });
-    
-    window.localAI.on('loadSuccess', (data) => {
-        console.log(`Model ${data.modelId} loaded successfully`);
-    });
-    
-    window.localAI.on('loadError', (data) => {
-        console.error(`Failed to load model ${data.modelId}:`, data.error);
-    });
-});
-
-// Export for both browser and Node.js
+// Export for browser and Node.js
 if (typeof module !== 'undefined' && module.exports) {
-    module.exports = { LocalAIModel };
-}
-if (typeof window !== 'undefined') {
+    module.exports = LocalAIModel;
+} else {
     window.LocalAIModel = LocalAIModel;
 }

@@ -46,10 +46,7 @@
             <p id="statusDescription">Verifying that your browser supports all required features for offline operation.</p>
         </div>
 
-        <!-- Prototype Notice -->
-        <div class="status-card" style="background: #fff3cd; border-left: 4px solid #ffc107;">
-            <p style="margin: 0; color: #856404;"><strong>⚠️ Prototype:</strong> Browser-based offline AI is in early development. Models shown below represent planned functionality. For full AI capabilities, use the <a href="/" style="color: #856404;">online version</a> or <a href="#install-locally" style="color: #856404;">install locally</a> with Ollama.</p>
-        </div>
+
 
         <!-- Download Section -->
         <div class="download-section" id="downloadSection">
@@ -164,10 +161,7 @@
         <div class="chat-section" id="chatSection" style="display: none;">
             <h2>🤖 Offline AI Chat</h2>
             
-            <!-- Prototype Warning -->
-            <div class="status-card prototype-warning">
-                <p>⚠️ <strong>Prototype Mode:</strong> Browser-based AI is in early development. AI models require ONNX format and proper initialization. For full functionality, use the <a href="/">online version</a> or <a href="#" onclick="showInstallInstructions(); return false;">install locally</a> with Ollama.</p>
-            </div>
+
             
             <div class="chat-container" id="chatContainer">
                 <div class="message ai">
@@ -185,10 +179,7 @@
         <div class="wiki-section" id="wikiSection" style="display: none;">
             <h2>📚 Wikipedia Search</h2>
             
-            <!-- Prototype Warning -->
-            <div class="status-card prototype-warning">
-                <p>⚠️ <strong>Prototype Mode:</strong> Wikipedia search requires proper database format and initialization. For full functionality, use the <a href="/">online version</a> or <a href="#" onclick="showInstallInstructions(); return false;">install locally</a> with Ollama.</p>
-            </div>
+
             
             <div class="wiki-search-container">
                 <input type="text" class="wiki-search-input" id="wikiSearchInput" data-hint="Search Wikipedia..." />
@@ -354,7 +345,7 @@
                 // Hide download section
                 document.getElementById('downloadSection').style.display = 'none';
                 
-                // Show chat and wiki sections immediately (prototype mode)
+                // Show chat and wiki sections immediately
                 document.getElementById('chatSection').style.display = 'block';
                 document.getElementById('wikiSection').style.display = 'block';
                 

@@ -125,52 +125,36 @@ class AIModelManager {
         const config = this.modelConfigs[this.packageType];
         
         // Check if we're in a browser environment with WebLLM support
-        if (typeof window !== 'undefined' && window.webllm) {
-            // Real WebLLM implementation
-            const initProgressCallback = (progress) => {
-                console.log(`[AIModelManager] Loading progress: ${JSON.stringify(progress)}`);
-                if (progressCallback) {
-                    progressCallback(progress);
-                }
-            };
+        if (typeof window === 'undefined' || !window.webllm) {
+            throw new Error(
+                'WebLLM is not available. AI chat requires WebLLM to be loaded. ' +
+                'Please ensure the WebLLM library is included in your page.'
+            );
+        }
 
-            try {
-                this.engine = await window.webllm.CreateMLCEngine(
-                    config.modelId,
-                    { initProgressCallback }
-                );
-                
-                this.model = {
-                    type: this.packageType,
-                    modelId: config.modelId,
-                    loaded: true,
-                    timestamp: new Date().toISOString(),
-                    engine: 'WebLLM'
-                };
-            } catch (error) {
-                throw new Error(`Failed to load WebLLM model: ${error.message}`);
+        // Real WebLLM implementation
+        const initProgressCallback = (progress) => {
+            console.log(`[AIModelManager] Loading progress: ${JSON.stringify(progress)}`);
+            if (progressCallback) {
+                progressCallback(progress);
             }
-        } else {
-            // Fallback for Node.js/test environment
-            // In production, this would use a Node.js-compatible LLM library
-            console.warn('[AIModelManager] WebLLM not available, using fallback implementation');
+        };
+
+        try {
+            this.engine = await window.webllm.CreateMLCEngine(
+                config.modelId,
+                { initProgressCallback }
+            );
             
-            await new Promise((resolve) => {
-                setTimeout(() => {
-                this.model = {
-                    type: this.packageType,
-                    modelId: config.modelId,
-                    loaded: true,
-                    timestamp: new Date().toISOString(),
-                    engine: 'Fallback',
-                    // Add generate method for test compatibility
-                    generate: async (prompt) => {
-                        return `AI Response (${this.packageType} model): Processed your question about "${prompt.substring(0, 50)}..."`;
-                    }
-                };
-                    resolve();
-                }, 100); // Quick initialization for tests
-            });
+            this.model = {
+                type: this.packageType,
+                modelId: config.modelId,
+                loaded: true,
+                timestamp: new Date().toISOString(),
+                engine: 'WebLLM'
+            };
+        } catch (error) {
+            throw new Error(`Failed to load WebLLM model: ${error.message}`);
         }
     }
 
@@ -196,44 +180,26 @@ class AIModelManager {
             throw new Error('Prompt must be a non-empty string');
         }
 
+        if (!this.engine || typeof this.engine.chat === 'undefined') {
+            throw new Error(
+                'WebLLM engine is not properly initialized. Cannot generate response.'
+            );
+        }
+
         try {
-            // Check if model has generate method (for test compatibility)
-            if (this.model && typeof this.model.generate === 'function') {
-                return await this.model.generate(prompt);
-            }
+            // Real WebLLM inference
+            const response = await this.engine.chat.completions.create({
+                messages: [{ role: 'user', content: prompt }],
+                temperature: 0.7,
+                max_tokens: 512
+            });
             
-            if (this.engine && typeof this.engine.chat !== 'undefined') {
-                // Real WebLLM inference
-                const response = await this.engine.chat.completions.create({
-                    messages: [{ role: 'user', content: prompt }],
-                    temperature: 0.7,
-                    max_tokens: 512
-                });
-                
-                return response.choices[0].message.content;
-            } else {
-                // Fallback implementation for testing
-                return await this._generateWithFallback(prompt);
-            }
+            return response.choices[0].message.content;
         } catch (error) {
             this.error = error.message;
             console.error('[AIModelManager] Response generation failed:', error);
             throw error;
         }
-    }
-
-    /**
-     * Internal method to generate response with fallback
-     * @private
-     */
-    async _generateWithFallback(prompt) {
-        // In production with Node.js, this would use a local LLM library
-        // For now, provide a basic response that indicates the system is working
-        return new Promise((resolve) => {
-            setTimeout(() => {
-                resolve(`AI Response (${this.packageType} model): Processed your question about "${prompt.substring(0, 50)}..."`);
-            }, 50);
-        });
     }
 
     /**

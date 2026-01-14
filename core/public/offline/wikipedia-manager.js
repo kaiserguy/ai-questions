@@ -91,25 +91,19 @@ class WikipediaManager {
             throw new Error(`Invalid package type: ${this.packageType}`);
         }
 
-        // Database loading with different sizes based on package type
-        const articleCounts = {
-            'minimal': 1000,
-            'standard': 10000,
-            'full': 100000
-        };
+        // Check if IndexedDB is available
+        if (typeof indexedDB === 'undefined') {
+            throw new Error(
+                'IndexedDB is not available. Wikipedia search requires IndexedDB for database storage.'
+            );
+        }
 
-        return new Promise((resolve) => {
-            setTimeout(() => {
-                this.database = {
-                    type: this.packageType,
-                    loaded: true,
-                    timestamp: new Date().toISOString(),
-                    articles: [] // In real implementation, this would contain actual articles
-                };
-                this.articleCount = articleCounts[this.packageType];
-                resolve();
-            }, 10); // Minimal delay for tests
-        });
+        // TODO: Implement real database loading from IndexedDB
+        // This will be implemented in Issue #146-4: Browser Storage
+        throw new Error(
+            'Wikipedia database loading is not yet implemented. ' +
+            'See Issue #146 for implementation roadmap.'
+        );
     }
 
     /**
@@ -283,20 +277,12 @@ class WikipediaManager {
      * @private
      */
     async _performSearch(query, limit) {
-        // Search the database and return results
-        return new Promise((resolve) => {
-            setTimeout(() => {
-                const results = [];
-                for (let i = 0; i < Math.min(limit, 3); i++) {
-                    results.push({
-                        title: `${query} Result ${i + 1}`,
-                        snippet: `This is a snippet for ${query}`,
-                        url: `https://en.wikipedia.org/wiki/${query}_${i + 1}`
-                    });
-                }
-                resolve(results);
-            }, 10);
-        });
+        // TODO: Implement real full-text search using Lunr.js or similar
+        // This will be implemented in Issue #146-5: Search Implementation
+        throw new Error(
+            'Wikipedia search is not yet implemented. ' +
+            'See Issue #146 for implementation roadmap.'
+        );
     }
 
     /**
@@ -313,12 +299,12 @@ class WikipediaManager {
             throw new Error('Invalid article title');
         }
 
-        // In real implementation, this would fetch from the database
-        return {
-            title: title,
-            content: `Content for article: ${title}`,
-            timestamp: new Date().toISOString()
-        };
+        // TODO: Implement real article retrieval from IndexedDB
+        // This will be implemented in Issue #146-4: Browser Storage
+        throw new Error(
+            'Wikipedia article retrieval is not yet implemented. ' +
+            'See Issue #146 for implementation roadmap.'
+        );
     }
 
     /**
