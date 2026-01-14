@@ -3,12 +3,14 @@
  * Provides ONNX Runtime Web-based AI models that run directly in the browser
  * 
  * Implements Issue #119: ONNX Runtime Web model loading
+ * Updated for Phase 3: Real Phi-3 inference integration
  */
 
 class LocalAIModel {
     constructor(options = {}) {
         this.options = {
             modelPath: '/offline-resources/models/',
+            tokenizerPath: '/offline-resources/tokenizers/',
             wasmPath: '/offline-resources/libs/',
             useWebGPU: true,
             useWebGL: true,
@@ -24,6 +26,9 @@ class LocalAIModel {
         this.events = {};
         this.initialized = false;
         
+        // Phi-3 inference engine
+        this.phi3Inference = null;
+        
         // Available backends in priority order
         this.backends = {
             webgpu: false,
@@ -32,8 +37,32 @@ class LocalAIModel {
             cpu: true
         };
         
-        // Model registry with metadata
+        // Model registry with metadata - updated for Phi-3
         this.modelRegistry = {
+            'phi3-mini': {
+                name: 'Phi-3 Mini',
+                file: 'phi3-mini-4k-instruct.onnx',
+                tokenizerFile: 'tokenizer.json',
+                size: '2.3GB',
+                type: 'text-generation',
+                description: 'Microsoft Phi-3 Mini 4K Instruct - Compact but powerful language model',
+                inputNames: ['input_ids', 'attention_mask'],
+                outputNames: ['logits'],
+                contextLength: 4096,
+                isPhi3: true
+            },
+            'phi3-mini-q4': {
+                name: 'Phi-3 Mini (Quantized)',
+                file: 'phi3-mini-4k-instruct-q4.onnx',
+                tokenizerFile: 'tokenizer.json',
+                size: '1.2GB',
+                type: 'text-generation',
+                description: 'Quantized Phi-3 Mini - Smaller size, faster inference',
+                inputNames: ['input_ids', 'attention_mask'],
+                outputNames: ['logits'],
+                contextLength: 4096,
+                isPhi3: true
+            },
             'tinyml-qa': {
                 name: 'TinyML QA',
                 file: 'tinyml-qa.onnx',
@@ -41,16 +70,8 @@ class LocalAIModel {
                 type: 'question-answering',
                 description: 'Lightweight model for question answering',
                 inputNames: ['input_ids', 'attention_mask'],
-                outputNames: ['start_logits', 'end_logits']
-            },
-            'minillm-chat': {
-                name: 'MiniLLM Chat',
-                file: 'minillm-chat.onnx',
-                size: '40MB',
-                type: 'text-generation',
-                description: 'Compact chat model for general conversations',
-                inputNames: ['input_ids', 'attention_mask'],
-                outputNames: ['logits']
+                outputNames: ['start_logits', 'end_logits'],
+                isPhi3: false
             }
         };
     }
@@ -98,9 +119,10 @@ class LocalAIModel {
         if (this.options.useWebGPU && 'gpu' in navigator) {
             try {
                 const adapter = await navigator.gpu?.requestAdapter();
-                if (adapter) this.backends.webgpu = true;
-            } catch (e) {
-                console.warn('WebGPU not available');
+                this.backends.webgpu = !!adapter;
+                console.log(`WebGPU: ${this.backends.webgpu ? 'Available' : 'Not available'}`);
+            } catch {
+                this.backends.webgpu = false;
             }
         }
 
@@ -109,20 +131,16 @@ class LocalAIModel {
             try {
                 const canvas = document.createElement('canvas');
                 const gl = canvas.getContext('webgl2') || canvas.getContext('webgl');
-                if (gl) this.backends.webgl = true;
-            } catch (e) {
-                console.warn('WebGL not available');
+                this.backends.webgl = !!gl;
+                console.log(`WebGL: ${this.backends.webgl ? 'Available' : 'Not available'}`);
+            } catch {
+                this.backends.webgl = false;
             }
         }
 
-        // Check WASM
-        try {
-            if (typeof WebAssembly === 'object') this.backends.wasm = true;
-        } catch (e) {
-            console.warn('WebAssembly not available');
-        }
-
-        return this.backends;
+        // WASM is always available in modern browsers
+        this.backends.wasm = typeof WebAssembly !== 'undefined';
+        console.log(`WASM: ${this.backends.wasm ? 'Available' : 'Not available'}`);
     }
 
     /**
@@ -136,17 +154,14 @@ class LocalAIModel {
     }
 
     /**
-     * Load an ONNX model
+     * Load a model by ID
      */
     async loadModel(modelId, options = {}) {
-        if (this.isLoading) {
-            throw new Error('Another model is currently loading');
-        }
+        const { onProgress = null } = options;
 
-        if (this.sessions.has(modelId)) {
+        if (this.models.has(modelId)) {
             console.log(`Model ${modelId} already loaded`);
-            this.currentModel = modelId;
-            return this.sessions.get(modelId);
+            return this.models.get(modelId);
         }
 
         const modelInfo = this.modelRegistry[modelId];
@@ -165,53 +180,94 @@ class LocalAIModel {
             const modelExists = await this.checkModelExists(modelPath);
             
             if (!modelExists) {
-                // Model not downloaded - create fallback local model
-                console.warn(`Model file not found: ${modelPath}. Using local fallback.`);
-                const fallbackModel = this.createFallbackModel(modelId, modelInfo);
-                this.models.set(modelId, fallbackModel);
-                this.currentModel = modelId;
-                this.isLoading = false;
-                this.emit('loadProgress', { modelId, progress: 100 });
-                this.emit('loadSuccess', { modelId, modelInfo, fallback: true });
-                return fallbackModel;
+                throw new Error(`Model file not found: ${modelPath}. Please download the model first.`);
             }
 
-            // Load with ONNX Runtime
-            if (typeof ort !== 'undefined') {
-                const executionProviders = [this.getBestExecutionProvider()];
-                const session = await this.createSessionWithProgress(modelPath, {
-                    executionProviders,
-                    graphOptimizationLevel: 'all'
-                }, modelId);
-
-                this.sessions.set(modelId, session);
-                this.models.set(modelId, {
-                    ...modelInfo,
-                    session,
-                    loadedAt: new Date(),
-                    executionProvider: executionProviders[0]
-                });
+            // Use Phi3Inference for Phi-3 models
+            if (modelInfo.isPhi3) {
+                await this.loadPhi3Model(modelId, modelInfo, onProgress);
             } else {
-                // No ONNX Runtime - use fallback
-                const fallbackModel = this.createFallbackModel(modelId, modelInfo);
-                this.models.set(modelId, fallbackModel);
+                // Load with standard ONNX Runtime
+                await this.loadStandardModel(modelId, modelInfo, onProgress);
             }
 
             this.currentModel = modelId;
             this.isLoading = false;
             this.emit('loadSuccess', { modelId, modelInfo });
             return this.models.get(modelId);
+            
         } catch (error) {
             this.isLoading = false;
             console.error(`Failed to load model ${modelId}:`, error);
-            
-            // Create fallback on error
-            const fallbackModel = this.createFallbackModel(modelId, this.modelRegistry[modelId]);
-            this.models.set(modelId, fallbackModel);
-            this.currentModel = modelId;
-            this.emit('loadError', { modelId, error, fallback: true });
-            return fallbackModel;
+            this.emit('loadError', { modelId, error });
+            throw error;
         }
+    }
+
+    /**
+     * Load Phi-3 model with specialized inference engine
+     */
+    async loadPhi3Model(modelId, modelInfo, onProgress) {
+        // Check if Phi3Inference is available
+        if (typeof Phi3Inference === 'undefined') {
+            throw new Error('Phi3Inference not loaded. Include phi3-inference.js first.');
+        }
+
+        // Initialize Phi-3 inference engine
+        this.phi3Inference = new Phi3Inference();
+        
+        const modelPath = `${this.options.modelPath}${modelInfo.file}`;
+        const tokenizerPath = `${this.options.tokenizerPath}${modelInfo.tokenizerFile}`;
+
+        await this.phi3Inference.initialize({
+            modelPath,
+            tokenizerPath,
+            executionProvider: this.getBestExecutionProvider(),
+            onProgress: onProgress ? (progress) => {
+                this.emit('loadProgress', { 
+                    modelId, 
+                    progress: progress.percent,
+                    loaded: progress.loaded,
+                    total: progress.total
+                });
+                onProgress(progress);
+            } : null
+        });
+
+        this.models.set(modelId, {
+            ...modelInfo,
+            isPhi3: true,
+            inference: this.phi3Inference,
+            loadedAt: new Date(),
+            executionProvider: this.getBestExecutionProvider()
+        });
+
+        console.log(`Phi-3 model ${modelId} loaded successfully`);
+    }
+
+    /**
+     * Load standard ONNX model
+     */
+    async loadStandardModel(modelId, modelInfo, onProgress) {
+        if (typeof ort === 'undefined') {
+            throw new Error('ONNX Runtime not loaded');
+        }
+
+        const modelPath = `${this.options.modelPath}${modelInfo.file}`;
+        const executionProviders = [this.getBestExecutionProvider()];
+        
+        const session = await this.createSessionWithProgress(modelPath, {
+            executionProviders,
+            graphOptimizationLevel: 'all'
+        }, modelId);
+
+        this.sessions.set(modelId, session);
+        this.models.set(modelId, {
+            ...modelInfo,
+            session,
+            loadedAt: new Date(),
+            executionProvider: executionProviders[0]
+        });
     }
 
     /**
@@ -264,50 +320,87 @@ class LocalAIModel {
     }
 
     /**
-     * Create fallback model when ONNX model is not available
+     * Generate a chat response using the loaded model
+     * @param {Array} messages - Array of {role, content} messages
+     * @param {Object} options - Generation options
+     * @returns {Promise<string>} Generated response
      */
-    createFallbackModel(modelId, modelInfo) {
-        const self = this;
-        return {
-            id: modelId,
-            ...modelInfo,
-            isFallback: true,
-            
-            async infer(input, options = {}) {
-                if (modelInfo.type === 'question-answering') {
-                    return self.generateQAResponse(input);
-                }
-                return self.generateTextResponse(input);
-            }
-        };
-    }
-
-    /**
-     * Generate QA response (fallback)
-     */
-    generateQAResponse(question) {
-        const q = question.toLowerCase();
-        const responses = {
-            'what': `Based on available information, ${question.replace(/what/i, 'this')} relates to several factors including historical context and practical applications.`,
-            'who': `The person involved in ${question.replace(/who/i, 'this matter')} was a significant contributor to the field.`,
-            'where': `The location of ${question.replace(/where/i, 'this')} is in a region known for its historical significance.`,
-            'when': `The timing of ${question.replace(/when/i, 'this event')} occurred during a period of significant developments.`,
-            'why': `The reason for ${question.replace(/why/i, 'this')} involves multiple factors including technological and social changes.`,
-            'how': `The process of ${question.replace(/how/i, 'this')} involves several steps including preparation and execution.`
-        };
+    async generateResponse(messages, options = {}) {
+        const modelId = this.currentModel;
         
-        for (const [prefix, response] of Object.entries(responses)) {
-            if (q.startsWith(prefix)) return response;
+        if (!modelId) {
+            throw new Error('No model loaded. Call loadModel() first.');
         }
+
+        const model = this.models.get(modelId);
         
-        return `I've analyzed your question about "${question}" and found it relates to concepts requiring specific domain knowledge.`;
+        if (!model) {
+            throw new Error(`Model ${modelId} not found`);
+        }
+
+        this.emit('inferenceStart', { modelId, messages });
+
+        try {
+            let response;
+
+            if (model.isPhi3 && this.phi3Inference) {
+                // Use Phi-3 inference engine
+                response = await this.phi3Inference.chat(messages, {
+                    maxNewTokens: options.maxTokens || 512,
+                    temperature: options.temperature || 0.7,
+                    topK: options.topK || 50,
+                    topP: options.topP || 0.9,
+                    onToken: options.onToken
+                });
+            } else {
+                // Standard inference (for non-Phi3 models)
+                const prompt = this.formatPrompt(messages);
+                response = await this.runInference(modelId, prompt, options);
+            }
+
+            this.emit('inferenceComplete', { modelId, messages, response });
+            return response;
+
+        } catch (error) {
+            console.error('Generation error:', error);
+            this.emit('inferenceError', { modelId, error });
+            throw error;
+        }
     }
 
     /**
-     * Generate text response (fallback)
+     * Stream chat response with token callbacks
+     * @param {Array} messages - Chat messages
+     * @param {Function} onToken - Callback for each generated token
+     * @param {Object} options - Generation options
+     * @returns {Promise<string>} Complete response
      */
-    generateTextResponse(prompt) {
-        return `As an AI assistant in offline mode, I can respond to: "${prompt}". For full functionality, please ensure the AI model is downloaded.`;
+    async streamResponse(messages, onToken, options = {}) {
+        return this.generateResponse(messages, {
+            ...options,
+            onToken
+        });
+    }
+
+    /**
+     * Stop ongoing generation
+     */
+    stopGeneration() {
+        if (this.phi3Inference) {
+            this.phi3Inference.stop();
+        }
+    }
+
+    /**
+     * Format messages into a prompt string (for non-Phi3 models)
+     */
+    formatPrompt(messages) {
+        return messages.map(m => {
+            if (m.role === 'system') return `System: ${m.content}`;
+            if (m.role === 'user') return `User: ${m.content}`;
+            if (m.role === 'assistant') return `Assistant: ${m.content}`;
+            return m.content;
+        }).join('\n') + '\nAssistant:';
     }
 
     /**
@@ -324,8 +417,9 @@ class LocalAIModel {
         try {
             let result;
             
-            if (model.isFallback) {
-                result = await model.infer(input, options);
+            if (model.isPhi3 && this.phi3Inference) {
+                // Use Phi-3 inference
+                result = await this.phi3Inference.generate(input, options);
             } else if (this.sessions.has(modelId)) {
                 // Real ONNX inference
                 const session = this.sessions.get(modelId);
@@ -335,7 +429,7 @@ class LocalAIModel {
                 const inferenceTime = performance.now() - startTime;
                 result = { outputs, inferenceTime };
             } else {
-                result = await model.infer(input, options);
+                throw new Error(`No inference session available for model ${modelId}`);
             }
 
             this.emit('inferenceComplete', { modelId, input, result });
@@ -362,7 +456,7 @@ class LocalAIModel {
     }
 
     /**
-     * Simple tokenizer
+     * Simple tokenizer (fallback for non-Phi3 models)
      */
     simpleTokenize(text) {
         return text.toLowerCase()
@@ -386,11 +480,21 @@ class LocalAIModel {
         if (!this.models.has(modelId)) return false;
 
         try {
+            const model = this.models.get(modelId);
+            
+            // Release Phi-3 inference engine if applicable
+            if (model.isPhi3 && this.phi3Inference) {
+                await this.phi3Inference.release();
+                this.phi3Inference = null;
+            }
+            
+            // Release standard ONNX session
             if (this.sessions.has(modelId)) {
                 const session = this.sessions.get(modelId);
                 if (session.release) await session.release();
                 this.sessions.delete(modelId);
             }
+            
             this.models.delete(modelId);
             if (this.currentModel === modelId) this.currentModel = null;
             this.emit('unload', { modelId });
@@ -417,6 +521,26 @@ class LocalAIModel {
             });
         }
         return models;
+    }
+
+    /**
+     * Get inference statistics
+     */
+    getStats() {
+        if (this.phi3Inference) {
+            return this.phi3Inference.getStats();
+        }
+        return null;
+    }
+
+    /**
+     * Check if model is ready for inference
+     */
+    isReady() {
+        if (this.phi3Inference) {
+            return this.phi3Inference.isReady();
+        }
+        return this.currentModel !== null && this.models.has(this.currentModel);
     }
 
     // Event emitter methods
@@ -448,11 +572,7 @@ document.addEventListener('DOMContentLoaded', () => {
     window.localAI = new LocalAIModel();
     
     window.localAI.on('backendsDetected', (backends) => {
-        console.log('LocalAI backends:', backends);
-    });
-    
-    window.localAI.on('loadStart', (data) => {
-        console.log(`Loading model: ${data.modelId}`);
+        console.log('Available backends:', backends);
     });
     
     window.localAI.on('loadProgress', (data) => {
@@ -460,16 +580,18 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     
     window.localAI.on('loadSuccess', (data) => {
-        console.log(`Model loaded: ${data.modelId}${data.fallback ? ' (fallback)' : ''}`);
+        console.log(`Model ${data.modelId} loaded successfully`);
     });
     
     window.localAI.on('loadError', (data) => {
-        console.error(`Model load error:`, data.error);
+        console.error(`Failed to load model ${data.modelId}:`, data.error);
     });
-    
-    window.localAI.initialize();
 });
 
+// Export for both browser and Node.js
 if (typeof module !== 'undefined' && module.exports) {
-    module.exports = LocalAIModel;
+    module.exports = { LocalAIModel };
+}
+if (typeof window !== 'undefined') {
+    window.LocalAIModel = LocalAIModel;
 }
