@@ -239,6 +239,11 @@ class AIModelManager {
     }
 }
 
+// Export for browser
+if (typeof window !== 'undefined') {
+    window.AIModelManager = AIModelManager;
+}
+
 // Export for Node.js
 if (typeof module !== 'undefined' && module.exports) {
     module.exports = AIModelManager;
