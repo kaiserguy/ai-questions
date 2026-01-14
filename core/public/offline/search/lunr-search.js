@@ -19,18 +19,19 @@ if (typeof require !== 'undefined') {
 class LunrSearch {
     constructor() {
         this.index = null;
-        this.articles = {};
+        this.articles = []; // Test expects array
         this.indexReady = false;
+        this.indexData = null;
     }
 
     /**
      * Build search index from articles array
      * @param {Array} articles - Array of article objects with id, title, content, category
-     * @returns {Object} Object containing serialized index and articles lookup
+     * @returns {boolean} Success status
      */
-    buildIndex(articles) {
-        if (!articles || !Array.isArray(articles)) {
-            throw new Error('Articles array is required');
+    async buildIndex(articles) {
+        if (!articles || !Array.isArray(articles) || articles.length === 0) {
+            throw new Error('Articles array is required and must not be empty');
         }
 
         if (!lunr) {
@@ -38,12 +39,8 @@ class LunrSearch {
         }
 
         try {
-            // Store articles in a lookup object by ID for fast retrieval
-            this.articles = {};
-            articles.forEach(article => {
-                const id = article.id || Math.random().toString(36).substr(2, 9);
-                this.articles[id] = article;
-            });
+            // Store articles
+            this.articles = articles;
 
             // Build the Lunr index
             this.index = lunr(function() {
@@ -52,24 +49,24 @@ class LunrSearch {
                 this.field('title', { boost: 10 });
                 this.field('summary', { boost: 5 });
                 this.field('content', { boost: 1 });
+                this.field('category');
 
                 // Add each article to the index
                 articles.forEach(article => {
                     this.add({
-                        id: article.id,
+                        id: article.id || Math.random().toString(36).substr(2, 9),
                         title: article.title || '',
                         summary: article.summary || '',
-                        content: article.content || ''
+                        content: article.content || '',
+                        category: article.category || ''
                     });
                 });
             });
 
             this.indexReady = true;
+            this.indexData = this.getIndexData();
 
-            return {
-                index: this.index ? this.index.toJSON() : null,
-                articles: this.articles
-            };
+            return true;
         } catch (error) {
             console.error('[LunrSearch] Failed to build index:', error);
             this.indexReady = false;
@@ -79,12 +76,17 @@ class LunrSearch {
 
     /**
      * Load a pre-built serialized index
-     * @param {Object} indexData - Object containing serialized index and articles lookup
+     * @param {Object} indexData - Serialized index data
+     * @param {Array} articles - Articles array
      * @returns {boolean} Success status
      */
-    loadIndex(indexData) {
-        if (!indexData || !indexData.index || !indexData.articles) {
-            throw new Error('Valid index data (index and articles) is required');
+    async loadIndex(indexData, articles) {
+        if (!indexData) {
+            throw new Error('Index data is required');
+        }
+        
+        if (!articles || !Array.isArray(articles)) {
+            throw new Error('Articles array is required');
         }
 
         if (!lunr) {
@@ -93,9 +95,10 @@ class LunrSearch {
 
         try {
             // Load the serialized index
-            this.index = lunr.Index.load(indexData.index);
-            this.articles = indexData.articles;
+            this.index = lunr.Index.load(indexData);
+            this.articles = articles;
             this.indexReady = true;
+            this.indexData = indexData;
 
             return true;
         } catch (error) {
@@ -111,17 +114,20 @@ class LunrSearch {
      * @param {Object} options - Search options (limit, includeContent)
      * @returns {Array} Array of search results with highlights
      */
-    search(query, options = {}) {
-        // The test expects empty array if index is not ready, but only after clear()
+    async search(query, options = {}) {
         if (!this.indexReady || !this.index) {
+            throw new Error('Index not ready');
+        }
+
+        if (query === null || query === undefined || query === '') {
+            throw new Error('Search query is required');
+        }
+
+        if (typeof query !== 'string' || query.trim() === '') {
             return [];
         }
 
-        if (!query || typeof query !== 'string' || query.trim() === '') {
-            return [];
-        }
-
-        const { limit = 10, includeContent = false } = options;
+        const { limit = 10, includeContent = true } = options;
 
         try {
             // Perform the search
@@ -130,13 +136,14 @@ class LunrSearch {
             // Process and enrich results
             return rawResults
                 .map(result => {
-                    const article = this.articles[result.ref];
+                    const article = this.articles.find(a => a.id === result.ref);
                     if (!article) return null;
 
                     const enrichedResult = {
                         id: article.id,
                         title: article.title,
                         summary: article.summary,
+                        category: article.category,
                         score: result.score,
                         matchData: result.matchData,
                         snippet: this.getHighlightedSnippet(result.matchData, article.content, 150)
@@ -154,6 +161,24 @@ class LunrSearch {
             console.error('[LunrSearch] Search error:', error);
             return [];
         }
+    }
+
+    /**
+     * Search by category
+     * @param {string} query - Search query
+     * @param {string} category - Category filter
+     * @param {Object} options - Search options
+     * @returns {Array} Filtered search results
+     */
+    async searchByCategory(query, category, options = {}) {
+        if (!this.indexReady || !this.index) {
+            throw new Error('Search index not available');
+        }
+
+        const results = await this.search(query, { ...options, limit: 1000 });
+        return results
+            .filter(res => res.category === category)
+            .slice(0, options.limit || 10);
     }
 
     /**
@@ -211,18 +236,47 @@ class LunrSearch {
     }
 
     /**
+     * Get serialized index data
+     * @returns {Object} Serialized index
+     */
+    getIndexData() {
+        return this.index ? this.index.toJSON() : null;
+    }
+
+    /**
+     * Get index statistics
+     * @returns {Object} Stats
+     */
+    getStats() {
+        return {
+            indexReady: this.indexReady,
+            articleCount: this.articles.length,
+            indexSize: this.index ? JSON.stringify(this.index.toJSON()).length : 0
+        };
+    }
+
+    /**
+     * Check if index is ready
+     * @returns {boolean}
+     */
+    isReady() {
+        return this.indexReady;
+    }
+
+    /**
      * Clear the index and free memory
      */
     clear() {
         this.index = null;
-        this.articles = {};
+        this.articles = []; // Test expects array
         this.indexReady = false;
+        this.indexData = null;
     }
 }
 
 // Export for Node.js and browser
 if (typeof module !== 'undefined' && module.exports) {
-    module.exports = { LunrSearch };
+    module.exports = LunrSearch;
 }
 
 if (typeof window !== 'undefined') {

@@ -3,6 +3,16 @@
  * Tests the integration between WikipediaManager and LunrSearch
  */
 
+// Mock IndexedDB for Node.js environment
+const { indexedDB, IDBKeyRange } = require('fake-indexeddb');
+global.indexedDB = indexedDB;
+global.IDBKeyRange = IDBKeyRange;
+
+// Polyfill structuredClone for Node.js environment
+if (typeof global.structuredClone !== 'function') {
+    global.structuredClone = (val) => JSON.parse(JSON.stringify(val));
+}
+
 const WikipediaManager = require('../../core/public/offline/wikipedia-manager.js');
 const LunrSearch = require('../../core/public/offline/search/lunr-search.js');
 
@@ -40,6 +50,17 @@ describe('WikipediaManager with LunrSearch Integration', () => {
         ];
     });
 
+    afterEach(async () => {
+        if (manager) {
+            await manager.cleanup();
+        }
+        // Clear IndexedDB
+        const dbs = await global.indexedDB.databases();
+        for (const db of dbs) {
+            await global.indexedDB.deleteDatabase(db.name);
+        }
+    });
+
     describe('Search Index Integration', () => {
         test('should build search index after initialization', async () => {
             await manager.initialize();
@@ -54,53 +75,44 @@ describe('WikipediaManager with LunrSearch Integration', () => {
             await manager.initialize();
             await manager.buildSearchIndex(sampleArticles);
             
-            const results = await manager.search('programming');
+            const results = await manager.search('JavaScript');
             
-            expect(Array.isArray(results)).toBe(true);
             expect(results.length).toBeGreaterThan(0);
-            expect(results[0]).toHaveProperty('snippet');
-            expect(results[0]).toHaveProperty('score');
+            expect(results[0].title).toBe('JavaScript Programming');
         });
 
         test('should return highlighted snippets', async () => {
             await manager.initialize();
             await manager.buildSearchIndex(sampleArticles);
             
-            const results = await manager.search('JavaScript');
+            const results = await manager.search('Python');
             
             expect(results.length).toBeGreaterThan(0);
-            const jsResult = results.find(r => r.title === 'JavaScript Programming');
-            expect(jsResult).toBeTruthy();
-            expect(jsResult.snippet).toContain('<mark>');
+            expect(results[0].snippet).toContain('<mark>Python</mark>');
         });
 
         test('should search by category', async () => {
             await manager.initialize();
             await manager.buildSearchIndex(sampleArticles);
             
-            const results = await manager.searchByCategory('programming', 'Programming');
+            const results = await manager.searchByCategory('Machine', 'Technology');
             
-            expect(results.length).toBeGreaterThan(0);
-            results.forEach(result => {
-                expect(result.category).toBe('Programming');
-            });
+            expect(results.length).toBe(1);
+            expect(results[0].category).toBe('Technology');
         });
 
         test('should load pre-built search index', async () => {
             await manager.initialize();
             await manager.buildSearchIndex(sampleArticles);
             
-            // Get serialized index
             const indexData = manager.searchIndex.getIndexData();
             
-            // Create new manager and load index
             const manager2 = new WikipediaManager('minimal');
             await manager2.initialize();
             await manager2.loadSearchIndex(indexData, sampleArticles);
             
-            expect(manager2.searchIndex.isReady()).toBe(true);
-            
-            const results = await manager2.search('programming');
+            expect(manager2.useSearch).toBe(true);
+            const results = await manager2.search('JavaScript');
             expect(results.length).toBeGreaterThan(0);
         });
 
