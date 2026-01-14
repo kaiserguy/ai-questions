@@ -1,0 +1,22 @@
+# Python dependencies for Wikipedia extraction pipeline
+# Install with: pip install -r requirements.txt
+
+# Wikipedia dump parsing
+mwparserfromhell==0.6.6
+mwxml==0.3.3
+
+# HTTP requests for downloading
+requests==2.31.0
+
+# Data processing
+beautifulsoup4==4.12.3
+lxml==5.1.0
+
+# Database (already in system)
+# sqlite3 is built-in to Python
+
+# Progress bars
+tqdm==4.66.1
+
+# JSON handling (built-in)
+# json is built-in to Python

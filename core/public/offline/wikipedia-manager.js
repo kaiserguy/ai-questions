@@ -1,6 +1,6 @@
 /**
  * WikipediaManager - Manages offline Wikipedia database loading and searching
- * Real implementation that handles local Wikipedia data
+ * Real implementation that handles local Wikipedia data with LunrSearch integration
  */
 
 class WikipediaManager {
@@ -22,6 +22,8 @@ class WikipediaManager {
         this.initialized = false; // Alias for tests
         this.error = null;
         this.articleCount = 0;
+        this.searchIndex = null; // LunrSearch instance
+        this.useSearch = false; // Flag to use LunrSearch when available
     }
 
     /**
@@ -52,6 +54,16 @@ class WikipediaManager {
             console.log(`[WikipediaManager] Loading database for package: ${this.packageType}`);
             
             await this._loadDatabase();
+            
+            // Try to initialize LunrSearch if available
+            if (typeof window !== 'undefined' && window.LunrSearch) {
+                try {
+                    await this._initializeSearchIndex();
+                } catch (searchError) {
+                    console.warn('[WikipediaManager] LunrSearch initialization failed:', searchError);
+                    // Continue without search - fallback to basic search
+                }
+            }
             
             this.ready = true;
             this.initialized = true;
@@ -95,6 +107,99 @@ class WikipediaManager {
     }
 
     /**
+     * Initialize the LunrSearch index
+     * @private
+     */
+    async _initializeSearchIndex() {
+        if (!window.LunrSearch) {
+            console.warn('[WikipediaManager] LunrSearch not available');
+            return;
+        }
+
+        try {
+            console.log('[WikipediaManager] Initializing LunrSearch index...');
+            this.searchIndex = new window.LunrSearch();
+            
+            // In a real implementation, this would load articles from IndexedDB
+            // For now, we check if database has articles
+            if (this.database && this.database.articles && this.database.articles.length > 0) {
+                await this.searchIndex.buildIndex(this.database.articles);
+                this.useSearch = true;
+                console.log('[WikipediaManager] LunrSearch index built successfully');
+            } else {
+                console.log('[WikipediaManager] No articles to index yet');
+            }
+        } catch (error) {
+            console.error('[WikipediaManager] Failed to initialize search index:', error);
+            this.searchIndex = null;
+            this.useSearch = false;
+        }
+    }
+
+    /**
+     * Build or rebuild the search index from articles
+     * @param {Array} articles - Array of article objects
+     * @returns {Promise<boolean>} Success status
+     */
+    async buildSearchIndex(articles) {
+        if (!window.LunrSearch) {
+            throw new Error('LunrSearch not available');
+        }
+
+        try {
+            if (!this.searchIndex) {
+                this.searchIndex = new window.LunrSearch();
+            }
+            
+            await this.searchIndex.buildIndex(articles);
+            this.useSearch = true;
+            
+            // Update database articles
+            if (this.database) {
+                this.database.articles = articles;
+            }
+            
+            console.log('[WikipediaManager] Search index built for', articles.length, 'articles');
+            return true;
+        } catch (error) {
+            console.error('[WikipediaManager] Failed to build search index:', error);
+            throw error;
+        }
+    }
+
+    /**
+     * Load a pre-built search index
+     * @param {Object} indexData - Serialized index data
+     * @param {Array} articles - Articles array
+     * @returns {Promise<boolean>} Success status
+     */
+    async loadSearchIndex(indexData, articles) {
+        if (!window.LunrSearch) {
+            throw new Error('LunrSearch not available');
+        }
+
+        try {
+            if (!this.searchIndex) {
+                this.searchIndex = new window.LunrSearch();
+            }
+            
+            await this.searchIndex.loadIndex(indexData, articles);
+            this.useSearch = true;
+            
+            // Update database articles
+            if (this.database) {
+                this.database.articles = articles;
+            }
+            
+            console.log('[WikipediaManager] Search index loaded');
+            return true;
+        } catch (error) {
+            console.error('[WikipediaManager] Failed to load search index:', error);
+            throw error;
+        }
+    }
+
+    /**
      * Check if the database is ready for searching
      * @returns {boolean} Ready status
      */
@@ -128,17 +233,43 @@ class WikipediaManager {
         try {
             console.log(`[WikipediaManager] Searching for: ${query}`);
             
+            // Use LunrSearch if available and initialized
+            if (this.useSearch && this.searchIndex && this.searchIndex.isReady()) {
+                const results = await this.searchIndex.search(query, { limit });
+                return results;
+            }
+            
             // Check if database has search method (for test compatibility)
             if (this.database && typeof this.database.search === 'function') {
                 return await this.database.search(query, limit);
             }
             
+            // Fallback to basic search
             const results = await this._performSearch(query, limit);
             return results;
         } catch (error) {
             console.error('[WikipediaManager] Search error:', error);
             throw error;
         }
+    }
+
+    /**
+     * Search by category using LunrSearch
+     * @param {string} query - Search query
+     * @param {string} category - Category filter
+     * @param {number} limit - Maximum number of results
+     * @returns {Promise<Array>} Filtered search results
+     */
+    async searchByCategory(query, category, limit = 10) {
+        if (!this.isReady()) {
+            throw new Error('Database not ready. Call initialize() first.');
+        }
+
+        if (!this.useSearch || !this.searchIndex || !this.searchIndex.isReady()) {
+            throw new Error('Search index not available. Use buildSearchIndex() first.');
+        }
+
+        return await this.searchIndex.searchByCategory(query, category, limit);
     }
 
     /**
@@ -187,7 +318,9 @@ class WikipediaManager {
             loading: this.loading,
             error: this.error,
             articleCount: this.articleCount,
-            databaseSize: this.database ? `${this.articleCount * 10}KB` : '0KB'
+            databaseSize: this.database ? `${this.articleCount * 10}KB` : '0KB',
+            searchIndexReady: this.searchIndex ? this.searchIndex.isReady() : false,
+            usingLunrSearch: this.useSearch
         };
     }
 
@@ -213,6 +346,11 @@ class WikipediaManager {
      * Clean up resources
      */
     async cleanup() {
+        if (this.searchIndex) {
+            this.searchIndex.clear();
+            this.searchIndex = null;
+        }
+        this.useSearch = false;
         this.database = null;
         this.ready = false;
         this.initialized = false;
