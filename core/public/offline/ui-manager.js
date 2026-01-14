@@ -61,7 +61,7 @@ class OfflineUIManager {
             
         } catch (error) {
             console.error('Failed to initialize UI manager:', error);
-            this.showToast('Failed to initialize UI. Please refresh the page.', 'error');
+            this.displayToast('Failed to initialize UI. Please refresh the page.', 'error');
             throw error;
         }
     }
@@ -214,7 +214,7 @@ class OfflineUIManager {
             const handleSelect = () => {
                 // Prevent selection during download
                 if (this.isDownloading) {
-                    this.showToast('Cannot change package during download', 'warning');
+                    this.displayToast('Cannot change package during download', 'warning');
                     return;
                 }
                 
@@ -248,7 +248,7 @@ class OfflineUIManager {
                         this.integrationManager.setPackageType(this.selectedPackage);
                     } catch (error) {
                         console.error('Failed to set package type:', error);
-                        this.showToast('Failed to select package. Please try again.', 'error');
+                        this.displayToast('Failed to select package. Please try again.', 'error');
                     }
                 }
             };
@@ -299,12 +299,12 @@ class OfflineUIManager {
         if (this.elements.downloadBtn) {
             this.elements.downloadBtn.addEventListener('click', () => {
                 if (!this.selectedPackage) {
-                    this.showToast('Please select a package first', 'warning');
+                    this.displayToast('Please select a package first', 'warning');
                     return;
                 }
                 
                 if (this.isDownloading) {
-                    this.showToast('Download already in progress', 'info');
+                    this.displayToast('Download already in progress', 'info');
                     return;
                 }
                 
@@ -319,12 +319,12 @@ class OfflineUIManager {
     startDownload() {
         // Validate state
         if (this.isDownloading) {
-            this.showToast('Download already in progress', 'info');
+            this.displayToast('Download already in progress', 'info');
             return;
         }
         
         if (!this.selectedPackage) {
-            this.showToast('Please select a package first', 'warning');
+            this.displayToast('Please select a package first', 'warning');
             return;
         }
         
@@ -357,11 +357,11 @@ class OfflineUIManager {
                 this.integrationManager.startDownload();
             } catch (error) {
                 console.error('Download error:', error);
-                this.showToast(`Download failed: ${error.message || 'Unknown error'}`, 'error');
+                this.displayToast(`Download failed: ${error.message || 'Unknown error'}`, 'error');
                 this.handleDownloadFailure();
             }
         } else {
-            this.showToast('Download manager not available. Please refresh the page.', 'error');
+            this.displayToast('Download manager not available. Please refresh the page.', 'error');
             this.handleDownloadFailure();
         }
     }
@@ -436,7 +436,7 @@ class OfflineUIManager {
         });
         
         // Show success message
-        this.showToast('Offline package downloaded successfully!', 'success');
+        this.displayToast('Offline package downloaded successfully!', 'success');
         this.announceToScreenReader('Download completed successfully');
         
         // Enable chat
@@ -485,7 +485,7 @@ class OfflineUIManager {
                 const length = e.target.value.length;
                 if (length > 5000) {
                     e.target.setAttribute('aria-invalid', 'true');
-                    this.showToast('Message is too long (max 5000 characters)', 'warning');
+                    this.displayToast('Message is too long (max 5000 characters)', 'warning');
                 } else {
                     e.target.removeAttribute('aria-invalid');
                 }
@@ -505,20 +505,20 @@ class OfflineUIManager {
         const message = this.elements.chatInput?.value?.trim();
         
         if (!message) {
-            this.showToast('Please enter a message', 'warning');
+            this.displayToast('Please enter a message', 'warning');
             this.elements.chatInput?.focus();
             return;
         }
         
         // Check message length
         if (message.length > 5000) {
-            this.showToast('Message is too long. Please keep it under 5000 characters.', 'warning');
+            this.displayToast('Message is too long. Please keep it under 5000 characters.', 'warning');
             return;
         }
         
         // Check if AI is ready
         if (!this.integrationManager || !this.integrationManager.isInitialized) {
-            this.showToast('Please download the offline package first', 'warning');
+            this.displayToast('Please download the offline package first', 'warning');
             return;
         }
         
@@ -576,7 +576,7 @@ class OfflineUIManager {
             
             // Show error in chat
             this.addChatMessage(`Error: ${errorMessage}`, 'assistant', false, true);
-            this.showToast('Failed to get AI response', 'error');
+            this.displayToast('Failed to get AI response', 'error');
         } finally {
             // Re-enable send button
             if (this.elements.sendBtn) {
@@ -685,25 +685,25 @@ class OfflineUIManager {
         const query = this.elements.wikiSearchInput?.value?.trim();
         
         if (!query) {
-            this.showToast('Please enter a search term', 'warning');
+            this.displayToast('Please enter a search term', 'warning');
             this.elements.wikiSearchInput?.focus();
             return;
         }
         
         // Validate query length
         if (query.length < 2) {
-            this.showToast('Search term must be at least 2 characters', 'warning');
+            this.displayToast('Search term must be at least 2 characters', 'warning');
             return;
         }
         
         if (query.length > 200) {
-            this.showToast('Search term is too long (max 200 characters)', 'warning');
+            this.displayToast('Search term is too long (max 200 characters)', 'warning');
             return;
         }
         
         // Check if Wikipedia is ready
         if (!this.integrationManager || !this.integrationManager.isInitialized) {
-            this.showToast('Please download the offline package first', 'warning');
+            this.displayToast('Please download the offline package first', 'warning');
             return;
         }
         
@@ -743,7 +743,7 @@ class OfflineUIManager {
             if (this.elements.wikiResults) {
                 this.elements.wikiResults.innerHTML = `<div class="error" role="alert">${this.sanitizeHTML(errorMessage)}</div>`;
             }
-            this.showToast('Wikipedia search failed', 'error');
+            this.displayToast('Wikipedia search failed', 'error');
         } finally {
             // Re-enable search button
             if (this.elements.wikiSearchBtn) {
@@ -830,7 +830,7 @@ class OfflineUIManager {
             this.elements.clearCacheBtn.setAttribute('aria-busy', 'true');
         }
         
-        this.showToast('Clearing cache...', 'info');
+        this.displayToast('Clearing cache...', 'info');
         
         try {
             // Clear IndexedDB databases
@@ -877,7 +877,7 @@ class OfflineUIManager {
                 }
             }
             
-            this.showToast('All offline data cleared successfully', 'success');
+            this.displayToast('All offline data cleared successfully', 'success');
             
             // Reset UI state
             this.selectedPackage = null;
@@ -899,7 +899,7 @@ class OfflineUIManager {
             
         } catch (error) {
             console.error('Failed to clear cache:', error);
-            this.showToast(
+            this.displayToast(
                 `Failed to clear cache: ${error.message || 'Unknown error'}`, 
                 'error'
             );
@@ -913,14 +913,15 @@ class OfflineUIManager {
     }
     
     /**
-     * Show a toast notification
+     * Display a toast notification
+     * Uses available toast system (toast.js, Toast global, or fallback)
      */
-    showToast(message, type = 'info') {
+    displayToast(message, type = 'info') {
         // Use the toast.js if available
         if (typeof toast !== 'undefined' && typeof toast.show === 'function') {
             toast.show(message, type);
-        } else if (typeof showToast === 'function') {
-            showToast(message, type);
+        } else if (typeof window !== 'undefined' && typeof window.showToast === 'function') {
+            window.showToast(message, type);
         } else if (typeof Toast !== 'undefined' && typeof Toast.show === 'function') {
             Toast.show(message, type);
         } else {

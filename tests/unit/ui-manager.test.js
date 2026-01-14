@@ -1123,7 +1123,7 @@ describe('OfflineUIManager', () => {
         });
 
         test('should use global toast.show when available', () => {
-            uiManager.showToast('Test message', 'info');
+            uiManager.displayToast('Test message', 'info');
             
             expect(global.toast.show).toHaveBeenCalledWith('Test message', 'info');
         });
@@ -1133,7 +1133,7 @@ describe('OfflineUIManager', () => {
             delete global.toast;
             global.console.log = jest.fn();
             
-            uiManager.showToast('Test message', 'info');
+            uiManager.displayToast('Test message', 'info');
             
             expect(global.console.log).toHaveBeenCalledWith('[INFO] Test message');
             
@@ -1145,7 +1145,7 @@ describe('OfflineUIManager', () => {
             delete global.toast;
             global.alert = jest.fn();
             
-            uiManager.showToast('Error message', 'error');
+            uiManager.displayToast('Error message', 'error');
             
             expect(global.alert).toHaveBeenCalledWith('Error message');
             
