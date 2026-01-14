@@ -22,14 +22,26 @@ describe('Anti-Demo Validation Tests', () => {
         'placeholder',
         'fake',
         'mock', // except in test files
+        'prototype',
+        'In real implementation',
+        'In production, this would',
         'TODO: Replace with actual',
         'TODO: Load actual',
         'TODO: Implement actual',
         'This is a demo',
         'demo mode',
+        'prototype mode',
         'placeholder implementation',
         'simulated response',
         'fake response'
+    ];
+
+    // Terms that are allowed in specific contexts
+    const ALLOWED_PATTERNS = [
+        /fallbackUrl:/,  // Legitimate backup download URLs
+        /fallback to cache/,  // Service worker cache fallback
+        /fallback logger/,  // Logging fallback
+        /offline fallback/,  // Offline page fallback
     ];
 
     // Files and directories to scan (excluding test files and node_modules)
@@ -153,25 +165,29 @@ describe('Anti-Demo Validation Tests', () => {
                 /fake.*response/i
             ];
             
-            const violations = [];
+        const violations = [];
+        
+        filesToScan.forEach(file => {
+            const content = fs.readFileSync(file, 'utf8');
+            const lines = content.split('\n');
             
-            filesToScan.forEach(file => {
-                const content = fs.readFileSync(file, 'utf8');
-                const lines = content.split('\n');
+            lines.forEach((line, lineNumber) => {
+                // Check if line matches any allowed pattern
+                const isAllowed = ALLOWED_PATTERNS.some(pattern => pattern.test(line));
+                if (isAllowed) return;
                 
-                lines.forEach((line, lineNumber) => {
-                    simulationPatterns.forEach(pattern => {
-                        if (pattern.test(line)) {
-                            violations.push({
-                                file: file,
-                                line: lineNumber + 1,
-                                pattern: pattern.toString(),
-                                content: line.trim()
-                            });
-                        }
-                    });
+                PROHIBITED_TERMS.forEach(term => {
+                    if (line.toLowerCase().includes(term.toLowerCase())) {
+                        violations.push({
+                            file: file,
+                            line: lineNumber + 1,
+                            term: term,
+                            content: line.trim()
+                        });
+                    }
                 });
             });
+        });
             
             if (violations.length > 0) {
                 const errorMessage = [
