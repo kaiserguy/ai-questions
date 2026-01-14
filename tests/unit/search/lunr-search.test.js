@@ -13,7 +13,7 @@ describe('LunrSearch', () => {
     let sampleArticles;
     
     beforeEach(() => {
-        const { LunrSearch } = require('../../../core/public/offline/search/lunr-search.js');
+        const LunrSearch = require('../../../core/public/offline/search/lunr-search.js');
         lunrSearch = new LunrSearch();
         
         sampleArticles = [
@@ -63,7 +63,8 @@ describe('LunrSearch', () => {
         test('should load serialized index', () => {
             const indexData = lunrSearch.buildIndex(sampleArticles);
             
-            const newSearch = new (require('../../../core/public/offline/search/lunr-search.js').LunrSearch)();
+            const LunrSearchClass = require('../../../core/public/offline/search/lunr-search.js');
+            const newSearch = new LunrSearchClass();
             newSearch.loadIndex(indexData);
             
             const results = newSearch.search('intelligence');

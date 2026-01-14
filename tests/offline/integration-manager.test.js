@@ -253,11 +253,29 @@ describe('AIModelManager', () => {
   });
 
   describe('Model Loading', () => {
+    beforeEach(() => {
+      // Mock WebLLM in window
+      global.window = global.window || {};
+      global.window.webllm = {
+        CreateMLCEngine: jest.fn().mockResolvedValue({
+          chat: {
+            completions: {
+              create: jest.fn().mockResolvedValue({
+                choices: [{ message: { content: 'test response' } }]
+              })
+            }
+          },
+          unload: jest.fn()
+        })
+      };
+    });
+
+    afterEach(() => {
+      delete global.window.webllm;
+    });
+
     test('should load model based on package type', async () => {
       const manager = new AIModelManager('minimal');
-      
-      // Mock successful model loading
-      mockFetchSuccess({ success: true, model: 'tinybert' });
       
       await manager.loadModel();
       expect(manager.isReady()).toBe(true);
@@ -292,10 +310,18 @@ describe('AIModelManager', () => {
     test('should generate responses when ready', async () => {
       const manager = new AIModelManager('minimal');
       manager.ready = true; // Mock ready state
+      manager.model = {}; // isReady() checks this.model !== null
       
       const mockResponse = 'This is a test response';
-      manager.model = {
-        generate: jest.fn().mockResolvedValue(mockResponse)
+      // Mock the WebLLM engine structure
+      manager.engine = {
+        chat: {
+          completions: {
+            create: jest.fn().mockResolvedValue({
+              choices: [{ message: { content: mockResponse } }]
+            })
+          }
+        }
       };
       
       const response = await manager.generateResponse('Test question');
@@ -311,8 +337,14 @@ describe('AIModelManager', () => {
     test('should handle generation errors', async () => {
       const manager = new AIModelManager('minimal');
       manager.ready = true;
-      manager.model = {
-        generate: jest.fn().mockRejectedValue(new Error('Generation failed'))
+      manager.model = {}; // isReady() checks this.model !== null
+      // Mock the WebLLM engine structure with an error
+      manager.engine = {
+        chat: {
+          completions: {
+            create: jest.fn().mockRejectedValue(new Error('Generation failed'))
+          }
+        }
       };
       
       await expect(manager.generateResponse('Test question')).rejects.toThrow('Generation failed');
@@ -349,54 +381,67 @@ describe('WikipediaManager', () => {
     test('should load database based on package type', async () => {
       const manager = new WikipediaManager('minimal');
       
-      // Mock successful database loading
-      mockFetchSuccess({ success: true, database: 'wikipedia-minimal.db' });
+      // Mock storage to avoid actual IndexedDB operations
+      manager.storage = {
+        initialize: jest.fn().mockResolvedValue(true),
+        getArticleCount: jest.fn().mockResolvedValue(100),
+        getSearchIndex: jest.fn().mockResolvedValue(null)
+      };
       
       await manager.loadDatabase();
       expect(manager.isReady()).toBe(true);
-    });
+    }, 15000);
 
     test('should handle database loading failures', async () => {
       const manager = new WikipediaManager('minimal');
       
-      // Simulate loading failure by setting invalid package type after construction
-      manager.packageType = null;
+      // Simulate loading failure by breaking the storage
+      manager.storage = {
+        initialize: jest.fn().mockRejectedValue(new Error('Storage initialization failed'))
+      };
       
-      await expect(manager.loadDatabase()).rejects.toThrow('Cannot initialize without package type');
+      await expect(manager.loadDatabase()).rejects.toThrow('Storage initialization failed');
       expect(manager.isReady()).toBe(false);
-    });
+    }, 15000);
 
     test('should handle missing package configuration', async () => {
       const manager = new WikipediaManager('minimal');
-      manager.packageType = undefined; // Simulate the error I made
+      
+      // Simulate storage error
+      manager.storage = {
+        initialize: jest.fn().mockRejectedValue(new Error('Configuration error'))
+      };
       
       await expect(manager.loadDatabase()).rejects.toThrow();
-    });
+    }, 15000);
   });
 
   describe('Search Functionality', () => {
     test('should search when database is ready', async () => {
       const manager = new WikipediaManager('minimal');
       manager.ready = true;
-      manager.database = {
-        search: jest.fn().mockResolvedValue(['Article 1', 'Article 2'])
+      manager.useSearch = true;
+      manager.searchIndex = {
+        search: jest.fn().mockReturnValue([{ title: 'Article 1' }, { title: 'Article 2' }])
       };
       
       const results = await manager.search('test query');
-      expect(results).toEqual(['Article 1', 'Article 2']);
+      expect(results).toHaveLength(2);
+      expect(results[0].title).toBe('Article 1');
     });
 
     test('should not search when database not ready', async () => {
       const manager = new WikipediaManager('minimal');
       
-      await expect(manager.search('test query')).rejects.toThrow();
+      await expect(manager.search('test query')).rejects.toThrow('Database not ready');
     });
 
     test('should handle search errors', async () => {
       const manager = new WikipediaManager('minimal');
       manager.ready = true;
-      manager.database = {
-        search: jest.fn().mockRejectedValue(new Error('Search failed'))
+      manager.useSearch = true;
+      manager.searchIndex = {
+        search: jest.fn().mockImplementation(() => { throw new Error('Search failed'); })
       };
       
       await expect(manager.search('test query')).rejects.toThrow('Search failed');

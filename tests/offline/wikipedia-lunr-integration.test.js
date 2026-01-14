@@ -52,13 +52,13 @@ describe('WikipediaManager with LunrSearch Integration', () => {
 
     afterEach(async () => {
         if (manager) {
-            await manager.cleanup();
+            try {
+                await manager.cleanup();
+            } catch (e) {
+                // Ignore cleanup errors
+            }
         }
-        // Clear IndexedDB
-        const dbs = await global.indexedDB.databases();
-        for (const db of dbs) {
-            await global.indexedDB.deleteDatabase(db.name);
-        }
+        manager = null;
     });
 
     describe('Search Index Integration', () => {

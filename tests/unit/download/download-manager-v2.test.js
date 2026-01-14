@@ -3,15 +3,16 @@
  * Tests file downloads, progress tracking, checksum validation, and retry logic
  */
 
-const { describe, test, expect, beforeEach, afterEach, jest } = require('@jest/globals');
+const { describe, test, expect, beforeEach, afterEach } = require('@jest/globals');
 
 // Mock fetch for testing
 global.fetch = jest.fn();
 
 // Mock crypto.subtle for checksum validation
+const mockDigest = jest.fn();
 global.crypto = {
     subtle: {
-        digest: jest.fn()
+        digest: mockDigest
     }
 };
 
@@ -217,12 +218,12 @@ describe('DownloadManagerV2', () => {
             const blob = new Blob(['test data']);
             
             const mockHash = new Uint8Array([1, 2, 3, 4]).buffer;
-            global.crypto.subtle.digest.mockResolvedValue(mockHash);
+            mockDigest.mockResolvedValue(mockHash);
             
             const checksum = await downloadManager.calculateChecksum(blob);
             
             expect(checksum).toBe('01020304');
-            expect(global.crypto.subtle.digest).toHaveBeenCalledWith('SHA-256', expect.any(ArrayBuffer));
+            expect(mockDigest).toHaveBeenCalledWith('SHA-256', expect.any(ArrayBuffer));
         });
     });
     
