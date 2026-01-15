@@ -6,6 +6,9 @@
   "scripts": {
     "start": "node hosted/hosted-app.js",
     "dev": "nodemon index.js",
+    "build:sw": "node scripts/build-service-worker.js",
+    "build": "npm run build:sw",
+    "prestart": "npm run build:sw",
     "test": "jest",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
