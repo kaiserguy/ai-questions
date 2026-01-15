@@ -3,6 +3,10 @@ const cron = require("node-cron");
 const crypto = require("crypto");
 const https = require("https");
 
+// Configuration constants
+const DEFAULT_CHAT_MODEL = "gpt-3.5-turbo";
+const MAX_CHAT_CONTEXT_MESSAGES = 10;
+
 // Debug token configuration - DISABLED in production for security
 // In production, debug endpoints require explicit DEBUG_TOKEN env var
 const IS_PRODUCTION = process.env.NODE_ENV === 'production';
@@ -226,6 +230,88 @@ module.exports = (db, ai, wikipedia, config) => {
         } catch (error) {
             console.error("Error generating or saving answer:", error);
             res.status(500).json({ error: error.message });
+        }
+    });
+
+    // API for chat interface - supports conversation history
+    router.post("/api/chat", ensureAuthenticated, async (req, res) => {
+        const { message, model, context = [] } = req.body;
+        const userId = req.user ? req.user.id : null;
+
+        if (!message) {
+            return res.status(400).json({ 
+                success: false,
+                error: "Message is required." 
+            });
+        }
+
+        // Validate context array structure
+        if (!Array.isArray(context)) {
+            return res.status(400).json({
+                success: false,
+                error: "Context must be an array."
+            });
+        }
+
+        // Enforce context length limit to prevent excessive API costs
+        if (context.length > MAX_CHAT_CONTEXT_MESSAGES) {
+            return res.status(400).json({
+                success: false,
+                error: `Context cannot exceed ${MAX_CHAT_CONTEXT_MESSAGES} messages.`
+            });
+        }
+
+        // Validate each context item has role and content
+        for (const item of context) {
+            if (!item || typeof item !== 'object' || !item.role || !item.content) {
+                return res.status(400).json({
+                    success: false,
+                    error: "Invalid context format. Each item must have 'role' and 'content' properties."
+                });
+            }
+            // Validate role is either 'user' or 'assistant'
+            if (item.role !== 'user' && item.role !== 'assistant') {
+                return res.status(400).json({
+                    success: false,
+                    error: "Context role must be 'user' or 'assistant'."
+                });
+            }
+        }
+
+        // Use default model if not specified
+        const modelId = model || DEFAULT_CHAT_MODEL;
+
+        try {
+            // Build conversation context from history
+            let conversationContext = "";
+            if (context && context.length > 0) {
+                conversationContext = context.map(msg => {
+                    const role = msg.role === "user" ? "User" : "Assistant";
+                    return `${role}: ${msg.content}`;
+                }).join("\n");
+                conversationContext += "\n\n";
+            }
+
+            // Generate response using existing AI service
+            const aiResponse = await ai.generateResponse(
+                modelId, 
+                message, 
+                conversationContext,
+                userId
+            );
+            
+            res.json({ 
+                success: true,
+                response: aiResponse.answer,
+                model: modelId,
+                model_name: aiResponse.model_name
+            });
+        } catch (error) {
+            console.error("Error in chat endpoint:", error);
+            res.status(500).json({ 
+                success: false,
+                error: error.message || "Failed to generate chat response." 
+            });
         }
     });
 
