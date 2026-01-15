@@ -104,7 +104,7 @@ describe('Service Worker Build Script', () => {
         const firstMatch = first.match(/ai-questions-cache-([a-f0-9]+-\d+)/);
         
         // Wait a bit to ensure different timestamp
-        await new Promise(resolve => setTimeout(resolve, 10));
+        await new Promise(resolve => setTimeout(resolve, 100));
         
         // Run second build
         execSync(`node ${scriptPath}`, { encoding: 'utf8' });

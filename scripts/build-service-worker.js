@@ -29,7 +29,7 @@ function getVersion() {
         const timestamp = Date.now();
         return `${gitHash}-${timestamp}`;
     } catch (error) {
-        console.warn('Warning: Could not get git hash, using timestamp only');
+        console.warn('Warning: Git not available - using timestamp-only version. For production builds, ensure git is installed for consistent versioning across deploys.');
         return `build-${Date.now()}`;
     }
 }
