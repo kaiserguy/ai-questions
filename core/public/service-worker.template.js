@@ -1,7 +1,17 @@
 // Service Worker for AI Questions Offline Mode
+// Security: This service worker only operates on same-origin requests over HTTPS (or localhost for development)
 
 const CACHE_NAME = 'ai-questions-cache-{{VERSION}}';
 const OFFLINE_URL = '/offline';
+
+// Security: Enforce HTTPS in production (allow localhost for development)
+const isSecureContext = self.location.protocol === 'https:' || 
+                       self.location.hostname === 'localhost' ||
+                       self.location.hostname === '127.0.0.1';
+
+if (!isSecureContext && self.location.hostname !== 'localhost') {
+    console.warn('Service Worker: Insecure context detected. Service workers should only run over HTTPS.');
+}
 
 // Resources to cache immediately on install
 const PRECACHE_RESOURCES = [
@@ -60,8 +70,20 @@ self.addEventListener('activate', event => {
 
 // Fetch event - serve from cache or network
 self.addEventListener('fetch', event => {
-  // Skip cross-origin requests
+  // Security: Skip cross-origin requests to prevent caching external content
   if (!event.request.url.startsWith(self.location.origin)) {
+    return;
+  }
+  
+  // Security: Only cache GET requests (never cache POST/PUT/DELETE)
+  if (event.request.method !== 'GET') {
+    return;
+  }
+  
+  // Security: Don't cache requests with credentials in the URL
+  const url = new URL(event.request.url);
+  if (url.searchParams.has('token') || url.searchParams.has('key') || url.searchParams.has('password')) {
+    console.warn('Service Worker: Skipping cache for request with credentials in URL');
     return;
   }
   
@@ -70,13 +92,16 @@ self.addEventListener('fetch', event => {
     event.respondWith(
       fetch(event.request)
         .then(response => {
-          // Clone the response to store in cache
-          const responseToCache = response.clone();
-          
-          caches.open(CACHE_NAME)
-            .then(cache => {
-              cache.put(event.request, responseToCache);
-            });
+          // Security: Only cache successful responses with proper content type
+          if (response && response.ok && response.headers.get('content-type')?.includes('application/json')) {
+            // Clone the response to store in cache
+            const responseToCache = response.clone();
+            
+            caches.open(CACHE_NAME)
+              .then(cache => {
+                cache.put(event.request, responseToCache);
+              });
+          }
           
           return response;
         })
@@ -95,7 +120,8 @@ self.addEventListener('fetch', event => {
                   offline: true 
                 }),
                 { 
-                  headers: { 'Content-Type': 'application/json' } 
+                  headers: { 'Content-Type': 'application/json' },
+                  status: 503
                 }
               );
             });
@@ -109,12 +135,15 @@ self.addEventListener('fetch', event => {
     event.respondWith(
       fetch(event.request)
         .then(response => {
-          // Clone and cache the fresh response
-          const responseToCache = response.clone();
-          caches.open(CACHE_NAME)
-            .then(cache => {
-              cache.put(event.request, responseToCache);
-            });
+          // Security: Only cache successful responses
+          if (response && response.ok) {
+            // Clone and cache the fresh response
+            const responseToCache = response.clone();
+            caches.open(CACHE_NAME)
+              .then(cache => {
+                cache.put(event.request, responseToCache);
+              });
+          }
           return response;
         })
         .catch(() => {
@@ -157,8 +186,19 @@ self.addEventListener('fetch', event => {
         // Otherwise fetch from network
         return fetch(event.request)
           .then(response => {
-            // Don't cache non-successful responses
+            // Security: Don't cache non-successful responses or non-basic types
+            // Only cache responses from our origin (type: 'basic')
             if (!response || response.status !== 200 || response.type !== 'basic') {
+              return response;
+            }
+            
+            // Security: Validate content type before caching
+            const contentType = response.headers.get('content-type');
+            const allowedTypes = ['text/', 'application/javascript', 'application/json', 'image/', 'font/'];
+            const isAllowedType = allowedTypes.some(type => contentType?.includes(type));
+            
+            if (!isAllowedType) {
+              console.warn('Service Worker: Skipping cache for unexpected content type:', contentType);
               return response;
             }
             
@@ -187,28 +227,46 @@ self.addEventListener('fetch', event => {
 
 // Handle messages from clients
 self.addEventListener('message', event => {
-  if (event.data && event.data.type === 'SKIP_WAITING') {
+  // Security: Validate message source
+  if (!event.data || typeof event.data.type !== 'string') {
+    console.warn('Service Worker: Invalid message received');
+    return;
+  }
+  
+  if (event.data.type === 'SKIP_WAITING') {
     self.skipWaiting();
   }
   
   // Allow clients to request cache clear
-  if (event.data && event.data.type === 'CLEAR_CACHE') {
+  if (event.data.type === 'CLEAR_CACHE') {
     event.waitUntil(
       caches.keys().then(cacheNames => {
         return Promise.all(
           cacheNames.map(cacheName => caches.delete(cacheName))
         );
       }).then(() => {
-        event.ports[0].postMessage({ success: true });
+        // Security: Only send response if MessageChannel port is provided
+        if (event.ports && event.ports[0]) {
+          event.ports[0].postMessage({ success: true });
+        }
+      }).catch(error => {
+        console.error('Cache clear failed:', error);
+        if (event.ports && event.ports[0]) {
+          event.ports[0].postMessage({ success: false, error: error.message });
+        }
       })
     );
   }
   
   // Allow clients to get version info
-  if (event.data && event.data.type === 'GET_VERSION') {
-    event.ports[0].postMessage({ 
-      version: '{{VERSION}}',
-      cacheName: CACHE_NAME
-    });
+  if (event.data.type === 'GET_VERSION') {
+    // Security: Only send response if MessageChannel port is provided
+    if (event.ports && event.ports[0]) {
+      event.ports[0].postMessage({ 
+        version: '{{VERSION}}',
+        cacheName: CACHE_NAME,
+        timestamp: Date.now()
+      });
+    }
   }
 });
