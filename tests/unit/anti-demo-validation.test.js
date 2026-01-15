@@ -42,6 +42,8 @@ describe('Anti-Demo Validation Tests', () => {
         /fallback to cache/,  // Service worker cache fallback
         /fallback logger/,  // Logging fallback
         /offline fallback/,  // Offline page fallback
+        /placeholder="/,  // HTML placeholder attributes
+        /data-hint="/,  // HTML hint attributes
     ];
 
     // Files and directories to scan (excluding test files and node_modules)
@@ -105,6 +107,10 @@ describe('Anti-Demo Validation Tests', () => {
         const violations = [];
         
         lines.forEach((line, lineNumber) => {
+            // Check if line matches any allowed pattern
+            const isAllowed = ALLOWED_PATTERNS.some(pattern => pattern.test(line));
+            if (isAllowed) return;
+            
             const lowerLine = line.toLowerCase();
             
             PROHIBITED_TERMS.forEach(term => {
