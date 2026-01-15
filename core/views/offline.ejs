@@ -265,6 +265,7 @@
     <!-- Initialization -->
     <script>
         // Chat configuration constants
+        // Note: MAX_CONTEXT_MESSAGES must match or be less than server-side limit
         const MAX_CONTEXT_MESSAGES = 10; // Maximum number of messages to send as context
         
         // Chat functionality for Heroku production
@@ -371,7 +372,7 @@
                 if (typeof IntegrationManager !== 'undefined') {
                     window.app = new IntegrationManager();
                 } else {
-                    console.log('IntegrationManager not loaded - chat will use server API');
+                    console.log('Running in server mode - using API chat endpoint');
                 }
                 
                 // Initialize UI Manager (for offline mode)
@@ -379,7 +380,7 @@
                     window.uiManager = new OfflineUIManager();
                     await window.uiManager.initialize(window.app);
                 } else {
-                    console.error('OfflineUIManager not loaded');
+                    console.log('OfflineUIManager not loaded - offline features disabled');
                 }
             } catch (err) {
                 console.error('Failed to initialize application:', err);

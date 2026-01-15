@@ -2,6 +2,10 @@ const express = require("express");
 const cron = require("node-cron");
 const crypto = require("crypto");
 
+// Configuration constants
+const DEFAULT_CHAT_MODEL = "gpt-3.5-turbo";
+const MAX_CHAT_CONTEXT_MESSAGES = 10;
+
 // Debug token configuration - DISABLED in production for security
 // In production, debug endpoints require explicit DEBUG_TOKEN env var
 const IS_PRODUCTION = process.env.NODE_ENV === 'production';
@@ -248,6 +252,14 @@ module.exports = (db, ai, wikipedia, config) => {
             });
         }
 
+        // Enforce context length limit to prevent excessive API costs
+        if (context.length > MAX_CHAT_CONTEXT_MESSAGES) {
+            return res.status(400).json({
+                success: false,
+                error: `Context cannot exceed ${MAX_CHAT_CONTEXT_MESSAGES} messages.`
+            });
+        }
+
         // Validate each context item has role and content
         for (const item of context) {
             if (!item || typeof item !== 'object' || !item.role || !item.content) {
@@ -266,7 +278,7 @@ module.exports = (db, ai, wikipedia, config) => {
         }
 
         // Use default model if not specified
-        const modelId = model || "gpt-3.5-turbo";
+        const modelId = model || DEFAULT_CHAT_MODEL;
 
         try {
             // Build conversation context from history
