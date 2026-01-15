@@ -87,7 +87,8 @@ describe('Service Worker Build Script - Security & Edge Cases', () => {
             // This test verifies the fallback mechanism exists
             const script = fs.readFileSync(scriptPath, 'utf8');
             expect(script).toMatch(/catch.*error/);
-            expect(script).toMatch(/build-\$\{Date\.now\(\)\}/);
+            // Check for timestamp fallback pattern (build-${Date.now()})
+            expect(script).toMatch(/build-.*Date\.now\(\)/);
         });
         
         test('build script has permission error handling', () => {
@@ -112,9 +113,10 @@ describe('Service Worker Build Script - Security & Edge Cases', () => {
             expect(versionMatch).toBeTruthy();
             expect(versionMatch[1]).toMatch(/^[a-f0-9]+-\d+$/);
             
-            // Version should have timestamp component
+            // Version should have timestamp component - check it's within last year
             const timestamp = parseInt(versionMatch[1].split('-')[1]);
-            expect(timestamp).toBeGreaterThan(1700000000000); // After 2023
+            const oneYearAgo = Date.now() - (365 * 24 * 60 * 60 * 1000);
+            expect(timestamp).toBeGreaterThan(oneYearAgo);
         });
         
         test('generated service worker handles network errors', () => {

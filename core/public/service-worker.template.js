@@ -93,7 +93,8 @@ self.addEventListener('fetch', event => {
       fetch(event.request)
         .then(response => {
           // Security: Only cache successful responses with proper content type
-          if (response && response.ok && response.headers.get('content-type')?.includes('application/json')) {
+          const contentType = response.headers.get('content-type');
+          if (response && response.ok && contentType && contentType.startsWith('application/json')) {
             // Clone the response to store in cache
             const responseToCache = response.clone();
             
@@ -195,7 +196,7 @@ self.addEventListener('fetch', event => {
             // Security: Validate content type before caching
             const contentType = response.headers.get('content-type');
             const allowedTypes = ['text/', 'application/javascript', 'application/json', 'image/', 'font/'];
-            const isAllowedType = allowedTypes.some(type => contentType?.includes(type));
+            const isAllowedType = contentType && allowedTypes.some(type => contentType.startsWith(type));
             
             if (!isAllowedType) {
               console.warn('Service Worker: Skipping cache for unexpected content type:', contentType);

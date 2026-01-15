@@ -5,15 +5,15 @@
  * To make changes, edit service-worker.template.js instead.
  * 
  * Build Info:
- *   Version: 7e6ec10-1768459203754
+ *   Version: 07f77d2-1768459651332
  *   Branch: copilot/sub-pr-186
- *   Built: 2026-01-15T06:40:03.757Z
+ *   Built: 2026-01-15T06:47:31.335Z
  */
 
 // Service Worker for AI Questions Offline Mode
 // Security: This service worker only operates on same-origin requests over HTTPS (or localhost for development)
 
-const CACHE_NAME = 'ai-questions-cache-7e6ec10-1768459203754';
+const CACHE_NAME = 'ai-questions-cache-07f77d2-1768459651332';
 const OFFLINE_URL = '/offline';
 
 // Security: Enforce HTTPS in production (allow localhost for development)
@@ -41,7 +41,7 @@ const PRECACHE_RESOURCES = [
 
 // Install event - precache resources
 self.addEventListener('install', event => {
-  console.log('Service worker installing... Version: 7e6ec10-1768459203754');
+  console.log('Service worker installing... Version: 07f77d2-1768459651332');
   
   // Force the waiting service worker to become the active service worker
   self.skipWaiting();
@@ -60,7 +60,7 @@ self.addEventListener('install', event => {
 
 // Activate event - clean up old caches
 self.addEventListener('activate', event => {
-  console.log('Service worker activating... Version: 7e6ec10-1768459203754');
+  console.log('Service worker activating... Version: 07f77d2-1768459651332');
   
   event.waitUntil(
     caches.keys().then(cacheNames => {
@@ -105,7 +105,8 @@ self.addEventListener('fetch', event => {
       fetch(event.request)
         .then(response => {
           // Security: Only cache successful responses with proper content type
-          if (response && response.ok && response.headers.get('content-type')?.includes('application/json')) {
+          const contentType = response.headers.get('content-type');
+          if (response && response.ok && contentType && contentType.startsWith('application/json')) {
             // Clone the response to store in cache
             const responseToCache = response.clone();
             
@@ -207,7 +208,7 @@ self.addEventListener('fetch', event => {
             // Security: Validate content type before caching
             const contentType = response.headers.get('content-type');
             const allowedTypes = ['text/', 'application/javascript', 'application/json', 'image/', 'font/'];
-            const isAllowedType = allowedTypes.some(type => contentType?.includes(type));
+            const isAllowedType = contentType && allowedTypes.some(type => contentType.startsWith(type));
             
             if (!isAllowedType) {
               console.warn('Service Worker: Skipping cache for unexpected content type:', contentType);
@@ -275,7 +276,7 @@ self.addEventListener('message', event => {
     // Security: Only send response if MessageChannel port is provided
     if (event.ports && event.ports[0]) {
       event.ports[0].postMessage({ 
-        version: '7e6ec10-1768459203754',
+        version: '07f77d2-1768459651332',
         cacheName: CACHE_NAME,
         timestamp: Date.now()
       });

@@ -32,8 +32,7 @@ function getVersion() {
         const timestamp = Date.now();
         return `${gitHash}-${timestamp}`;
     } catch (error) {
-        console.warn('Warning: Could not get git hash (git may not be installed or not a git repository)');
-        console.warn('Falling back to timestamp-only version');
+        console.warn('Warning: Could not get git hash (git may not be installed or not a git repository). Falling back to timestamp-only version.');
         return `build-${Date.now()}`;
     }
 }
