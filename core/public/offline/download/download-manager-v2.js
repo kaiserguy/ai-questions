@@ -202,6 +202,7 @@ class DownloadManagerV2 {
 // Export for use in browser and Node.js
 if (typeof window !== 'undefined') {
     window.DownloadManagerV2 = DownloadManagerV2;
+    window.DownloadManager = DownloadManagerV2; // Alias for backward compatibility
 }
 if (typeof module !== 'undefined' && module.exports) {
     module.exports = { DownloadManagerV2 };

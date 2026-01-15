@@ -254,14 +254,24 @@
     
     <!-- Initialization -->
     <script>
-        document.addEventListener('DOMContentLoaded', () => {
-            if (typeof IntegrationManager !== 'undefined') {
-                window.app = new IntegrationManager();
-                window.app.initialize().catch(err => {
-                    console.error('Failed to initialize application:', err);
-                });
-            } else {
-                console.error('IntegrationManager not loaded');
+        document.addEventListener('DOMContentLoaded', async () => {
+            try {
+                // Initialize Integration Manager
+                if (typeof IntegrationManager !== 'undefined') {
+                    window.app = new IntegrationManager();
+                } else {
+                    console.error('IntegrationManager not loaded');
+                }
+                
+                // Initialize UI Manager
+                if (typeof OfflineUIManager !== 'undefined') {
+                    window.uiManager = new OfflineUIManager();
+                    await window.uiManager.initialize(window.app);
+                } else {
+                    console.error('OfflineUIManager not loaded');
+                }
+            } catch (err) {
+                console.error('Failed to initialize application:', err);
             }
         });
     </script>

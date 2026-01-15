@@ -288,7 +288,12 @@ class WikipediaManager {
     }
 }
 
-// Export for Node.js (tests) and browser
+// Export for browser
+if (typeof window !== 'undefined') {
+    window.WikipediaManager = WikipediaManager;
+}
+
+// Export for Node.js (tests)
 if (typeof module !== 'undefined' && module.exports) {
     module.exports = WikipediaManager;
 }
