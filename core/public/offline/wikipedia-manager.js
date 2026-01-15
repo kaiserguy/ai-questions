@@ -3,7 +3,8 @@
  * Real implementation that handles local Wikipedia data with LunrSearch integration
  */
 
-if (typeof require !== 'undefined') {
+// Only use require in actual Node.js environment (not browser with polyfills)
+if (typeof module !== 'undefined' && module.exports && typeof require === 'function') {
     var WikipediaStorage = require('./storage/wikipedia-storage').WikipediaStorage;
     var LunrSearch = require('./search/lunr-search');
 }
