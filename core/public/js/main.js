@@ -38,6 +38,12 @@ if ('serviceWorker' in navigator) {
 
 // Show update notification to user
 function showUpdateNotification() {
+    // Ensure DOM is ready
+    if (!document.body) {
+        console.warn('Cannot show update notification: document.body not ready');
+        return;
+    }
+    
     const notification = document.createElement('div');
     notification.id = 'sw-update-notification';
     notification.style.cssText = `

@@ -108,7 +108,8 @@ describe('Service Worker Build Script - Security & Edge Cases', () => {
         
         test('generated service worker version is unique', () => {
             const generated = fs.readFileSync(outputPath, 'utf8');
-            const versionMatch = generated.match(/ai-questions-cache-([a-f0-9]+-\d+|build-\d+)/);
+            // Git hashes can be lowercase hex, version format can be git-hash-timestamp or build-timestamp
+            const versionMatch = generated.match(/ai-questions-cache-([0-9a-f]+-\d+|build-\d+)/);
             
             expect(versionMatch).toBeTruthy();
             
