@@ -244,6 +244,8 @@ class WikipediaPublicSearch {
      * @param {Object} article - Article data
      */
     displayArticle(article) {
+        // Note: Wikipedia HTML content is trusted and pre-sanitized by Wikipedia
+        // The content is served from Wikipedia's REST API which applies its own sanitization
         const html = `
             <div class="wiki-article">
                 <div class="wiki-article-header">

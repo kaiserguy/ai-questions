@@ -1904,6 +1904,8 @@ app.use(offlinePackageRoutesNew);
 
 // ===== PUBLIC WIKIPEDIA API ENDPOINTS (No Authentication Required) =====
 // These endpoints use Wikipedia's public REST API for the /offline page
+// Note: These are duplicated in core/routes.js for local mode. This is intentional
+// as hosted-index.cjs is the Heroku entry point and needs standalone functionality.
 
 // Search Wikipedia articles
 app.get("/api/wikipedia/public/search", async (req, res) => {

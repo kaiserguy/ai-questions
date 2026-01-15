@@ -1,6 +1,7 @@
 const express = require("express");
 const cron = require("node-cron");
 const crypto = require("crypto");
+const https = require("https");
 
 // Debug token configuration - DISABLED in production for security
 // In production, debug endpoints require explicit DEBUG_TOKEN env var
@@ -1109,7 +1110,6 @@ module.exports = (db, ai, wikipedia, config) => {
         }
         
         try {
-            const https = require('https');
             const url = `https://en.wikipedia.org/w/api.php?action=opensearch&search=${encodeURIComponent(query)}&limit=${limit}&format=json`;
             
             https.get(url, (response) => {
@@ -1153,7 +1153,6 @@ module.exports = (db, ai, wikipedia, config) => {
         }
         
         try {
-            const https = require('https');
             const url = `https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(title)}`;
             
             https.get(url, (response) => {
@@ -1197,7 +1196,6 @@ module.exports = (db, ai, wikipedia, config) => {
         }
         
         try {
-            const https = require('https');
             const url = `https://en.wikipedia.org/api/rest_v1/page/html/${encodeURIComponent(title)}`;
             
             https.get(url, (response) => {
