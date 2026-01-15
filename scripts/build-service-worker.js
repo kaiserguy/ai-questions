@@ -25,7 +25,10 @@ const OUTPUT_PATH = path.join(__dirname, '../core/public/service-worker.js');
  */
 function getVersion() {
     try {
-        const gitHash = execSync('git rev-parse --short HEAD', { encoding: 'utf8' }).trim();
+        const gitHash = execSync('git rev-parse --short HEAD', { 
+            encoding: 'utf8',
+            stdio: ['pipe', 'pipe', 'pipe'] // Suppress stderr
+        }).trim();
         const timestamp = Date.now();
         return `${gitHash}-${timestamp}`;
     } catch (error) {
@@ -39,7 +42,10 @@ function getVersion() {
  */
 function getBranch() {
     try {
-        return execSync('git rev-parse --abbrev-ref HEAD', { encoding: 'utf8' }).trim();
+        return execSync('git rev-parse --abbrev-ref HEAD', { 
+            encoding: 'utf8',
+            stdio: ['pipe', 'pipe', 'pipe'] // Suppress stderr
+        }).trim();
     } catch (error) {
         return 'unknown';
     }
@@ -58,14 +64,22 @@ function buildServiceWorker() {
         
         // If no template exists but service-worker.js does, create template from it
         if (fs.existsSync(OUTPUT_PATH)) {
-            const existing = fs.readFileSync(OUTPUT_PATH, 'utf8');
-            // Replace the hardcoded version with placeholder
-            const template = existing.replace(
-                /const CACHE_NAME = ['"]ai-questions-cache-[^'"]+['"]/,
-                "const CACHE_NAME = 'ai-questions-cache-{{VERSION}}'"
-            );
-            fs.writeFileSync(TEMPLATE_PATH, template);
-            console.log('Template created from existing service-worker.js');
+            try {
+                const existing = fs.readFileSync(OUTPUT_PATH, 'utf8');
+                // Replace the hardcoded version with placeholder
+                const template = existing.replace(
+                    /const CACHE_NAME = ['"]ai-questions-cache-[^'"]+['"]/,
+                    "const CACHE_NAME = 'ai-questions-cache-{{VERSION}}'"
+                );
+                fs.writeFileSync(TEMPLATE_PATH, template);
+                console.log('Template created from existing service-worker.js');
+            } catch (error) {
+                console.error('Error creating template:', error.message);
+                if (error.code === 'EACCES') {
+                    console.error('Permission denied. Please check file permissions.');
+                }
+                process.exit(1);
+            }
         } else {
             console.error('Error: No service-worker.js found to create template from');
             process.exit(1);
@@ -73,7 +87,16 @@ function buildServiceWorker() {
     }
     
     // Read template
-    const template = fs.readFileSync(TEMPLATE_PATH, 'utf8');
+    let template;
+    try {
+        template = fs.readFileSync(TEMPLATE_PATH, 'utf8');
+    } catch (error) {
+        console.error('Error reading template file:', error.message);
+        if (error.code === 'EACCES') {
+            console.error('Permission denied. Please check file permissions.');
+        }
+        process.exit(1);
+    }
     
     // Get version info
     const version = getVersion();
@@ -103,13 +126,22 @@ function buildServiceWorker() {
     
     output = buildInfo + output;
     
-    // Write output
-    fs.writeFileSync(OUTPUT_PATH, output);
-    
-    console.log(`Service worker built successfully!`);
-    console.log(`  Version: ${version}`);
-    console.log(`  Branch: ${branch}`);
-    console.log(`  Output: ${OUTPUT_PATH}`);
+    // Write output with error handling
+    try {
+        fs.writeFileSync(OUTPUT_PATH, output);
+        console.log(`Service worker built successfully!`);
+        console.log(`  Version: ${version}`);
+        console.log(`  Branch: ${branch}`);
+        console.log(`  Output: ${OUTPUT_PATH}`);
+    } catch (error) {
+        console.error('Error writing output file:', error.message);
+        if (error.code === 'EACCES') {
+            console.error('Permission denied. Please check file permissions.');
+        } else if (error.code === 'ENOSPC') {
+            console.error('No space left on device.');
+        }
+        process.exit(1);
+    }
 }
 
 // Run the build
