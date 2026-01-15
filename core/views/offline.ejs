@@ -264,6 +264,9 @@
     
     <!-- Initialization -->
     <script>
+        // Chat configuration constants
+        const MAX_CONTEXT_MESSAGES = 10; // Maximum number of messages to send as context
+        
         // Chat functionality for Heroku production
         const chatHistory = [];
         let isGenerating = false;
@@ -297,7 +300,7 @@
                 chatHistory.push({ role: 'user', content: message });
 
                 try {
-                    // Call the API
+                    // Call the API with limited context history
                     const response = await fetch('/api/chat', {
                         method: 'POST',
                         headers: {
@@ -306,7 +309,7 @@
                         body: JSON.stringify({
                             message: message,
                             model: selectedModel,
-                            context: chatHistory.slice(-10) // Send last 10 messages for context
+                            context: chatHistory.slice(-MAX_CONTEXT_MESSAGES) // Send last N messages for context
                         })
                     });
 

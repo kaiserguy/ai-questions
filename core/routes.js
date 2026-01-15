@@ -229,7 +229,7 @@ module.exports = (db, ai, wikipedia, config) => {
     });
 
     // API for chat interface - supports conversation history
-    router.post("/api/chat", async (req, res) => {
+    router.post("/api/chat", ensureAuthenticated, async (req, res) => {
         const { message, model, context = [] } = req.body;
         const userId = req.user ? req.user.id : null;
 
@@ -238,6 +238,31 @@ module.exports = (db, ai, wikipedia, config) => {
                 success: false,
                 error: "Message is required." 
             });
+        }
+
+        // Validate context array structure
+        if (!Array.isArray(context)) {
+            return res.status(400).json({
+                success: false,
+                error: "Context must be an array."
+            });
+        }
+
+        // Validate each context item has role and content
+        for (const item of context) {
+            if (!item || typeof item !== 'object' || !item.role || !item.content) {
+                return res.status(400).json({
+                    success: false,
+                    error: "Invalid context format. Each item must have 'role' and 'content' properties."
+                });
+            }
+            // Validate role is either 'user' or 'assistant'
+            if (item.role !== 'user' && item.role !== 'assistant') {
+                return res.status(400).json({
+                    success: false,
+                    error: "Context role must be 'user' or 'assistant'."
+                });
+            }
         }
 
         // Use default model if not specified
