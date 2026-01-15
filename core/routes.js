@@ -1097,6 +1097,137 @@ module.exports = (db, ai, wikipedia, config) => {
         }
     });
 
+    // ===== PUBLIC WIKIPEDIA API ENDPOINTS (No Authentication Required) =====
+    // These endpoints use Wikipedia's public REST API for the /offline page
+    
+    // Search Wikipedia articles
+    router.get("/api/wikipedia/public/search", async (req, res) => {
+        const { query, limit = 10 } = req.query;
+        
+        if (!query) {
+            return res.status(400).json({ error: "Query parameter is required" });
+        }
+        
+        try {
+            const https = require('https');
+            const url = `https://en.wikipedia.org/w/api.php?action=opensearch&search=${encodeURIComponent(query)}&limit=${limit}&format=json`;
+            
+            https.get(url, (response) => {
+                let data = '';
+                
+                response.on('data', (chunk) => {
+                    data += chunk;
+                });
+                
+                response.on('end', () => {
+                    try {
+                        const parsed = JSON.parse(data);
+                        // OpenSearch returns [query, [titles], [descriptions], [urls]]
+                        const results = parsed[1].map((title, i) => ({
+                            title: title,
+                            description: parsed[2][i] || '',
+                            url: parsed[3][i] || ''
+                        }));
+                        res.json({ results });
+                    } catch (error) {
+                        console.error("Error parsing Wikipedia search results:", error);
+                        res.status(500).json({ error: "Failed to parse search results" });
+                    }
+                });
+            }).on('error', (error) => {
+                console.error("Wikipedia API request failed:", error);
+                res.status(500).json({ error: "Failed to search Wikipedia" });
+            });
+        } catch (error) {
+            console.error("Wikipedia search error:", error);
+            res.status(500).json({ error: "Failed to search Wikipedia" });
+        }
+    });
+    
+    // Get Wikipedia article summary
+    router.get("/api/wikipedia/public/summary", async (req, res) => {
+        const { title } = req.query;
+        
+        if (!title) {
+            return res.status(400).json({ error: "Title parameter is required" });
+        }
+        
+        try {
+            const https = require('https');
+            const url = `https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(title)}`;
+            
+            https.get(url, (response) => {
+                let data = '';
+                
+                response.on('data', (chunk) => {
+                    data += chunk;
+                });
+                
+                response.on('end', () => {
+                    try {
+                        const summary = JSON.parse(data);
+                        res.json({
+                            title: summary.title,
+                            extract: summary.extract,
+                            description: summary.description,
+                            thumbnail: summary.thumbnail,
+                            url: summary.content_urls?.desktop?.page
+                        });
+                    } catch (error) {
+                        console.error("Error parsing Wikipedia summary:", error);
+                        res.status(500).json({ error: "Failed to parse article summary" });
+                    }
+                });
+            }).on('error', (error) => {
+                console.error("Wikipedia API request failed:", error);
+                res.status(500).json({ error: "Failed to get article summary" });
+            });
+        } catch (error) {
+            console.error("Wikipedia summary error:", error);
+            res.status(500).json({ error: "Failed to get article summary" });
+        }
+    });
+    
+    // Get full Wikipedia article content
+    router.get("/api/wikipedia/public/article", async (req, res) => {
+        const { title } = req.query;
+        
+        if (!title) {
+            return res.status(400).json({ error: "Title parameter is required" });
+        }
+        
+        try {
+            const https = require('https');
+            const url = `https://en.wikipedia.org/api/rest_v1/page/html/${encodeURIComponent(title)}`;
+            
+            https.get(url, (response) => {
+                let data = '';
+                
+                response.on('data', (chunk) => {
+                    data += chunk;
+                });
+                
+                response.on('end', () => {
+                    if (response.statusCode === 200) {
+                        res.json({
+                            title: title,
+                            content: data,
+                            url: `https://en.wikipedia.org/wiki/${encodeURIComponent(title)}`
+                        });
+                    } else {
+                        res.status(response.statusCode).json({ error: "Article not found" });
+                    }
+                });
+            }).on('error', (error) => {
+                console.error("Wikipedia API request failed:", error);
+                res.status(500).json({ error: "Failed to get article content" });
+            });
+        } catch (error) {
+            console.error("Wikipedia article error:", error);
+            res.status(500).json({ error: "Failed to get article content" });
+        }
+    });
+
     return router;
 };
 
