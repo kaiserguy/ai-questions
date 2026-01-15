@@ -7,6 +7,33 @@ class DownloadManagerV2 {
         this.downloads = new Map();
         this.retryAttempts = 3;
         this.retryDelay = 1000; // ms
+        // Event handlers for compatibility with IntegrationManager
+        this.onProgressUpdate = null;
+        this.onResourceUpdate = null;
+        this.onComplete = null;
+        this.onError = null;
+    }
+
+    /**
+     * Set event handlers for download progress and status updates
+     * @param {Object} handlers - Event handler callbacks
+     * @param {Function} handlers.onProgressUpdate - Progress update callback
+     * @param {Function} handlers.onResourceUpdate - Resource status update callback
+     * @param {Function} handlers.onComplete - Download complete callback
+     * @param {Function} handlers.onError - Error callback
+     */
+    setEventHandlers(handlers) {
+        if (!handlers || typeof handlers !== 'object') {
+            this.onProgressUpdate = null;
+            this.onResourceUpdate = null;
+            this.onComplete = null;
+            this.onError = null;
+            return;
+        }
+        this.onProgressUpdate = handlers.onProgressUpdate || null;
+        this.onResourceUpdate = handlers.onResourceUpdate || null;
+        this.onComplete = handlers.onComplete || null;
+        this.onError = handlers.onError || null;
     }
 
     /**
