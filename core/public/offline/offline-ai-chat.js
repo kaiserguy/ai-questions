@@ -7,6 +7,7 @@ class OfflineAIChat {
         this.initialized = false;
         this.conversationHistory = [];
         this.wikipediaData = null;
+        this.localAI = null;  // Reference to LocalAIModel instance
         this.isGenerating = false;
         this.shouldStop = false;
     }
@@ -18,7 +19,18 @@ class OfflineAIChat {
         try {
             console.log('Initializing offline AI chat...');
             
-            // Load Wikipedia data from localStorage or IndexedDB
+            // Get reference to LocalAIModel instance
+            if (window.localAI && window.localAI.initialized) {
+                this.localAI = window.localAI;
+                console.log('Connected to LocalAIModel');
+            } else {
+                console.warn('LocalAI not initialized - chat will use fallback responses');
+                // Still initialize but mark as not having model
+                this.initialized = false;
+                return false;
+            }
+            
+            // Load Wikipedia data from localStorage or IndexedDB (for context)
             await this.loadWikipediaData();
             
             this.initialized = true;
@@ -75,37 +87,60 @@ class OfflineAIChat {
      * Generate a response to a user message completely offline
      */
     async generateResponse(message, onToken = null) {
-        if (!this.initialized) {
-            throw new Error('Offline AI chat not initialized');
+        if (!this.initialized || !this.localAI) {
+            return {
+                success: false,
+                error: 'Offline AI chat not initialized or model not available'
+            };
         }
 
         this.isGenerating = true;
         this.shouldStop = false;
 
         try {
-            // Analyze the user's message
-            const analysis = this.analyzeMessage(message);
+            // Use LocalAIModel for inference with Phi-3
+            console.log('Generating response with local model...');
             
-            // Generate response based on analysis
-            const response = await this.synthesizeResponse(message, analysis, onToken);
+            // Build context from conversation history
+            let contextPrompt = '';
+            if (this.conversationHistory.length > 0) {
+                const recentHistory = this.conversationHistory.slice(-6); // Last 3 exchanges
+                contextPrompt = recentHistory.map(msg => 
+                    `${msg.role === 'user' ? 'User' : 'Assistant'}: ${msg.content}`
+                ).join('\n') + '\n';
+            }
             
-            // Add to conversation history (but don't persist)
+            const fullPrompt = contextPrompt + `User: ${message}\nAssistant:`;
+            
+            // Generate using LocalAIModel
+            const result = await this.localAI.generate(fullPrompt, {
+                maxTokens: 512,
+                temperature: 0.7,
+                topP: 0.9,
+                onToken: onToken
+            });
+            
+            const responseText = result.text || result.response || 'I apologize, but I was unable to generate a response.';
+            
+            // Add to conversation history
             this.conversationHistory.push(
                 { role: 'user', content: message },
-                { role: 'assistant', content: response }
+                { role: 'assistant', content: responseText }
             );
 
             return {
                 success: true,
-                response: response,
-                model: 'offline-ai',
-                timestamp: new Date().toISOString(),
-                analysis: analysis
+                response: responseText,
+                model: result.model || 'local-phi3',
+                timestamp: new Date().toISOString()
             };
 
         } catch (error) {
             console.error('Error generating response:', error);
-            throw error;
+            return {
+                success: false,
+                error: error.message || 'Failed to generate response'
+            };
         } finally {
             this.isGenerating = false;
         }

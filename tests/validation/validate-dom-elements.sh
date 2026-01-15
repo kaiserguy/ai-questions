@@ -25,14 +25,16 @@ if (fs.existsSync(offlineViewPath)) {
     }
   }
   
-  // Check that chat and wiki sections are initially hidden
-  if (!content.match(/id=\"chatSection\"[^>]*style=\"[^\"]*display:\\s*none/)) {
-    console.error('❌ chatSection should be initially hidden');
+  // Check that chat and wiki sections exist (they should now be visible by default)
+  // Previously these were hidden, but as of Issue #195 and #205, they should be visible
+  // to provide immediate access to local AI chat and Wikipedia search features
+  if (!content.includes('id=\"chatSection\"')) {
+    console.error('❌ chatSection element not found');
     process.exit(1);
   }
   
-  if (!content.match(/id=\"wikiSection\"[^>]*style=\"[^\"]*display:\\s*none/)) {
-    console.error('❌ wikiSection should be initially hidden');
+  if (!content.includes('id=\"wikiSection\"')) {
+    console.error('❌ wikiSection element not found');
     process.exit(1);
   }
   

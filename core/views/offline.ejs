@@ -158,18 +158,22 @@
         </div>
 
         <!-- Chat Section -->
-        <div class="chat-section" id="chatSection" style="display: none;">
+        <div class="chat-section" id="chatSection">
             <h2>🤖 AI Chat</h2>
-            <p style="color: #6b7280; margin-bottom: 15px;">Chat with AI models powered by external APIs. No downloads required!</p>
+            <p style="color: #6b7280; margin-bottom: 15px;">Chat with local AI models running entirely in your browser. Download a model first to get started!</p>
             
             <!-- Model Selector -->
             <div class="model-selector" style="margin-bottom: 15px;">
                 <label for="chatModelSelect" style="display: inline-block; margin-right: 10px; font-weight: 500;">Model:</label>
                 <select id="chatModelSelect" style="padding: 8px 12px; border: 1px solid #d1d5db; border-radius: 6px; background: white;">
-                    <option value="gpt-3.5-turbo">ChatGPT (GPT-3.5 Turbo)</option>
-                    <option value="microsoft/DialoGPT-medium">Microsoft DialoGPT Medium</option>
-                    <option value="google/flan-t5-base">Google Flan-T5 Base</option>
+                    <option value="phi3-mini">Phi-3 Mini (Local)</option>
+                    <option value="phi3-mini-q4">Phi-3 Mini Quantized (Local)</option>
+                    <option value="tinyml-qa">TinyML QA (Local)</option>
                 </select>
+                <div id="modelStatus" style="margin-top: 10px; padding: 8px; border-radius: 6px; background: #f3f4f6;">
+                    <span id="modelStatusIcon">⚠️</span>
+                    <span id="modelStatusText">No model downloaded. Please download a model first.</span>
+                </div>
             </div>
             
             <div class="chat-container" id="chatContainer">
@@ -184,7 +188,7 @@
         </div>
         
         <!-- Wikipedia Section -->
-        <div class="wiki-section" id="wikiSection" style="display: none;">
+        <div class="wiki-section" id="wikiSection">
             <h2>📚 Wikipedia Search</h2>
             <p style="margin-bottom: 15px; color: #6b7280;">Search Wikipedia articles using the public API. No offline download required!</p>
             
@@ -260,6 +264,7 @@
     
     <!-- Core Logic -->
     <script src="/offline/local-ai-model.js"></script>
+    <script src="/offline/offline-ai-chat.js"></script>
     <script src="/offline/wikipedia-manager.js"></script>
     <script src="/offline/wikipedia-public-search.js"></script>
     <script src="/offline/integration-manager.js"></script>
@@ -304,27 +309,24 @@
                 chatHistory.push({ role: 'user', content: message });
 
                 try {
-                    // Call the API with limited context history
-                    const response = await fetch('/api/chat', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json'
-                        },
-                        body: JSON.stringify({
-                            message: message,
-                            model: selectedModel,
-                            context: chatHistory.slice(-MAX_CONTEXT_MESSAGES) // Send last N messages for context
-                        })
-                    });
+                    // Use local OfflineAIChat instead of external API
+                    if (!window.offlineAIChat || !window.offlineAIChat.initialized) {
+                        addMessageToUI('ai', 'Please download a model first using the download section above.');
+                        isGenerating = false;
+                        sendBtn.disabled = false;
+                        sendBtn.textContent = 'Send';
+                        return;
+                    }
 
-                    const data = await response.json();
+                    // Generate response using local model
+                    const response = await window.offlineAIChat.generateResponse(message);
 
-                    if (data.success) {
+                    if (response.success) {
                         // Add AI response to UI
-                        addMessageToUI('ai', data.response);
-                        chatHistory.push({ role: 'assistant', content: data.response });
+                        addMessageToUI('ai', response.response);
+                        chatHistory.push({ role: 'assistant', content: response.response });
                     } else {
-                        addMessageToUI('ai', `Error: ${data.error}`);
+                        addMessageToUI('ai', `Error: ${response.error}`);
                     }
                 } catch (error) {
                     console.error('Chat error:', error);
@@ -366,6 +368,32 @@
             });
         }
 
+        // Function to update model status indicator
+        async function updateModelStatus() {
+            const modelStatus = document.getElementById('modelStatus');
+            const modelStatusIcon = document.getElementById('modelStatusIcon');
+            const modelStatusText = document.getElementById('modelStatusText');
+            
+            if (!modelStatus || !modelStatusIcon || !modelStatusText) return;
+            
+            if (window.localAI && window.localAI.initialized && window.offlineAIChat) {
+                const initialized = await window.offlineAIChat.initialize();
+                if (initialized) {
+                    modelStatusIcon.textContent = '✅';
+                    modelStatusText.textContent = 'Local model ready for offline chat';
+                    modelStatus.style.background = '#d1fae5';
+                } else {
+                    modelStatusIcon.textContent = '⚠️';
+                    modelStatusText.textContent = 'Model not available. Download a model first.';
+                    modelStatus.style.background = '#fef3c7';
+                }
+            } else {
+                modelStatusIcon.textContent = '⚠️';
+                modelStatusText.textContent = 'Waiting for model initialization...';
+                modelStatus.style.background = '#f3f4f6';
+            }
+        }
+
         document.addEventListener('DOMContentLoaded', async () => {
             try {
                 // Initialize chat first
@@ -393,6 +421,21 @@
                     console.log('Wikipedia search initialized');
                 } else {
                     console.error('WikipediaPublicSearch not loaded');
+                }
+
+                // Initialize OfflineAIChat
+                if (typeof OfflineAIChat !== 'undefined') {
+                    window.offlineAIChat = new OfflineAIChat();
+                    console.log('OfflineAIChat instance created');
+                    
+                    // Update model status
+                    await updateModelStatus();
+                    
+                    // Listen for model download events
+                    window.addEventListener('modelDownloaded', updateModelStatus);
+                    window.addEventListener('modelLoaded', updateModelStatus);
+                } else {
+                    console.error('OfflineAIChat not loaded');
                 }
             } catch (err) {
                 console.error('Failed to initialize application:', err);
