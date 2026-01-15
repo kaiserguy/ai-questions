@@ -228,6 +228,55 @@ module.exports = (db, ai, wikipedia, config) => {
         }
     });
 
+    // API for chat interface - supports conversation history
+    router.post("/api/chat", async (req, res) => {
+        const { message, model, context = [] } = req.body;
+        const userId = req.user ? req.user.id : null;
+
+        if (!message) {
+            return res.status(400).json({ 
+                success: false,
+                error: "Message is required." 
+            });
+        }
+
+        // Use default model if not specified
+        const modelId = model || "gpt-3.5-turbo";
+
+        try {
+            // Build conversation context from history
+            let conversationContext = "";
+            if (context && context.length > 0) {
+                conversationContext = context.map(msg => {
+                    const role = msg.role === "user" ? "User" : "Assistant";
+                    return `${role}: ${msg.content}`;
+                }).join("\n");
+                conversationContext += "\n\n";
+            }
+
+            // Generate response using existing AI service
+            const aiResponse = await ai.generateResponse(
+                modelId, 
+                message, 
+                conversationContext,
+                userId
+            );
+            
+            res.json({ 
+                success: true,
+                response: aiResponse.answer,
+                model: modelId,
+                model_name: aiResponse.model_name
+            });
+        } catch (error) {
+            console.error("Error in chat endpoint:", error);
+            res.status(500).json({ 
+                success: false,
+                error: error.message || "Failed to generate chat response." 
+            });
+        }
+    });
+
     // API to get answer history for a question
     router.get("/history", async (req, res) => {
         const questionText = req.query.question;
