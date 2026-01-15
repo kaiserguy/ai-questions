@@ -108,15 +108,21 @@ describe('Service Worker Build Script - Security & Edge Cases', () => {
         
         test('generated service worker version is unique', () => {
             const generated = fs.readFileSync(outputPath, 'utf8');
-            const versionMatch = generated.match(/ai-questions-cache-([a-f0-9]+-\d+)/);
+            const versionMatch = generated.match(/ai-questions-cache-([a-f0-9]+-\d+|build-\d+)/);
             
             expect(versionMatch).toBeTruthy();
-            expect(versionMatch[1]).toMatch(/^[a-f0-9]+-\d+$/);
             
-            // Version should have timestamp component - check it's within last year
-            const timestamp = parseInt(versionMatch[1].split('-')[1]);
-            const oneYearAgo = Date.now() - (365 * 24 * 60 * 60 * 1000);
-            expect(timestamp).toBeGreaterThan(oneYearAgo);
+            // Parse version parts
+            const version = versionMatch[1];
+            const parts = version.split('-');
+            
+            // Get timestamp (last part)
+            const timestamp = parseInt(parts[parts.length - 1]);
+            
+            // Timestamp should be recent (within last day)
+            const oneDayAgo = Date.now() - (24 * 60 * 60 * 1000);
+            expect(timestamp).toBeGreaterThan(oneDayAgo);
+            expect(timestamp).toBeLessThanOrEqual(Date.now());
         });
         
         test('generated service worker handles network errors', () => {

@@ -9,7 +9,7 @@ const isSecureContext = self.location.protocol === 'https:' ||
                        self.location.hostname === 'localhost' ||
                        self.location.hostname === '127.0.0.1';
 
-if (!isSecureContext && self.location.hostname !== 'localhost') {
+if (!isSecureContext) {
     console.warn('Service Worker: Insecure context detected. Service workers should only run over HTTPS.');
 }
 

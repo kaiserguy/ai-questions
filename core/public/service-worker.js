@@ -5,15 +5,15 @@
  * To make changes, edit service-worker.template.js instead.
  * 
  * Build Info:
- *   Version: 07f77d2-1768459651332
+ *   Version: dce60a8-1768459758458
  *   Branch: copilot/sub-pr-186
- *   Built: 2026-01-15T06:47:31.335Z
+ *   Built: 2026-01-15T06:49:18.462Z
  */
 
 // Service Worker for AI Questions Offline Mode
 // Security: This service worker only operates on same-origin requests over HTTPS (or localhost for development)
 
-const CACHE_NAME = 'ai-questions-cache-07f77d2-1768459651332';
+const CACHE_NAME = 'ai-questions-cache-dce60a8-1768459758458';
 const OFFLINE_URL = '/offline';
 
 // Security: Enforce HTTPS in production (allow localhost for development)
@@ -21,7 +21,7 @@ const isSecureContext = self.location.protocol === 'https:' ||
                        self.location.hostname === 'localhost' ||
                        self.location.hostname === '127.0.0.1';
 
-if (!isSecureContext && self.location.hostname !== 'localhost') {
+if (!isSecureContext) {
     console.warn('Service Worker: Insecure context detected. Service workers should only run over HTTPS.');
 }
 
@@ -41,7 +41,7 @@ const PRECACHE_RESOURCES = [
 
 // Install event - precache resources
 self.addEventListener('install', event => {
-  console.log('Service worker installing... Version: 07f77d2-1768459651332');
+  console.log('Service worker installing... Version: dce60a8-1768459758458');
   
   // Force the waiting service worker to become the active service worker
   self.skipWaiting();
@@ -60,7 +60,7 @@ self.addEventListener('install', event => {
 
 // Activate event - clean up old caches
 self.addEventListener('activate', event => {
-  console.log('Service worker activating... Version: 07f77d2-1768459651332');
+  console.log('Service worker activating... Version: dce60a8-1768459758458');
   
   event.waitUntil(
     caches.keys().then(cacheNames => {
@@ -276,7 +276,7 @@ self.addEventListener('message', event => {
     // Security: Only send response if MessageChannel port is provided
     if (event.ports && event.ports[0]) {
       event.ports[0].postMessage({ 
-        version: '07f77d2-1768459651332',
+        version: 'dce60a8-1768459758458',
         cacheName: CACHE_NAME,
         timestamp: Date.now()
       });
