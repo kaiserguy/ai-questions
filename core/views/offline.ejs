@@ -157,18 +157,28 @@
         </div>
 
         <!-- Chat Section -->
-        <div class="chat-section" id="chatSection" style="display: none;">
-            <h2>🤖 Offline AI Chat</h2>
+        <div class="chat-section" id="chatSection">
+            <h2>🤖 AI Chat</h2>
+            <p style="color: #6b7280; margin-bottom: 15px;">Chat with AI models powered by external APIs. No downloads required!</p>
+            
+            <!-- Model Selector -->
+            <div class="model-selector" style="margin-bottom: 15px;">
+                <label for="chatModelSelect" style="display: inline-block; margin-right: 10px; font-weight: 500;">Model:</label>
+                <select id="chatModelSelect" style="padding: 8px 12px; border: 1px solid #d1d5db; border-radius: 6px; background: white;">
+                    <option value="gpt-3.5-turbo">ChatGPT (GPT-3.5 Turbo)</option>
+                    <option value="microsoft/DialoGPT-medium">Microsoft DialoGPT Medium</option>
+                    <option value="google/flan-t5-base">Google Flan-T5 Base</option>
+                </select>
+            </div>
             
             <div class="chat-container" id="chatContainer">
                 <div class="message ai">
-                    <strong>AI Assistant:</strong> Hello! I'm running completely offline in your browser. Ask me anything, and I can also search the local Wikipedia database for additional context.
+                    <strong>AI Assistant:</strong> Hello! I'm your AI assistant. I can help answer questions, have conversations, and assist with various tasks. What would you like to talk about?
                 </div>
             </div>
             <div class="chat-input-container">
-                <input type="text" class="chat-input" id="chatInput" data-hint="Ask me anything..." />
+                <input type="text" class="chat-input" id="chatInput" />
                 <button class="send-btn" id="sendBtn">Send</button>
-                <button class="stop-btn" id="stopBtn">Stop</button>
             </div>
         </div>
         
@@ -177,7 +187,7 @@
             <h2>📚 Wikipedia Search</h2>
             
             <div class="wiki-search-container">
-                <input type="text" class="wiki-search-input" id="wikiSearchInput" data-hint="Search Wikipedia..." />
+                <input type="text" class="wiki-search-input" id="wikiSearchInput" />
                 <button class="wiki-search-btn" id="wikiSearchBtn">Search</button>
             </div>
             <div class="wiki-results" id="wikiResults">
@@ -254,21 +264,123 @@
     
     <!-- Initialization -->
     <script>
+        // Chat configuration constants
+        // Note: MAX_CONTEXT_MESSAGES must match or be less than server-side limit
+        const MAX_CONTEXT_MESSAGES = 10; // Maximum number of messages to send as context
+        
+        // Chat functionality for Heroku production
+        const chatHistory = [];
+        let isGenerating = false;
+
+        function initializeChat() {
+            const chatInput = document.getElementById('chatInput');
+            const sendBtn = document.getElementById('sendBtn');
+            const chatContainer = document.getElementById('chatContainer');
+            const chatModelSelect = document.getElementById('chatModelSelect');
+
+            // Show chat section
+            const chatSection = document.getElementById('chatSection');
+            if (chatSection) {
+                chatSection.style.display = 'block';
+            }
+
+            async function sendMessage() {
+                const message = chatInput.value.trim();
+                if (!message || isGenerating) return;
+
+                const selectedModel = chatModelSelect.value;
+
+                // Add user message to UI
+                addMessageToUI('user', message);
+                chatInput.value = '';
+                isGenerating = true;
+                sendBtn.disabled = true;
+                sendBtn.textContent = 'Sending...';
+
+                // Add to history
+                chatHistory.push({ role: 'user', content: message });
+
+                try {
+                    // Call the API with limited context history
+                    const response = await fetch('/api/chat', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            message: message,
+                            model: selectedModel,
+                            context: chatHistory.slice(-MAX_CONTEXT_MESSAGES) // Send last N messages for context
+                        })
+                    });
+
+                    const data = await response.json();
+
+                    if (data.success) {
+                        // Add AI response to UI
+                        addMessageToUI('ai', data.response);
+                        chatHistory.push({ role: 'assistant', content: data.response });
+                    } else {
+                        addMessageToUI('ai', `Error: ${data.error}`);
+                    }
+                } catch (error) {
+                    console.error('Chat error:', error);
+                    addMessageToUI('ai', `Error: ${error.message}`);
+                } finally {
+                    isGenerating = false;
+                    sendBtn.disabled = false;
+                    sendBtn.textContent = 'Send';
+                }
+            }
+
+            function addMessageToUI(role, content) {
+                const messageDiv = document.createElement('div');
+                messageDiv.className = `message ${role}`;
+                
+                if (role === 'user') {
+                    messageDiv.innerHTML = `<strong>You:</strong> ${escapeHtml(content)}`;
+                } else {
+                    messageDiv.innerHTML = `<strong>AI Assistant:</strong> ${escapeHtml(content)}`;
+                }
+                
+                chatContainer.appendChild(messageDiv);
+                chatContainer.scrollTop = chatContainer.scrollHeight;
+            }
+
+            function escapeHtml(text) {
+                const div = document.createElement('div');
+                div.textContent = text;
+                return div.innerHTML;
+            }
+
+            // Event listeners
+            sendBtn.addEventListener('click', sendMessage);
+            chatInput.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    sendMessage();
+                }
+            });
+        }
+
         document.addEventListener('DOMContentLoaded', async () => {
             try {
-                // Initialize Integration Manager
+                // Initialize chat first
+                initializeChat();
+
+                // Initialize Integration Manager (for offline mode)
                 if (typeof IntegrationManager !== 'undefined') {
                     window.app = new IntegrationManager();
                 } else {
-                    console.error('IntegrationManager not loaded');
+                    console.log('Running in server mode - using API chat endpoint');
                 }
                 
-                // Initialize UI Manager
+                // Initialize UI Manager (for offline mode)
                 if (typeof OfflineUIManager !== 'undefined') {
                     window.uiManager = new OfflineUIManager();
                     await window.uiManager.initialize(window.app);
                 } else {
-                    console.error('OfflineUIManager not loaded');
+                    console.log('OfflineUIManager not loaded - offline features disabled');
                 }
             } catch (err) {
                 console.error('Failed to initialize application:', err);
