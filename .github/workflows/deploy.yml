@@ -99,12 +99,12 @@ jobs:
       run: |
         curl https://cli-assets.heroku.com/install.sh | sh
         
-- name: Deploy to Heroku
-  env:
-    HEROKU_API_KEY: ${{ secrets.HEROKU_API_KEY }}
-  run: |
-    git remote add heroku https://heroku:$HEROKU_API_KEY@git.heroku.com/${{ secrets.HEROKU_APP_NAME }}.git || true
-    git push heroku HEAD:main --force
+    - name: Deploy to Heroku
+      env:
+        HEROKU_API_KEY: ${{ secrets.HEROKU_API_KEY }}
+      run: |
+        git remote add heroku https://heroku:$HEROKU_API_KEY@git.heroku.com/${{ secrets.HEROKU_APP_NAME }}.git || true
+        git push heroku HEAD:main --force
         
     - name: Verify deployment
       run: |
