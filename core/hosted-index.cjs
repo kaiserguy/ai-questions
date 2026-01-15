@@ -1902,6 +1902,89 @@ app.get('/download/offline', async (req, res) => {
 // Start server
 app.use(offlinePackageRoutesNew);
 
+// ===== PUBLIC WIKIPEDIA API ENDPOINTS (No Authentication Required) =====
+// These endpoints use Wikipedia's public REST API for the /offline page
+
+// Search Wikipedia articles
+app.get("/api/wikipedia/public/search", async (req, res) => {
+    const { query, limit = 10 } = req.query;
+    
+    if (!query) {
+        return res.status(400).json({ error: "Query parameter is required" });
+    }
+    
+    try {
+        const url = `https://en.wikipedia.org/w/api.php?action=opensearch&search=${encodeURIComponent(query)}&limit=${limit}&format=json`;
+        const response = await axios.get(url);
+        const parsed = response.data;
+        
+        // OpenSearch returns [query, [titles], [descriptions], [urls]]
+        const results = parsed[1].map((title, i) => ({
+            title: title,
+            description: parsed[2][i] || '',
+            url: parsed[3][i] || ''
+        }));
+        
+        res.json({ results });
+    } catch (error) {
+        console.error("Wikipedia search error:", error.message);
+        res.status(500).json({ error: "Failed to search Wikipedia" });
+    }
+});
+
+// Get Wikipedia article summary
+app.get("/api/wikipedia/public/summary", async (req, res) => {
+    const { title } = req.query;
+    
+    if (!title) {
+        return res.status(400).json({ error: "Title parameter is required" });
+    }
+    
+    try {
+        const url = `https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(title)}`;
+        const response = await axios.get(url);
+        const summary = response.data;
+        
+        res.json({
+            title: summary.title,
+            extract: summary.extract,
+            description: summary.description,
+            thumbnail: summary.thumbnail,
+            url: summary.content_urls?.desktop?.page
+        });
+    } catch (error) {
+        console.error("Wikipedia summary error:", error.message);
+        res.status(500).json({ error: "Failed to get article summary" });
+    }
+});
+
+// Get full Wikipedia article content
+app.get("/api/wikipedia/public/article", async (req, res) => {
+    const { title } = req.query;
+    
+    if (!title) {
+        return res.status(400).json({ error: "Title parameter is required" });
+    }
+    
+    try {
+        const url = `https://en.wikipedia.org/api/rest_v1/page/html/${encodeURIComponent(title)}`;
+        const response = await axios.get(url);
+        
+        res.json({
+            title: title,
+            content: response.data,
+            url: `https://en.wikipedia.org/wiki/${encodeURIComponent(title)}`
+        });
+    } catch (error) {
+        console.error("Wikipedia article error:", error.message);
+        if (error.response && error.response.status === 404) {
+            res.status(404).json({ error: "Article not found" });
+        } else {
+            res.status(500).json({ error: "Failed to get article content" });
+        }
+    }
+});
+
 // ===== CONFIG PAGE ROUTE =====
 app.get('/config', (req, res) => {
   res.render('config');
