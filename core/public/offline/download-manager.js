@@ -431,6 +431,27 @@ class DownloadManager {
     }
     
     /**
+     * Helper to wrap a promise with a timeout
+     * @param {Promise} promise - The promise to wrap
+     * @param {number} ms - Timeout in milliseconds
+     * @param {string} errorMessage - Error message if timeout occurs
+     * @returns {Promise}
+     */
+    async withTimeout(promise, ms, errorMessage = 'Operation timed out') {
+        let timeoutId;
+        const timeoutPromise = new Promise((_, reject) => {
+            timeoutId = setTimeout(() => reject(new Error(errorMessage)), ms);
+        });
+
+        try {
+            const result = await Promise.race([promise, timeoutPromise]);
+            return result;
+        } finally {
+            clearTimeout(timeoutId);
+        }
+    }
+
+    /**
      * Finish the download process and initialize components
      */
     async finishDownload() {
@@ -438,16 +459,34 @@ class DownloadManager {
         
         this.updateProgress('Download complete! Initializing offline mode...');
         
-        // Initialize IndexedDB storage
-        await this.initializeStorage();
-        
-        // Initialize AI models
-        await this.initializeAIModels();
-        
-        // Initialize Wikipedia database
-        await this.initializeWikipedia();
-        
-        this.updateProgress('Offline mode ready!');
+        try {
+            // Use withTimeout helper for the entire initialization sequence
+            await this.withTimeout((async () => {
+                // Initialize IndexedDB storage
+                await this.initializeStorage();
+                
+                // Initialize AI models
+                await this.initializeAIModels();
+                
+                // Initialize Wikipedia database - with its own timeout
+                try {
+                    await this.withTimeout(
+                        this.initializeWikipedia(),
+                        5000,
+                        'Wikipedia initialization timeout'
+                    );
+                } catch (wikiError) {
+                    console.warn('Wikipedia initialization failed or timed out:', wikiError);
+                    // Continue without Wikipedia - don't fail the whole process
+                }
+            })(), 10000, 'Initialization timeout');
+            
+            this.updateProgress('Offline mode ready!');
+        } catch (error) {
+            console.warn('Initialization error (continuing anyway):', error);
+            this.updateProgress('Offline mode initialized (with warnings)');
+            // Don't throw - allow the process to complete
+        }
     }
     
     /**

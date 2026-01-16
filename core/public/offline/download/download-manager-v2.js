@@ -106,6 +106,12 @@ class DownloadManagerV2 {
         const chunks = [];
 
         while (true) {
+            // Check if download is paused
+            if (window.app && window.app.downloadManager && window.app.downloadManager.isPaused()) {
+                await new Promise(resolve => setTimeout(resolve, 500));
+                continue;
+            }
+
             const { done, value } = await reader.read();
             
             if (done) break;
