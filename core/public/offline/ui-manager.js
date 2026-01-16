@@ -27,7 +27,17 @@ class OfflineUIManager {
             wikiResults: document.getElementById('wikiResults'),
             wikiSection: document.getElementById('wikiSection'),
             clearCacheBtn: document.getElementById('clearCacheBtn'),
-            optionCards: document.querySelectorAll('.option-card')
+            optionCards: document.querySelectorAll('.option-card'),
+            pauseBtn: document.getElementById('pauseBtn'),
+            resumeBtn: document.getElementById('resumeBtn'),
+            cancelBtn: document.getElementById('cancelBtn'),
+            storageMonitor: document.getElementById('storageMonitor'),
+            storageSummary: document.getElementById('storageSummary'),
+            storageFill: document.getElementById('storageFill'),
+            storageUsed: document.querySelector('.storage-used'),
+            storageAvailable: document.querySelector('.storage-available'),
+            storageQuota: document.querySelector('.storage-quota'),
+            storageWarning: document.getElementById('storageWarning')
         };
     }
     
@@ -49,6 +59,10 @@ class OfflineUIManager {
             this.setupChatHandlers();
             this.setupWikiSearchHandlers();
             this.setupClearCacheHandler();
+            this.setupDownloadControlHandlers();
+            
+            // Start storage monitoring
+            this.startStorageMonitoring();
             
             // Check browser compatibility
             await this.checkBrowserCompatibility();
@@ -311,6 +325,105 @@ class OfflineUIManager {
                 this.startDownload();
             });
         }
+    }
+
+    /**
+     * Set up handlers for pause, resume, and cancel buttons
+     */
+    setupDownloadControlHandlers() {
+        if (this.elements.pauseBtn) {
+            this.elements.pauseBtn.addEventListener('click', () => {
+                if (this.integrationManager) {
+                    this.integrationManager.pauseDownload();
+                    this.elements.pauseBtn.style.display = 'none';
+                    if (this.elements.resumeBtn) this.elements.resumeBtn.style.display = 'inline-block';
+                    this.updateProgress(null, 'Download paused');
+                }
+            });
+        }
+
+        if (this.elements.resumeBtn) {
+            this.elements.resumeBtn.addEventListener('click', () => {
+                if (this.integrationManager) {
+                    this.integrationManager.resumeDownload();
+                    this.elements.resumeBtn.style.display = 'none';
+                    if (this.elements.pauseBtn) this.elements.pauseBtn.style.display = 'inline-block';
+                    this.updateProgress(null, 'Resuming download...');
+                }
+            });
+        }
+
+        if (this.elements.cancelBtn) {
+            this.elements.cancelBtn.addEventListener('click', () => {
+                if (confirm('Are you sure you want to cancel the download?')) {
+                    if (this.integrationManager) {
+                        this.integrationManager.cancelDownload();
+                        this.handleDownloadFailure();
+                        this.displayToast('Download cancelled', 'info');
+                    }
+                }
+            });
+        }
+    }
+
+    /**
+     * Start periodic storage monitoring
+     */
+    startStorageMonitoring() {
+        this.updateStorageInfo();
+        // Update every 30 seconds
+        setInterval(() => this.updateStorageInfo(), 30000);
+    }
+
+    /**
+     * Update storage usage information
+     */
+    async updateStorageInfo() {
+        if (!navigator.storage || !navigator.storage.estimate) {
+            if (this.elements.storageSummary) this.elements.storageSummary.textContent = 'Not supported';
+            return;
+        }
+
+        try {
+            const estimate = await navigator.storage.estimate();
+            const used = estimate.usage || 0;
+            const quota = estimate.quota || 0;
+            const percent = quota > 0 ? (used / quota) * 100 : 0;
+
+            if (this.elements.storageSummary) {
+                this.elements.storageSummary.textContent = `${Math.round(percent)}% used`;
+            }
+
+            if (this.elements.storageFill) {
+                this.elements.storageFill.style.width = `${percent}%`;
+                if (percent > 80) {
+                    this.elements.storageFill.style.backgroundColor = '#ef4444';
+                } else if (percent > 50) {
+                    this.elements.storageFill.style.backgroundColor = '#f59e0b';
+                }
+            }
+
+            if (this.elements.storageUsed) this.elements.storageUsed.textContent = `Used: ${this.formatBytes(used)}`;
+            if (this.elements.storageAvailable) this.elements.storageAvailable.textContent = `Available: ${this.formatBytes(quota - used)}`;
+            if (this.elements.storageQuota) this.elements.storageQuota.textContent = `Quota: ${this.formatBytes(quota)}`;
+
+            if (this.elements.storageWarning) {
+                this.elements.storageWarning.style.display = percent > 80 ? 'block' : 'none';
+            }
+        } catch (error) {
+            console.error('Failed to get storage estimate:', error);
+        }
+    }
+
+    /**
+     * Format bytes to human-readable string
+     */
+    formatBytes(bytes) {
+        if (bytes === 0) return '0 Bytes';
+        const k = 1024;
+        const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
+        const i = Math.floor(Math.log(bytes) / Math.log(k));
+        return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
     }
     
     /**

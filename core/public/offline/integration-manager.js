@@ -67,30 +67,62 @@ class OfflineIntegrationManager {
     startDownload() {
         this.updateStatus(`Starting download of ${this.packageType} package`);
         
-        // Create download manager
-        this.downloadManager = new DownloadManager(this.packageType);
-        
-        // Set up event handlers
-        this.downloadManager.setEventHandlers({
-            onProgressUpdate: (message, progress) => {
-                if (message) {
-                    this.updateStatus(message);
+        // Create download manager if it doesn't exist
+        if (!this.downloadManager) {
+            this.downloadManager = new DownloadManager(this.packageType);
+            
+            // Set up event handlers
+            this.downloadManager.setEventHandlers({
+                onProgressUpdate: (message, progress) => {
+                    if (message) {
+                        this.updateStatus(message);
+                    }
+                    this.updateDownloadProgress(progress);
+                },
+                onResourceUpdate: (resource, status, progress) => {
+                    this.updateResourceStatus(resource, status, progress);
+                },
+                onComplete: () => {
+                    this.initializeComponents();
+                },
+                onError: (error) => {
+                    this.updateStatus(`Download error: ${error}`, 'error');
                 }
-                this.updateDownloadProgress(progress);
-            },
-            onResourceUpdate: (resource, status, progress) => {
-                this.updateResourceStatus(resource, status, progress);
-            },
-            onComplete: () => {
-                this.initializeComponents();
-            },
-            onError: (error) => {
-                this.updateStatus(`Download error: ${error}`, 'error');
-            }
-        });
+            });
+        }
         
         // Start download
         this.downloadManager.startDownload();
+    }
+
+    /**
+     * Pause the download process
+     */
+    pauseDownload() {
+        if (this.downloadManager) {
+            this.downloadManager.pause();
+            this.updateStatus('Download paused');
+        }
+    }
+
+    /**
+     * Resume the download process
+     */
+    resumeDownload() {
+        if (this.downloadManager) {
+            this.downloadManager.resume();
+            this.updateStatus('Download resumed');
+        }
+    }
+
+    /**
+     * Cancel the download process
+     */
+    cancelDownload() {
+        if (this.downloadManager) {
+            this.downloadManager.abort();
+            this.updateStatus('Download cancelled');
+        }
     }
     
     /**
