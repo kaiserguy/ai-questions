@@ -398,7 +398,8 @@
             }
         }
 
-        document.addEventListener('DOMContentLoaded', async () => {
+        // Initialize function that can be called immediately or on DOMContentLoaded
+        const initializeApp = async () => {
             try {
                 // Force load WikipediaManager if not already loaded
                 if (typeof WikipediaManager === 'undefined') {
@@ -469,7 +470,15 @@
             } catch (err) {
                 console.error('Failed to initialize application:', err);
             }
-        });
+        };
+        
+        // Execute immediately if DOM is already loaded, otherwise wait for DOMContentLoaded
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', initializeApp);
+        } else {
+            // DOM is already loaded, execute immediately
+            initializeApp().catch(e => console.error('Initialization error:', e));
+        }
     </script>
 </body>
 </html>
