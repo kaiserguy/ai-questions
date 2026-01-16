@@ -10,31 +10,6 @@
     const initializeApp = async () => {
         console.log('[OfflineInit] initializeApp started');
         try {
-            // Force load WikipediaManager if not already loaded
-            if (typeof WikipediaManager === 'undefined') {
-                // console.log('[OfflineInit] WikipediaManager not loaded, loading dynamically...');
-                try {
-                    await Promise.race([
-                        new Promise((resolve, reject) => {
-                            const script = document.createElement('script');
-                            script.src = '/offline/wikipedia-manager.js?v=1.0.2&dynamic=1';
-                            script.onload = () => {
-                                console.log('[OfflineInit] WikipediaManager loaded dynamically');
-                                resolve();
-                            };
-                            script.onerror = () => reject(new Error('Failed to load WikipediaManager'));
-                            document.head.appendChild(script);
-                        }),
-                        new Promise((resolve) => setTimeout(() => {
-                            console.warn('[OfflineInit] WikipediaManager loading timed out after 2s');
-                            resolve();
-                        }, 2000))
-                    ]);
-                } catch (e) {
-                    console.warn('[OfflineInit] WikipediaManager loading failed:', e.message);
-                }
-            }
-            
             // Initialize chat first (defined in offline.ejs)
             if (typeof initializeChat === 'function') {
                 initializeChat();
