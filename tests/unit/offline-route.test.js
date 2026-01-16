@@ -66,12 +66,10 @@ describe('Offline Route Fix Tests (Issue #69)', () => {
                     return;
                 }
                 
-                // Check for old /offline/ paths (excluding /offline-resources/)
-                const oldPaths = content.match(/['"]\/offline\/(?!service-worker)/g);
+                // Check for old /offline/ paths (excluding /offline-resources/ and script files)
+                const oldPaths = content.match(/['"]\/offline\/(?!service-worker|wikipedia-manager|offline-init)/g);
                 
-                if (oldPaths) {
-                    fail(`${fileName} contains old /offline/ paths that should be /offline-resources/: ${oldPaths.join(', ')}`);
-                }
+                expect(oldPaths).toBeNull();
             });
         });
 
