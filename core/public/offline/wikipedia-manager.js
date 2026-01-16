@@ -1,3 +1,5 @@
+console.log('[WikipediaManager] Script loading started');
+
 /**
  * WikipediaManager - Manages offline Wikipedia database loading and searching
  * Real implementation that handles local Wikipedia data with LunrSearch integration
@@ -290,8 +292,10 @@ class WikipediaManager {
 }
 
 // Export for browser
+console.log('[WikipediaManager] About to export to window, WikipediaManager type:', typeof WikipediaManager);
 if (typeof window !== 'undefined') {
     window.WikipediaManager = WikipediaManager;
+    console.log('[WikipediaManager] Exported to window successfully');
 }
 
 // Export for Node.js (tests)
