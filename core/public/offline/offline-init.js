@@ -38,19 +38,31 @@
                 await window.aiWikipediaSearch.initialize();
                 console.log('[OfflineInit] AI Wikipedia search initialized');
                 
-                // Update status indicator
+                // Update status indicator and show the wiki section
                 const statusEl = document.getElementById('wikiSearchStatus');
                 const statusText = document.getElementById('wikiStatusText');
+                const wikiSection = document.getElementById('wikiSection');
+                
                 if (statusEl && statusText) {
                     const status = window.aiWikipediaSearch.getStatus();
                     if (status.dbReady) {
                         statusEl.style.display = 'block';
                         statusEl.style.background = '#d1fae5';
                         statusText.textContent = '✅ AI search ready - Local Wikipedia database loaded';
+                        // Show the wiki section when database is ready
+                        if (wikiSection) {
+                            wikiSection.style.display = 'block';
+                            console.log('[OfflineInit] Wiki section shown - database ready');
+                        }
                     } else {
                         statusEl.style.display = 'block';
                         statusEl.style.background = '#fef3c7';
                         statusText.textContent = '⚠️ Download the offline package to enable local Wikipedia search';
+                        // Still show the wiki section so users know it exists
+                        if (wikiSection) {
+                            wikiSection.style.display = 'block';
+                            console.log('[OfflineInit] Wiki section shown - waiting for download');
+                        }
                     }
                 }
             } else if (typeof WikipediaPublicSearch !== 'undefined') {
