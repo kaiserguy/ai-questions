@@ -438,16 +438,43 @@ class DownloadManager {
         
         this.updateProgress('Download complete! Initializing offline mode...');
         
-        // Initialize IndexedDB storage
-        await this.initializeStorage();
-        
-        // Initialize AI models
-        await this.initializeAIModels();
-        
-        // Initialize Wikipedia database
-        await this.initializeWikipedia();
-        
-        this.updateProgress('Offline mode ready!');
+        try {
+            // Create a timeout promise that rejects after 10 seconds
+            const timeoutPromise = new Promise((_, reject) => {
+                setTimeout(() => reject(new Error('Initialization timeout')), 10000);
+            });
+            
+            // Race between initialization and timeout
+            await Promise.race([
+                (async () => {
+                    // Initialize IndexedDB storage
+                    await this.initializeStorage();
+                    
+                    // Initialize AI models
+                    await this.initializeAIModels();
+                    
+                    // Initialize Wikipedia database - with its own timeout
+                    try {
+                        await Promise.race([
+                            this.initializeWikipedia(),
+                            new Promise((_, reject) => {
+                                setTimeout(() => reject(new Error('Wikipedia initialization timeout')), 5000);
+                            })
+                        ]);
+                    } catch (wikiError) {
+                        console.warn('Wikipedia initialization failed or timed out:', wikiError);
+                        // Continue without Wikipedia - don't fail the whole process
+                    }
+                })(),
+                timeoutPromise
+            ]);
+            
+            this.updateProgress('Offline mode ready!');
+        } catch (error) {
+            console.warn('Initialization error (continuing anyway):', error);
+            this.updateProgress('Offline mode initialized (with warnings)');
+            // Don't throw - allow the process to complete
+        }
     }
     
     /**
