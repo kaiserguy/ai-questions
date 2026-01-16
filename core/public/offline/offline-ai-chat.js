@@ -19,27 +19,28 @@ class OfflineAIChat {
         try {
             console.log('Initializing offline AI chat...');
             
-            // Get reference to LocalAIModel instance
+            // Get reference to LocalAIModel instance if available
             if (window.localAI && window.localAI.initialized) {
                 this.localAI = window.localAI;
                 console.log('Connected to LocalAIModel');
             } else {
-                console.warn('LocalAI not initialized - chat will use fallback responses');
-                // Still initialize but mark as not having model
-                this.initialized = false;
-                return false;
+                console.log('LocalAI not available - using fallback response mode');
+                this.localAI = null;
             }
             
             // Load Wikipedia data from localStorage or IndexedDB (for context)
             await this.loadWikipediaData();
             
+            // Always mark as initialized - we can use fallback mode
             this.initialized = true;
-            console.log('Offline AI chat initialized successfully');
+            console.log('Offline AI chat initialized successfully (fallback mode available)');
             
             return true;
         } catch (error) {
             console.error('Failed to initialize offline AI chat:', error);
-            return false;
+            // Still mark as initialized for fallback mode
+            this.initialized = true;
+            return true;
         }
     }
 
@@ -87,40 +88,51 @@ class OfflineAIChat {
      * Generate a response to a user message completely offline
      */
     async generateResponse(message, onToken = null) {
-        if (!this.initialized || !this.localAI) {
-            return {
-                success: false,
-                error: 'Offline AI chat not initialized or model not available'
-            };
-        }
-
         this.isGenerating = true;
         this.shouldStop = false;
 
         try {
-            // Use LocalAIModel for inference with Phi-3
-            console.log('Generating response with local model...');
-            
-            // Build context from conversation history
-            let contextPrompt = '';
-            if (this.conversationHistory.length > 0) {
-                const recentHistory = this.conversationHistory.slice(-6); // Last 3 exchanges
-                contextPrompt = recentHistory.map(msg => 
-                    `${msg.role === 'user' ? 'User' : 'Assistant'}: ${msg.content}`
-                ).join('\n') + '\n';
+            let responseText;
+            let modelUsed = 'fallback-ai';
+
+            // Try to use LocalAIModel if available and initialized
+            if (this.initialized && this.localAI && this.localAI.initialized) {
+                console.log('Generating response with local model...');
+                
+                // Build context from conversation history
+                let contextPrompt = '';
+                if (this.conversationHistory.length > 0) {
+                    const recentHistory = this.conversationHistory.slice(-6); // Last 3 exchanges
+                    contextPrompt = recentHistory.map(msg => 
+                        `${msg.role === 'user' ? 'User' : 'Assistant'}: ${msg.content}`
+                    ).join('\n') + '\n';
+                }
+                
+                const fullPrompt = contextPrompt + `User: ${message}\nAssistant:`;
+                
+                // Generate using LocalAIModel
+                const result = await this.localAI.generate(fullPrompt, {
+                    maxTokens: 512,
+                    temperature: 0.7,
+                    topP: 0.9,
+                    onToken: onToken
+                });
+                
+                responseText = result.text || result.response;
+                modelUsed = result.model || 'local-phi3';
             }
             
-            const fullPrompt = contextPrompt + `User: ${message}\nAssistant:`;
+            // Fallback to rule-based response synthesis if no model or generation failed
+            if (!responseText) {
+                console.log('Using fallback response synthesis...');
+                const analysis = this.analyzeMessage(message);
+                responseText = await this.synthesizeResponse(message, analysis, onToken);
+                modelUsed = 'fallback-ai';
+            }
             
-            // Generate using LocalAIModel
-            const result = await this.localAI.generate(fullPrompt, {
-                maxTokens: 512,
-                temperature: 0.7,
-                topP: 0.9,
-                onToken: onToken
-            });
-            
-            const responseText = result.text || result.response || 'I apologize, but I was unable to generate a response.';
+            if (!responseText) {
+                responseText = 'I apologize, but I was unable to generate a response.';
+            }
             
             // Add to conversation history
             this.conversationHistory.push(
@@ -131,16 +143,35 @@ class OfflineAIChat {
             return {
                 success: true,
                 response: responseText,
-                model: result.model || 'local-phi3',
+                model: modelUsed,
                 timestamp: new Date().toISOString()
             };
 
         } catch (error) {
             console.error('Error generating response:', error);
-            return {
-                success: false,
-                error: error.message || 'Failed to generate response'
-            };
+            
+            // Try fallback even on error
+            try {
+                const analysis = this.analyzeMessage(message);
+                const fallbackResponse = await this.synthesizeResponse(message, analysis, onToken);
+                
+                this.conversationHistory.push(
+                    { role: 'user', content: message },
+                    { role: 'assistant', content: fallbackResponse }
+                );
+                
+                return {
+                    success: true,
+                    response: fallbackResponse,
+                    model: 'fallback-ai',
+                    timestamp: new Date().toISOString()
+                };
+            } catch (fallbackError) {
+                return {
+                    success: false,
+                    error: error.message || 'Failed to generate response'
+                };
+            }
         } finally {
             this.isGenerating = false;
         }
