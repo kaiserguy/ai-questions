@@ -473,10 +473,13 @@
         };
         
         // Execute immediately if DOM is already loaded, otherwise wait for DOMContentLoaded
+        console.log('[Debug] Checking document.readyState:', document.readyState);
         if (document.readyState === 'loading') {
+            console.log('[Debug] DOM still loading, adding event listener');
             document.addEventListener('DOMContentLoaded', initializeApp);
         } else {
             // DOM is already loaded, execute immediately
+            console.log('[Debug] DOM already loaded, executing immediately');
             initializeApp().catch(e => console.error('Initialization error:', e));
         }
     </script>
