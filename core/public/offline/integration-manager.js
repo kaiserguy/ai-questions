@@ -122,8 +122,14 @@ class OfflineIntegrationManager {
             
             // Initialize Wikipedia Manager if it exists
             if (this.wikipediaManager) {
-                await this.wikipediaManager.initialize();
-                this.wikiManager = this.wikipediaManager; // Keep both references
+                try {
+                    await this.wikipediaManager.initialize();
+                    this.wikiManager = this.wikipediaManager; // Keep both references
+                } catch (wikiError) {
+                    console.warn('Wikipedia Manager initialization failed:', wikiError);
+                    this.wikipediaManager = null; // Clear failed manager
+                    // Don't throw - allow initialization to continue without Wikipedia
+                }
             }
             
             this.initialized = true;
