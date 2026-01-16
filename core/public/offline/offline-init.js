@@ -12,7 +12,7 @@
         try {
             // Force load WikipediaManager if not already loaded
             if (typeof WikipediaManager === 'undefined') {
-                console.log('[OfflineInit] WikipediaManager not loaded, loading dynamically...');
+                // console.log('[OfflineInit] WikipediaManager not loaded, loading dynamically...');
                 try {
                     await Promise.race([
                         new Promise((resolve, reject) => {
