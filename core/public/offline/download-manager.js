@@ -65,6 +65,7 @@ class DownloadManager {
         this.onResourceUpdate = null;
         this.onComplete = null;
         this.onError = null;
+        this.onLogEntry = null;
         
         // Package configurations
         this.packages = {
@@ -130,6 +131,7 @@ class DownloadManager {
      */
     async startDownload() {
         console.log(`Starting download of ${this.packageType} package`);
+        this.logEntry('info', `Starting download of ${this.packageType} package`);
         
         try {
             // Check if resources are actually available before starting
@@ -140,24 +142,34 @@ class DownloadManager {
             
             // Check package availability first
             await this.checkPackageAvailability();
+            this.logEntry('success', 'Package availability verified');
             
             // Start with libraries
+            this.logEntry('download', 'Downloading core libraries...');
             await this.downloadLibraries();
+            this.logEntry('success', 'Core libraries downloaded');
             
             // Then download AI model
+            this.logEntry('download', 'Downloading AI model...');
             await this.downloadAIModel();
+            this.logEntry('success', 'AI model downloaded');
             
             // Finally download Wikipedia
+            this.logEntry('download', 'Downloading Wikipedia database...');
             await this.downloadWikipedia();
+            this.logEntry('success', 'Wikipedia database downloaded');
             
             // Complete the process
+            this.logEntry('progress', 'Finalizing download...');
             await this.finishDownload();
+            this.logEntry('complete', 'Download completed successfully!');
             
             if (this.onComplete) {
                 this.onComplete();
             }
         } catch (error) {
             console.error('Download error:', error);
+            this.logEntry('error', `Download failed: ${error.message}`);
             if (this.onError) {
                 this.onError(error.message);
             }
@@ -1213,6 +1225,15 @@ class DownloadManager {
             actions: ['retry', 'cancel'],
             originalError: error.message || error.toString()
         };
+    }
+    
+    /**
+     * Log an entry to the download log
+     */
+    logEntry(type, message) {
+        if (this.onLogEntry) {
+            this.onLogEntry(type, message);
+        }
     }
     
     /**

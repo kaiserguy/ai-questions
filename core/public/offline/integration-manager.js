@@ -89,6 +89,13 @@ class OfflineIntegrationManager {
                     this.updateStatus(`Download error: ${error}`, 'error');
                 }
             });
+            
+            // Set up log entry handler
+            this.downloadManager.onLogEntry = (type, message) => {
+                if (window.uiManager && window.uiManager.addLogEntry) {
+                    window.uiManager.addLogEntry(type, message);
+                }
+            };
         }
         
         // Start download

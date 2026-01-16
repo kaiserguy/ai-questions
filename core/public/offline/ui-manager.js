@@ -37,8 +37,14 @@ class OfflineUIManager {
             storageUsed: document.querySelector('.storage-used'),
             storageAvailable: document.querySelector('.storage-available'),
             storageQuota: document.querySelector('.storage-quota'),
-            storageWarning: document.getElementById('storageWarning')
+            storageWarning: document.getElementById('storageWarning'),
+            toggleLogBtn: document.getElementById('toggleLogBtn'),
+            downloadLog: document.getElementById('downloadLog')
         };
+        
+        // Log state
+        this.logVisible = false;
+        this.logEntries = [];
     }
     
     /**
@@ -60,6 +66,7 @@ class OfflineUIManager {
             this.setupWikiSearchHandlers();
             this.setupClearCacheHandler();
             this.setupDownloadControlHandlers();
+            this.setupLogToggleHandler();
             
             // Start storage monitoring
             this.startStorageMonitoring();
@@ -1055,6 +1062,96 @@ class OfflineUIManager {
         const div = document.createElement('div');
         div.textContent = text;
         return div.innerHTML;
+    }
+    
+    /**
+     * Set up the download log toggle handler
+     */
+    setupLogToggleHandler() {
+        const toggleBtn = this.elements.toggleLogBtn;
+        const downloadLog = this.elements.downloadLog;
+        
+        if (toggleBtn && downloadLog) {
+            // Initially hide the log
+            downloadLog.style.display = 'none';
+            
+            toggleBtn.addEventListener('click', () => {
+                this.logVisible = !this.logVisible;
+                
+                if (this.logVisible) {
+                    downloadLog.style.display = 'block';
+                    toggleBtn.textContent = 'Hide Details';
+                } else {
+                    downloadLog.style.display = 'none';
+                    toggleBtn.textContent = 'Show Details';
+                }
+            });
+        }
+    }
+    
+    /**
+     * Add a log entry to the download log
+     */
+    addLogEntry(type, message) {
+        const downloadLog = this.elements.downloadLog;
+        if (!downloadLog) return;
+        
+        const timestamp = new Date().toLocaleTimeString();
+        const entry = {
+            type,
+            message,
+            timestamp
+        };
+        
+        this.logEntries.push(entry);
+        
+        // Create log entry element
+        const entryDiv = document.createElement('div');
+        entryDiv.className = `log-entry log-${type}`;
+        
+        const typeIcon = this.getLogTypeIcon(type);
+        entryDiv.innerHTML = `
+            <span class="log-time">[${timestamp}]</span>
+            <span class="log-icon">${typeIcon}</span>
+            <span class="log-message">${this.sanitizeHTML(message)}</span>
+        `;
+        
+        // Clear placeholder comment if it's the first entry
+        if (this.logEntries.length === 1) {
+            downloadLog.innerHTML = '';
+        }
+        
+        downloadLog.appendChild(entryDiv);
+        
+        // Auto-scroll to bottom
+        downloadLog.scrollTop = downloadLog.scrollHeight;
+    }
+    
+    /**
+     * Get icon for log type
+     */
+    getLogTypeIcon(type) {
+        const icons = {
+            'info': 'ℹ️',
+            'success': '✅',
+            'warning': '⚠️',
+            'error': '❌',
+            'download': '⬇️',
+            'progress': '📊',
+            'complete': '🎉'
+        };
+        return icons[type] || 'ℹ️';
+    }
+    
+    /**
+     * Clear all log entries
+     */
+    clearLogEntries() {
+        const downloadLog = this.elements.downloadLog;
+        if (downloadLog) {
+            downloadLog.innerHTML = '';
+            this.logEntries = [];
+        }
     }
     
     /**

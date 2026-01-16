@@ -1483,6 +1483,32 @@ header {
     color: #374151;
 }
 
+.offline-page .log-entry.download {
+    color: #3b82f6;
+}
+
+.offline-page .log-entry.progress {
+    color: #8b5cf6;
+}
+
+.offline-page .log-entry.complete {
+    color: #10b981;
+    font-weight: bold;
+}
+
+.offline-page .log-time {
+    color: #9ca3af;
+    margin-right: 8px;
+}
+
+.offline-page .log-icon {
+    margin-right: 8px;
+}
+
+.offline-page .log-message {
+    word-break: break-word;
+}
+
 /* Responsive design for offline page */
 @media (max-width: 768px) {
     .offline-page .header h1 {
