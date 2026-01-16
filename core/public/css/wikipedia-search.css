@@ -363,6 +363,78 @@
     border: 1px solid #86efac;
 }
 
+/* AI Search Info */
+.wiki-search-info {
+    margin-bottom: 16px;
+    padding: 12px;
+    background: #f0f9ff;
+    border-radius: 6px;
+    border-left: 4px solid #3498db;
+}
+
+.wiki-search-info p {
+    margin: 0;
+    font-size: 14px;
+    color: #374151;
+}
+
+.wiki-search-terms {
+    margin-top: 8px !important;
+    font-size: 13px !important;
+    color: #6b7280 !important;
+}
+
+/* Article Link Styles */
+.wiki-article-link {
+    color: #2563eb;
+    text-decoration: none;
+    transition: color 0.2s;
+}
+
+.wiki-article-link:hover {
+    color: #1d4ed8;
+    text-decoration: underline;
+}
+
+/* Local Article Button */
+.wiki-action-btn.view-local-article {
+    background-color: #dbeafe;
+    color: #1e40af;
+    border-color: #93c5fd;
+}
+
+.wiki-action-btn.view-local-article:hover {
+    background-color: #bfdbfe;
+}
+
+/* Article Summary Box */
+.wiki-article-summary {
+    margin: 16px 0;
+    padding: 16px;
+    background: #f0f9ff;
+    border-radius: 8px;
+    border-left: 4px solid #3498db;
+    font-size: 15px;
+    line-height: 1.6;
+    color: #374151;
+}
+
+/* Article Categories */
+.wiki-article-categories,
+.wiki-result-categories {
+    margin-top: 8px;
+    font-size: 13px;
+    color: #6b7280;
+    font-style: italic;
+}
+
+/* Search Result Snippet Highlighting */
+.wiki-result-description mark {
+    background-color: #fef08a;
+    padding: 0 2px;
+    border-radius: 2px;
+}
+
 /* Responsive Design */
 @media (max-width: 768px) {
     .wiki-search-container {

@@ -32,13 +32,34 @@
                 console.log('[OfflineInit] OfflineUIManager not loaded - offline features disabled');
             }
 
-            // Initialize Wikipedia Public Search
-            if (typeof WikipediaPublicSearch !== 'undefined') {
+            // Initialize AI-Powered Wikipedia Search (primary)
+            if (typeof AIWikipediaSearch !== 'undefined') {
+                window.aiWikipediaSearch = new AIWikipediaSearch();
+                await window.aiWikipediaSearch.initialize();
+                console.log('[OfflineInit] AI Wikipedia search initialized');
+                
+                // Update status indicator
+                const statusEl = document.getElementById('wikiSearchStatus');
+                const statusText = document.getElementById('wikiStatusText');
+                if (statusEl && statusText) {
+                    const status = window.aiWikipediaSearch.getStatus();
+                    if (status.dbReady) {
+                        statusEl.style.display = 'block';
+                        statusEl.style.background = '#d1fae5';
+                        statusText.textContent = '✅ AI search ready - Local Wikipedia database loaded';
+                    } else {
+                        statusEl.style.display = 'block';
+                        statusEl.style.background = '#fef3c7';
+                        statusText.textContent = '⚠️ Download the offline package to enable local Wikipedia search';
+                    }
+                }
+            } else if (typeof WikipediaPublicSearch !== 'undefined') {
+                // Fallback to public search if AI search not available
                 window.wikipediaSearch = new WikipediaPublicSearch();
                 window.wikipediaSearch.initialize();
-                console.log('[OfflineInit] Wikipedia search initialized');
+                console.log('[OfflineInit] Wikipedia public search initialized (fallback)');
             } else {
-                console.error('[OfflineInit] WikipediaPublicSearch not loaded');
+                console.error('[OfflineInit] No Wikipedia search module loaded');
             }
 
             // Initialize OfflineAIChat
