@@ -431,6 +431,27 @@ class DownloadManager {
     }
     
     /**
+     * Helper to wrap a promise with a timeout
+     * @param {Promise} promise - The promise to wrap
+     * @param {number} ms - Timeout in milliseconds
+     * @param {string} errorMessage - Error message if timeout occurs
+     * @returns {Promise}
+     */
+    async withTimeout(promise, ms, errorMessage = 'Operation timed out') {
+        let timeoutId;
+        const timeoutPromise = new Promise((_, reject) => {
+            timeoutId = setTimeout(() => reject(new Error(errorMessage)), ms);
+        });
+
+        try {
+            const result = await Promise.race([promise, timeoutPromise]);
+            return result;
+        } finally {
+            clearTimeout(timeoutId);
+        }
+    }
+
+    /**
      * Finish the download process and initialize components
      */
     async finishDownload() {
@@ -439,35 +460,26 @@ class DownloadManager {
         this.updateProgress('Download complete! Initializing offline mode...');
         
         try {
-            // Create a timeout promise that rejects after 10 seconds
-            const timeoutPromise = new Promise((_, reject) => {
-                setTimeout(() => reject(new Error('Initialization timeout')), 10000);
-            });
-            
-            // Race between initialization and timeout
-            await Promise.race([
-                (async () => {
-                    // Initialize IndexedDB storage
-                    await this.initializeStorage();
-                    
-                    // Initialize AI models
-                    await this.initializeAIModels();
-                    
-                    // Initialize Wikipedia database - with its own timeout
-                    try {
-                        await Promise.race([
-                            this.initializeWikipedia(),
-                            new Promise((_, reject) => {
-                                setTimeout(() => reject(new Error('Wikipedia initialization timeout')), 5000);
-                            })
-                        ]);
-                    } catch (wikiError) {
-                        console.warn('Wikipedia initialization failed or timed out:', wikiError);
-                        // Continue without Wikipedia - don't fail the whole process
-                    }
-                })(),
-                timeoutPromise
-            ]);
+            // Use withTimeout helper for the entire initialization sequence
+            await this.withTimeout((async () => {
+                // Initialize IndexedDB storage
+                await this.initializeStorage();
+                
+                // Initialize AI models
+                await this.initializeAIModels();
+                
+                // Initialize Wikipedia database - with its own timeout
+                try {
+                    await this.withTimeout(
+                        this.initializeWikipedia(),
+                        5000,
+                        'Wikipedia initialization timeout'
+                    );
+                } catch (wikiError) {
+                    console.warn('Wikipedia initialization failed or timed out:', wikiError);
+                    // Continue without Wikipedia - don't fail the whole process
+                }
+            })(), 10000, 'Initialization timeout');
             
             this.updateProgress('Offline mode ready!');
         } catch (error) {
