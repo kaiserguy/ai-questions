@@ -400,6 +400,21 @@
 
         document.addEventListener('DOMContentLoaded', async () => {
             try {
+                // Force load WikipediaManager if not already loaded
+                if (typeof WikipediaManager === 'undefined') {
+                    console.log('[Fix] WikipediaManager not loaded, loading dynamically...');
+                    await new Promise((resolve, reject) => {
+                        const script = document.createElement('script');
+                        script.src = '/offline/wikipedia-manager.js?v=1.0.2&dynamic=1';
+                        script.onload = () => {
+                            console.log('[Fix] WikipediaManager loaded dynamically');
+                            resolve();
+                        };
+                        script.onerror = () => reject(new Error('Failed to load WikipediaManager'));
+                        document.head.appendChild(script);
+                    });
+                }
+                
                 // Initialize chat first
                 initializeChat();
 
