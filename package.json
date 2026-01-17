@@ -14,7 +14,8 @@
     "test:coverage": "jest --coverage",
     "audit": "npm audit --audit-level=moderate",
     "audit:fix": "npm audit fix",
-    "security": "npm audit && npm outdated"
+    "security": "npm audit && npm outdated",
+    "validate:syntax": "node -e \"const fs = require('fs'); const path = require('path'); const files = ['core', 'hosted', 'local'].flatMap(dir => fs.readdirSync(dir).filter(f => f.endsWith('.js') || f.endsWith('.cjs')).map(f => path.join(dir, f))); files.forEach(f => { try { require(f); console.log('✓', f); } catch(e) { console.error('✗', f, e.message); process.exit(1); } }); console.log('✅ All files valid');\""
   },
   "keywords": [
     "ai",
