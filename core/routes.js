@@ -1348,67 +1348,82 @@ module.exports = (db, ai, wikipedia, config) => {
     router.get('/api/wikipedia-database', (req, res) => {
         const fs = require('fs');
         const path = require('path');
-        const { spawn } = require('child_process');
         
         const packageType = req.query.package || 'minimal';
-        const localDir = path.join(__dirname, '..', 'local');
-        const dbPath = path.join(localDir, 'wikipedia.db');
         
-        // Check if database already exists
-        if (fs.existsSync(dbPath)) {
-            console.log(`[Wikipedia DB] Serving existing database: ${dbPath}`);
-            const stat = fs.statSync(dbPath);
-            console.log(`[Wikipedia DB] Database size: ${(stat.size / 1024 / 1024).toFixed(2)} MB`);
-            return res.sendFile(dbPath);
+        // Define database paths for different package types
+        const dbPaths = {
+            'minimal': [
+                path.join(__dirname, 'public', 'offline', 'wikipedia', 'minimal-wikipedia.sqlite'),
+                path.join(__dirname, '..', 'offline-resources', 'wikipedia', 'minimal-wikipedia.sqlite'),
+                path.join(__dirname, '..', 'local', 'wikipedia.db')
+            ],
+            'standard': [
+                path.join(__dirname, '..', 'offline-resources', 'wikipedia', 'simple-wikipedia-50mb.db'),
+                path.join(__dirname, '..', 'local', 'wikipedia.db')
+            ],
+            'full': [
+                path.join(__dirname, '..', 'offline-resources', 'wikipedia', 'extended-wikipedia.db'),
+                path.join(__dirname, '..', 'local', 'wikipedia.db')
+            ]
+        };
+        
+        const pathsToCheck = dbPaths[packageType] || dbPaths['minimal'];
+        
+        // Try each path in order
+        for (const dbPath of pathsToCheck) {
+            if (fs.existsSync(dbPath)) {
+                console.log(`[Wikipedia DB] Serving database: ${dbPath}`);
+                const stat = fs.statSync(dbPath);
+                console.log(`[Wikipedia DB] Database size: ${(stat.size / 1024 / 1024).toFixed(2)} MB`);
+                
+                res.setHeader('Content-Type', 'application/x-sqlite3');
+                res.setHeader('Content-Length', stat.size);
+                res.setHeader('Cache-Control', 'max-age=86400'); // Cache for 1 day
+                return res.sendFile(dbPath);
+            }
         }
         
-        console.log(`[Wikipedia DB] Database not found. Triggering download...`);
+        console.log(`[Wikipedia DB] No database found for package type: ${packageType}`);
+        console.log(`[Wikipedia DB] Checked paths: ${pathsToCheck.join(', ')}`);
         
-        // Return 202 Accepted - download will happen asynchronously
-        res.status(202).json({ 
-            status: 'downloading',
-            message: 'Server is downloading Wikipedia database. This may take several minutes.',
-            checkStatusUrl: '/api/wikipedia-database/status',
-            estimatedTime: '5-10 minutes'
+        // Return 404 if no database is found
+        res.status(404).json({ 
+            status: 'not_found',
+            message: `Wikipedia database for package '${packageType}' not found on server.`,
+            checkedPaths: pathsToCheck.map(p => path.basename(p))
         });
-        
-        // Trigger download asynchronously
-        const manageScript = path.join(localDir, 'manage-wikipedia.sh');
-        
-        if (fs.existsSync(manageScript)) {
-            console.log(`[Wikipedia DB] Starting download using ${manageScript}...`);
-            const download = spawn('bash', [manageScript, 'download', 'simple'], {
-                cwd: localDir,
-                detached: true,
-                stdio: 'ignore'
-            });
-            download.unref();
-        } else {
-            console.log(`[Wikipedia DB] manage-wikipedia.sh not found, cannot auto-download`);
-        }
     });
     
     // Check Wikipedia download status
     router.get('/api/wikipedia-database/status', (req, res) => {
         const fs = require('fs');
         const path = require('path');
-        const localDir = path.join(__dirname, '..', 'local');
-        const dbPath = path.join(localDir, 'wikipedia.db');
         
-        if (fs.existsSync(dbPath)) {
-            const stat = fs.statSync(dbPath);
-            res.json({
-                status: 'ready',
-                size: stat.size,
-                sizeMB: (stat.size / 1024 / 1024).toFixed(2),
-                downloadUrl: '/api/wikipedia-database'
-            });
-        } else {
-            res.json({
-                status: 'not_ready',
-                message: 'Wikipedia database not yet available'
-            });
+        // Check all possible database locations
+        const dbPaths = [
+            path.join(__dirname, 'public', 'offline', 'wikipedia', 'minimal-wikipedia.sqlite'),
+            path.join(__dirname, '..', 'offline-resources', 'wikipedia', 'minimal-wikipedia.sqlite'),
+            path.join(__dirname, '..', 'local', 'wikipedia.db')
+        ];
+        
+        for (const dbPath of dbPaths) {
+            if (fs.existsSync(dbPath)) {
+                const stat = fs.statSync(dbPath);
+                return res.json({
+                    status: 'ready',
+                    size: stat.size,
+                    sizeMB: (stat.size / 1024 / 1024).toFixed(2),
+                    downloadUrl: '/api/wikipedia-database',
+                    path: path.basename(dbPath)
+                });
+            }
         }
+        
+        res.json({
+            status: 'not_ready',
+            message: 'Wikipedia database not yet available'
+        });
     });
 
     return router;

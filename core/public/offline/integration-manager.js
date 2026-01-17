@@ -187,8 +187,14 @@ class OfflineIntegrationManager {
             this.isInitialized = true;
             this.checkInitializationComplete();
             
-            // Force UI update immediately after initialization
-            this.updateDownloadButton('ready');
+            // Only show "Downloaded" if Wikipedia database is actually available
+            // Check if the database was successfully loaded
+            const hasWikipediaDb = this.wikipediaManager && this.wikipediaManager.db;
+            if (hasWikipediaDb) {
+                this.updateDownloadButton('ready');
+            } else {
+                console.log('[IntegrationManager] Wikipedia database not loaded, keeping download button enabled');
+            }
             if (typeof updateModelStatus === 'function') {
                 setTimeout(() => updateModelStatus(), 200);
             }
