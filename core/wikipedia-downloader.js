@@ -629,7 +629,7 @@ async function downloadAndProcessWikipedia(datasetName = 'simple', dbPath = './w
     
     try {
         // Get dataset info
-        const dataset = WIKIPEDIA_DATASETS[datasetName];
+        const dataset = DATASETS[datasetName];
         if (!dataset) {
             throw new Error(`Unknown dataset: ${datasetName}`);
         }
