@@ -54,7 +54,7 @@ class OfflineIntegrationManager {
             throw new Error('Package type cannot be null, undefined, or empty');
         }
         
-        if (!['minimal', 'standard', 'full'].includes(packageType)) {
+        if (!['mobile', 'minimal', 'standard', 'full'].includes(packageType)) {
             throw new Error(`Invalid package type: ${packageType}`);
         }
         
