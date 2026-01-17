@@ -309,7 +309,7 @@ class AIWikipediaSearch {
         const MAX_REFINEMENT_ATTEMPTS = 30;
         let refinementAttempt = 0;
         let allArticles = [];
-        let lastResultCount = 0;
+        let failedPatterns = [];
 
         try {
             // STEP 1: Generate targeted search query (loop until we get ≤100 results)
@@ -318,22 +318,31 @@ class AIWikipediaSearch {
                 console.log(`[AIWikipediaSearch] Search attempt ${refinementAttempt}: Generating query...`);
                 
                 let feedbackContext = '';
-                if (lastResultCount > 0) {
-                    if (lastResultCount > MAX_INITIAL_RESULTS) {
-                        feedbackContext = `Last query returned ${lastResultCount} results. Too many. Be MORE SPECIFIC - try matching exact titles or phrases.`;
-                    } else if (lastResultCount === 0) {
+                if (failedPatterns.length > 0) {
+                    const lastFailure = failedPatterns[failedPatterns.length - 1];
+                    if (lastFailure.type === 'error') {
+                        feedbackContext = `Last query had SQL error. Don't use ORDER BY with COUNT(*) or other aggregates.`;
+                    } else if (lastFailure.type === 'too_many') {
+                        feedbackContext = `Last query returned ${lastFailure.count} results. Too many. Be MORE SPECIFIC.`;
+                    } else if (lastFailure.type === 'too_few') {
                         feedbackContext = `Last query returned 0 results. Too narrow. Use broader patterns.`;
+                    }
+                    
+                    if (failedPatterns.length > 1) {
+                        feedbackContext += ` Don't repeat failed patterns.`;
                     }
                 }
                 
                 const searchPrompt = `Query: "${userQuery}"
 ${feedbackContext ? feedbackContext + '\n' : ''}
-Valid query examples:
+Strategy: Try the simplest query first. If searching for "France", start with WHERE title = 'France'. Only use LIKE patterns if exact match fails.
+
+Examples:
 - SELECT * FROM wikipedia_articles WHERE title = 'France'
 - SELECT * FROM wikipedia_articles WHERE title LIKE '%World War%'
-- SELECT * FROM wikipedia_articles WHERE categories LIKE '%History of France%'
+- SELECT * FROM wikipedia_articles WHERE categories LIKE '%History%'
 
-Write ONE valid SQLite SELECT query for table wikipedia_articles. Return ONLY the SQL, nothing else.`;
+Write ONE SQLite SELECT query. Return ONLY the SQL.`;
 
                 const decision = await this.aiModel.generateResponse(searchPrompt);
                 
@@ -368,7 +377,7 @@ Write ONE valid SQLite SELECT query for table wikipedia_articles. Return ONLY th
                 } catch (error) {
                     console.error(`[AIWikipediaSearch] Query error:`, error);
                     this.showMessage('Invalid query, retrying...', 'info', true);
-                    lastResultCount = 0;
+                    failedPatterns.push({ type: 'error', sql: sql.substring(0, 60) });
                     continue;
                 }
                 
@@ -376,12 +385,12 @@ Write ONE valid SQLite SELECT query for table wikipedia_articles. Return ONLY th
                 if (resultCount === 0) {
                     console.log(`[AIWikipediaSearch] No results - query too specific`);
                     this.showMessage('Query too specific, trying broader search...', 'info', true);
-                    lastResultCount = 0;
+                    failedPatterns.push({ type: 'too_few', sql: sql.substring(0, 60) });
                     continue;
                 } else if (resultCount > MAX_INITIAL_RESULTS) {
                     console.log(`[AIWikipediaSearch] ${resultCount} results - too many, refining...`);
                     this.showMessage(`Found ${resultCount} articles - too many. Refining search...`, 'info', true);
-                    lastResultCount = resultCount;
+                    failedPatterns.push({ type: 'too_many', count: resultCount, sql: sql.substring(0, 60) });
                     continue;
                 }
                 
@@ -401,7 +410,7 @@ Write ONE valid SQLite SELECT query for table wikipedia_articles. Return ONLY th
                 } catch (execError) {
                     console.error(`[AIWikipediaSearch] Query execution failed:`, execError);
                     this.showMessage('Query failed, retrying...', 'info', true);
-                    lastResultCount = 0;
+                    failedPatterns.push({ type: 'error', sql: sql.substring(0, 60) });
                     continue;
                 }
             }
@@ -428,14 +437,14 @@ Write ONE valid SQLite SELECT query for table wikipedia_articles. Return ONLY th
                 // Build batch scoring prompt
                 const batchPrompt = `Question: "${userQuery}"
 
-Score each article's relevance (0-10). Return ONLY an array of numbers in the same order.
+Score each article's relevance (0-100). Return ONLY an array of numbers in the same order.
 
 Articles:
 ${batch.map((a, idx) => `${idx + 1}. "${a.title}"\n   Summary: ${(a.summary || '').substring(0, 200)}...`).join('\n\n')}
 
 Examples:
-Q: "Is France in Europe?" + ["France", "China", "Europe"] → [10, 2, 9]
-Q: "Is bread made of wheat?" + ["Farming", "Spain", "Cooking"] → [8, 2, 7]
+Q: "Is France in Europe?" + ["France", "China", "Europe"] → [100, 21, 95]
+Q: "Is bread made of wheat?" + ["Farming", "Spain", "Cooking"] → [82, 24, 71]
 
 Return array [score1, score2, ...]:`;
 
@@ -455,29 +464,13 @@ Return array [score1, score2, ...]:`;
                         
                         console.log(`[AIWikipediaSearch] Batch ${batchNum} scored: ${scores.join(', ')}`);
                     } else {
-                        // Fallback: keyword matching
-                        console.log(`[AIWikipediaSearch] Batch ${batchNum} scoring failed, using keyword fallback`);
-                        batch.forEach(article => {
-                            const queryLower = userQuery.toLowerCase();
-                            const titleLower = article.title.toLowerCase();
-                            const summaryLower = (article.summary || '').toLowerCase();
-                            
-                            const keywords = queryLower.split(/\s+/).filter(w => w.length > 3);
-                            const matches = keywords.filter(kw => 
-                                titleLower.includes(kw) || summaryLower.includes(kw)
-                            );
-                            
-                            article.relevancy = Math.min(matches.length * 3, 8);
-                            scoredArticles.push(article);
-                        });
+                        throw new Error('No valid score array found');
                     }
                 } catch (error) {
                     console.error(`[AIWikipediaSearch] Batch ${batchNum} error:`, error);
-                    // Fallback scoring
-                    batch.forEach(article => {
-                        article.relevancy = 5;
-                        scoredArticles.push(article);
-                    });
+                    // Fail search entirely if scoring fails
+                    this.showMessage('Error scoring articles, aborting search.', 'error');
+                    return [];
                 }
                 
                 this.showMessage(`Scored ${scoredArticles.length}/${allArticles.length} articles...`, 'info', true);
@@ -488,7 +481,7 @@ Return array [score1, score2, ...]:`;
             scoredArticles.sort((a, b) => (b.relevancy || 0) - (a.relevancy || 0));
             const topArticles = scoredArticles.slice(0, budget.maxResults);
             
-            console.log(`[AIWikipediaSearch] Top ${topArticles.length} articles: ${topArticles.map(a => `"${a.title}" (${a.relevancy}/10)`).join(', ')}`);
+            console.log(`[AIWikipediaSearch] Top ${topArticles.length} articles: ${topArticles.map(a => `"${a.title}" (${a.relevancy}/100)`).join(', ')}`);
             
             // STEP 5: Read full content for top articles and get detailed scores
             console.log(`[AIWikipediaSearch] Step 4: Reading full content for top ${topArticles.length} articles...`);
@@ -515,13 +508,13 @@ Content preview: ${(fullArticle.content || '').substring(0, 500)}...
 
 After reading the article content, how relevant is this to the question?
 
-Score 0-10 (0=not relevant, 10=perfect answer):`;
+Score 0-100 (0=not relevant, 100=perfect answer):`;
                         
                         const detailedResponse = await this.aiModel.generateResponse(detailedPrompt);
-                        const scoreMatch = detailedResponse.match(/\b([0-9]|10)\b/);
+                        const scoreMatch = detailedResponse.match(/\b([0-9]{1,3})\b/);
                         
                         if (scoreMatch) {
-                            fullArticle.relevancy = Math.min(parseInt(scoreMatch[0]), 10);
+                            fullArticle.relevancy = Math.min(parseInt(scoreMatch[0]), 100);
                         } else {
                             fullArticle.relevancy = article.relevancy; // Keep preliminary score
                         }
@@ -530,7 +523,7 @@ Score 0-10 (0=not relevant, 10=perfect answer):`;
                     }
                     
                     finalArticles.push(fullArticle);
-                    console.log(`[AIWikipediaSearch] Read article ${i + 1}/${topArticles.length}: "${fullArticle.title}" (final score: ${fullArticle.relevancy}/10)`);
+                    console.log(`[AIWikipediaSearch] Read article ${i + 1}/${topArticles.length}: "${fullArticle.title}" (final score: ${fullArticle.relevancy}/100)`);
                     this.showMessage(`Reading article ${i + 1}/${topArticles.length}: "${fullArticle.title}"...`, 'info', true);
                 }
                 
@@ -543,7 +536,7 @@ Score 0-10 (0=not relevant, 10=perfect answer):`;
             console.log(`[AIWikipediaSearch] Batch search complete: ${finalArticles.length} articles`);
             if (finalArticles.length > 0) {
                 const bestScore = Math.max(...finalArticles.map(a => a.relevancy || 0));
-                console.log(`[AIWikipediaSearch] Best article: "${finalArticles[0].title}" (${bestScore}/10)`);
+                console.log(`[AIWikipediaSearch] Best article: "${finalArticles[0].title}" (${bestScore}/100)`);
             }
             
             if (this.searchCancelled) {
@@ -576,7 +569,7 @@ Score 0-10 (0=not relevant, 10=perfect answer):`;
         // Sort articles by relevancy and return them
         if (contextArticles.length > 0) {
             const sortedArticles = contextArticles.sort((a, b) => (b.relevancy || 0) - (a.relevancy || 0));
-            console.log(`[AIWikipediaSearch] Returning ${sortedArticles.length} articles sorted by relevancy (best: ${sortedArticles[0].relevancy}/10)`);
+            console.log(`[AIWikipediaSearch] Returning ${sortedArticles.length} articles sorted by relevancy (best: ${sortedArticles[0].relevancy}/100)`);
             return sortedArticles; // Return articles instead of SQL query
         }
         
@@ -608,8 +601,8 @@ Score 0-10 (0=not relevant, 10=perfect answer):`;
                                     📄 ${this.escapeHtml(article.title)}
                                 </a>
                             </h3>
-                            <div style="background: ${article.relevancy >= 7 ? '#10b981' : article.relevancy >= 5 ? '#f59e0b' : '#ef4444'}; color: white; padding: 4px 12px; border-radius: 12px; font-size: 0.85em; font-weight: bold;">
-                                ${article.relevancy || '?'}/10
+                            <div style="background: ${article.relevancy >= 70 ? '#10b981' : article.relevancy >= 50 ? '#f59e0b' : '#ef4444'}; color: white; padding: 4px 12px; border-radius: 12px; font-size: 0.85em; font-weight: bold;">
+                                ${article.relevancy || '?'}/100
                             </div>
                         </div>
                         <p class="wiki-result-description" style="margin-top: 8px;">${this.escapeHtml((article.summary || article.snippet).substring(0, 300))}...</p>
@@ -777,9 +770,7 @@ Score 0-10 (0=not relevant, 10=perfect answer):`;
                 // Validate the SQL query for safety before execution
                 if (!this.validateSqlQuery(correctedQuery)) {
                     console.warn('[AIWikipediaSearch] Unsafe SQL query rejected, falling back to LIKE search');
-                    const results = this.searchWithLike(query);
-                    console.log(`[AIWikipediaSearch] Found ${results.length} results (fallback)`);
-                    return results;
+                    return [];
                 }
                 
                 // Execute the validated SQL query
@@ -793,67 +784,14 @@ Score 0-10 (0=not relevant, 10=perfect answer):`;
                 console.log(`[AIWikipediaSearch] Found ${results.length} results`);
                 return results;
             } else {
-                // Fallback to LIKE search
-                const results = this.searchWithLike(query);
-                console.log(`[AIWikipediaSearch] Found ${results.length} results`);
-                return results;
+                console.log(`[AIWikipediaSearch] Failed to recognize query as SQL, failing`);
+                return [];
             }
         } catch (error) {
             console.error('[AIWikipediaSearch] Database search error:', error);
             console.error('[AIWikipediaSearch] Failed query:', query);
-            
-            // Try fallback LIKE search as last resort
-            try {
-                console.log('[AIWikipediaSearch] Attempting fallback LIKE search...');
-                const fallbackResults = this.searchWithLike(query);
-                console.log(`[AIWikipediaSearch] Fallback found ${fallbackResults.length} results`);
-                return fallbackResults;
-            } catch (fallbackError) {
-                console.error('[AIWikipediaSearch] Fallback search also failed:', fallbackError);
-                return []; // Return empty results rather than throwing
-            }
+            return []; // Return empty results rather than throwing
         }
-    }
-
-    /**
-     * Fallback search using LIKE
-     * @param {string} query - Search query
-     * @returns {Array} Search results
-     */
-    searchWithLike(query) {
-        const terms = query.split(/\s+/).filter(t => t.length > 0);
-        const conditions = terms.map(() => '(title LIKE ? OR content LIKE ? OR summary LIKE ?)').join(' OR ');
-        const params = terms.flatMap(term => [`%${term}%`, `%${term}%`, `%${term}%`]);
-
-        const sql = `
-            SELECT id, title, summary, categories,
-                   substr(content, 1, 200) as snippet
-            FROM wikipedia_articles
-            WHERE ${conditions}
-            LIMIT 10
-        `;
-
-        const results = [];
-        try {
-            const stmt = this.db.prepare(sql);
-            stmt.bind(params);
-            
-            while (stmt.step()) {
-                const row = stmt.getAsObject();
-                results.push({
-                    id: row.id,
-                    title: row.title,
-                    summary: row.summary || row.snippet + '...',
-                    categories: row.categories,
-                    snippet: row.snippet
-                });
-            }
-            stmt.free();
-        } catch (error) {
-            console.error('[AIWikipediaSearch] LIKE search error:', error);
-        }
-
-        return results;
     }
 
     /**
