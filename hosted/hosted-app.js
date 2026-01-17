@@ -69,7 +69,7 @@ const ai = new ExternalLLMClient();
 console.log("Database and AI client initialized successfully.");
 
 // Initialize database tables
-db.initialize().catch(err => {
+const dbInitialization = db.initialize().catch(err => {
     console.warn("Database initialization warning:", err.message);
     console.log("App will continue running with limited database functionality");
 });
@@ -469,6 +469,7 @@ app.listen(PORT, () => {
  * Downloads Wikipedia database if not already present (using Node.js downloader)
  */
 async function initializeWikipediaCache() {
+    await dbInitialization;
     const dbPath = path.resolve(PUBLIC_CONFIG.wikipedia.dbPath);
     const dataDir = path.join(path.dirname(dbPath), 'wikipedia_data');
     const cacheMetadata = await getWikipediaCacheMetadata();
