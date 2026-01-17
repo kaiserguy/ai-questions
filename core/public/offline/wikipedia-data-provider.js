@@ -3,6 +3,29 @@
  * Supports both server-side (API) and client-side (SQLite) implementations
  */
 
+/**
+ * Escape special SQL characters to prevent SQL injection
+ * @param {string} str - String to escape
+ * @returns {string} Escaped string
+ */
+function escapeSqlString(str) {
+    if (typeof str !== 'string') return str;
+    // Escape single quotes by doubling them, and escape backslashes
+    return str.replace(/\\/g, '\\\\').replace(/'/g, "''");
+}
+
+/**
+ * Sanitize and validate a limit parameter
+ * @param {number} limit - The limit value
+ * @param {number} maxLimit - Maximum allowed limit
+ * @returns {number} Safe limit value
+ */
+function sanitizeLimit(limit, maxLimit = 100) {
+    const parsed = parseInt(limit, 10);
+    if (Number.isNaN(parsed) || parsed < 1) return 10;
+    return Math.min(parsed, maxLimit);
+}
+
 class WikipediaDataProvider {
     /**
      * Search for articles
@@ -64,38 +87,60 @@ class WikipediaDataProvider {
  */
 class WikipediaServerProvider extends WikipediaDataProvider {
     async search(query, limit = 10) {
-        const response = await fetch(`/api/wikipedia/search?query=${encodeURIComponent(query)}&limit=${limit}`);
+        const safeLimit = sanitizeLimit(limit);
+        const response = await fetch(`/api/wikipedia/search?query=${encodeURIComponent(query)}&limit=${safeLimit}`);
+        if (!response.ok) {
+            throw new Error(`Search failed: ${response.status} ${response.statusText}`);
+        }
         return response.json();
     }
 
     async getRandomArticles(count = 5) {
-        const response = await fetch(`/api/wikipedia/random?count=${count}`);
+        const safeCount = sanitizeLimit(count, 20);
+        const response = await fetch(`/api/wikipedia/random?count=${safeCount}`);
+        if (!response.ok) {
+            throw new Error(`Failed to get random articles: ${response.status} ${response.statusText}`);
+        }
         return response.json();
     }
 
     async getStatistics() {
         const response = await fetch('/api/wikipedia/stats');
+        if (!response.ok) {
+            throw new Error(`Failed to get statistics: ${response.status} ${response.statusText}`);
+        }
         return response.json();
     }
 
     async getArticle(idOrTitle) {
         const response = await fetch(`/api/wikipedia/article?id=${encodeURIComponent(idOrTitle)}`);
+        if (!response.ok) {
+            throw new Error(`Failed to get article: ${response.status} ${response.statusText}`);
+        }
         return response.json();
     }
 
     async getCategories() {
         const response = await fetch('/api/wikipedia/categories');
+        if (!response.ok) {
+            throw new Error(`Failed to get categories: ${response.status} ${response.statusText}`);
+        }
         return response.json();
     }
 
     async getArticlesByCategory(category, limit = 20) {
-        const response = await fetch(`/api/wikipedia/category/${encodeURIComponent(category)}?limit=${limit}`);
+        const safeLimit = sanitizeLimit(limit);
+        const response = await fetch(`/api/wikipedia/category/${encodeURIComponent(category)}?limit=${safeLimit}`);
+        if (!response.ok) {
+            throw new Error(`Failed to get articles by category: ${response.status} ${response.statusText}`);
+        }
         return response.json();
     }
 }
 
 /**
  * Client-side provider using SQL.js database
+ * Uses parameterized queries to prevent SQL injection
  */
 class WikipediaClientProvider extends WikipediaDataProvider {
     constructor(database) {
@@ -106,20 +151,34 @@ class WikipediaClientProvider extends WikipediaDataProvider {
     async search(query, limit = 10) {
         if (!this.db) throw new Error('Database not initialized');
 
+        const safeLimit = sanitizeLimit(limit);
         const terms = query.toLowerCase().split(/\s+/).filter(t => t.length > 2);
-        const likeConditions = terms.map((term, i) => 
-            `(title LIKE '%${term}%' OR content LIKE '%${term}%' OR summary LIKE '%${term}%')`
-        ).join(' OR ');
+        
+        if (terms.length === 0) {
+            return [];
+        }
+
+        // Build parameterized query with placeholders
+        const placeholders = [];
+        const params = [];
+        
+        terms.forEach((term) => {
+            const escapedTerm = '%' + escapeSqlString(term) + '%';
+            placeholders.push(`(title LIKE ? OR content LIKE ? OR summary LIKE ?)`);
+            params.push(escapedTerm, escapedTerm, escapedTerm);
+        });
 
         const sql = `
             SELECT id, title, summary, categories, word_count
             FROM wikipedia_articles
-            WHERE ${likeConditions}
+            WHERE ${placeholders.join(' OR ')}
             ORDER BY word_count DESC
-            LIMIT ${limit}
+            LIMIT ?
         `;
+        params.push(safeLimit);
 
         const stmt = this.db.prepare(sql);
+        stmt.bind(params);
         const results = [];
 
         while (stmt.step()) {
@@ -140,14 +199,16 @@ class WikipediaClientProvider extends WikipediaDataProvider {
     async getRandomArticles(count = 5) {
         if (!this.db) throw new Error('Database not initialized');
 
+        const safeCount = sanitizeLimit(count, 20);
         const sql = `
             SELECT id, title, summary, categories
             FROM wikipedia_articles
             ORDER BY RANDOM()
-            LIMIT ${count}
+            LIMIT ?
         `;
 
         const stmt = this.db.prepare(sql);
+        stmt.bind([safeCount]);
         const results = [];
 
         while (stmt.step()) {
@@ -193,13 +254,15 @@ class WikipediaClientProvider extends WikipediaDataProvider {
     async getArticle(idOrTitle) {
         if (!this.db) throw new Error('Database not initialized');
 
-        const isId = typeof idOrTitle === 'number' || /^\d+$/.test(idOrTitle);
-        const sql = isId
-            ? `SELECT * FROM wikipedia_articles WHERE id = ${idOrTitle} LIMIT 1`
-            : `SELECT * FROM wikipedia_articles WHERE title = ? LIMIT 1`;
+        const idOrTitleStr = String(idOrTitle);
+        const isId = typeof idOrTitle === 'number' || /^\d+$/.test(idOrTitleStr);
+        
+        // Use parameterized query for both cases
+        const sql = `SELECT * FROM wikipedia_articles WHERE ${isId ? 'id' : 'title'} = ? LIMIT 1`;
+        const boundValue = isId ? Number(idOrTitleStr) : idOrTitle;
 
         const stmt = this.db.prepare(sql);
-        if (!isId) stmt.bind([idOrTitle]);
+        stmt.bind([boundValue]);
 
         let article = null;
         if (stmt.step()) {
@@ -240,14 +303,18 @@ class WikipediaClientProvider extends WikipediaDataProvider {
     async getArticlesByCategory(category, limit = 20) {
         if (!this.db) throw new Error('Database not initialized');
 
+        const safeLimit = sanitizeLimit(limit);
+        const escapedCategory = '%' + escapeSqlString(category) + '%';
+        
         const sql = `
             SELECT id, title, summary, categories
             FROM wikipedia_articles
-            WHERE categories LIKE '%${category}%'
-            LIMIT ${limit}
+            WHERE categories LIKE ?
+            LIMIT ?
         `;
 
         const stmt = this.db.prepare(sql);
+        stmt.bind([escapedCategory, safeLimit]);
         const results = [];
 
         while (stmt.step()) {
@@ -270,12 +337,16 @@ if (typeof window !== 'undefined') {
     window.WikipediaDataProvider = WikipediaDataProvider;
     window.WikipediaServerProvider = WikipediaServerProvider;
     window.WikipediaClientProvider = WikipediaClientProvider;
+    window.escapeSqlString = escapeSqlString;
+    window.sanitizeLimit = sanitizeLimit;
 }
 
 if (typeof module !== 'undefined' && module.exports) {
     module.exports = {
         WikipediaDataProvider,
         WikipediaServerProvider,
-        WikipediaClientProvider
+        WikipediaClientProvider,
+        escapeSqlString,
+        sanitizeLimit
     };
 }

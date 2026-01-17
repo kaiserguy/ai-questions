@@ -150,8 +150,15 @@ class SimpleQAModel {
                 
                 const searchTerm = keywords.join(' ') || question;
                 
-                // Generate actual SQL query
-                const sql = `SELECT * FROM wikipedia_articles WHERE title LIKE '%${searchTerm}%' OR content LIKE '%${searchTerm}%' OR summary LIKE '%${searchTerm}%' LIMIT 10`;
+                // Escape special SQL characters to prevent injection
+                const escapedTerm = searchTerm
+                    .replace(/\\/g, '\\\\')
+                    .replace(/'/g, "''")
+                    .replace(/%/g, '\\%')
+                    .replace(/_/g, '\\_');
+                
+                // Generate SQL query with escaped search term
+                const sql = `SELECT * FROM wikipedia_articles WHERE title LIKE '%${escapedTerm}%' OR content LIKE '%${escapedTerm}%' OR summary LIKE '%${escapedTerm}%' LIMIT 10`;
                 return sql;
             }
         }

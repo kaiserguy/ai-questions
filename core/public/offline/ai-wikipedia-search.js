@@ -369,6 +369,57 @@ Respond with ONLY the SQL query, nothing else. Use LIKE for text matching. Examp
     }
 
     /**
+     * Validate an AI-generated SQL query for safety
+     * Only allows SELECT queries on wikipedia_articles table
+     * @param {string} sql - SQL query to validate
+     * @returns {boolean} True if query is safe
+     */
+    validateSqlQuery(sql) {
+        if (!sql || typeof sql !== 'string') return false;
+        
+        const normalized = sql.trim().toUpperCase();
+        
+        // Must start with SELECT
+        if (!normalized.startsWith('SELECT')) {
+            console.warn('[AIWikipediaSearch] Query rejected: not a SELECT statement');
+            return false;
+        }
+        
+        // Must not contain dangerous patterns
+        const dangerousPatterns = [
+            /;/,                          // Statement chaining
+            /--/,                         // SQL comments
+            /\/\*/,                       // Block comments
+            /\bDROP\b/i,                  // DROP statements
+            /\bDELETE\b/i,                // DELETE statements
+            /\bINSERT\b/i,                // INSERT statements
+            /\bUPDATE\b/i,                // UPDATE statements
+            /\bALTER\b/i,                 // ALTER statements
+            /\bCREATE\b/i,                // CREATE statements
+            /\bTRUNCATE\b/i,              // TRUNCATE statements
+            /\bEXEC\b/i,                  // EXEC statements
+            /\bUNION\b/i,                 // UNION (could be used for injection)
+            /\bATTACH\b/i,                // ATTACH database
+            /\bDETACH\b/i,                // DETACH database
+        ];
+        
+        for (const pattern of dangerousPatterns) {
+            if (pattern.test(sql)) {
+                console.warn(`[AIWikipediaSearch] Query rejected: contains dangerous pattern ${pattern}`);
+                return false;
+            }
+        }
+        
+        // Must reference wikipedia_articles table
+        if (!normalized.includes('WIKIPEDIA_ARTICLES')) {
+            console.warn('[AIWikipediaSearch] Query rejected: does not reference wikipedia_articles table');
+            return false;
+        }
+        
+        return true;
+    }
+
+    /**
      * Search the local SQLite database
      * @param {string} query - Search query or SQL statement
      * @returns {Promise<Array>} Search results
@@ -381,8 +432,16 @@ Respond with ONLY the SQL query, nothing else. Use LIKE for text matching. Examp
         try {
             // Check if query is a SQL statement
             if (query.trim().toUpperCase().startsWith('SELECT')) {
-                // Execute the SQL query directly
-                console.log(`[AIWikipediaSearch] Executing SQL query: ${query}`);
+                // Validate the SQL query for safety before execution
+                if (!this.validateSqlQuery(query)) {
+                    console.warn('[AIWikipediaSearch] Unsafe SQL query rejected, falling back to LIKE search');
+                    const results = this.searchWithLike(query);
+                    console.log(`[AIWikipediaSearch] Found ${results.length} results (fallback)`);
+                    return results;
+                }
+                
+                // Execute the validated SQL query
+                console.log(`[AIWikipediaSearch] Executing validated SQL query: ${query}`);
                 const stmt = this.db.prepare(query);
                 const results = [];
                 while (stmt.step()) {

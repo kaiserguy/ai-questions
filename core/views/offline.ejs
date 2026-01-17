@@ -445,6 +445,14 @@
             }
         }
 
+        // HTML escape function to prevent XSS
+        function escapeHtml(text) {
+            if (!text) return '';
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
         // Enhanced Wikipedia features using the data provider
         async function showRandomWikipediaArticles() {
             const wikiSearch = window.aiWikipediaSearch || window.offlineIntegrationManager?.wikipediaManager;
@@ -463,8 +471,8 @@
                 articles.forEach(article => {
                     html += `
                         <div style="border-bottom: 1px solid #e5e7eb; padding: 12px 0;">
-                            <h4 style="margin: 0 0 8px 0; color: #1f2937;">${article.title}</h4>
-                            <p style="margin: 0; color: #6b7280; font-size: 0.9em;">${article.summary || 'No summary available'}</p>
+                            <h4 style="margin: 0 0 8px 0; color: #1f2937;">${escapeHtml(article.title)}</h4>
+                            <p style="margin: 0; color: #6b7280; font-size: 0.9em;">${escapeHtml(article.summary) || 'No summary available'}</p>
                         </div>
                     `;
                 });
@@ -492,10 +500,12 @@
                 html += '<div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 10px;">';
                 
                 categories.slice(0, 50).forEach(category => {
+                    // Escape category for both onclick attribute and display
+                    const escapedCategory = escapeHtml(category).replace(/'/g, "\\'").replace(/"/g, '&quot;');
                     html += `
-                        <button onclick="browseCategory('${category.replace(/'/g, "\\'")}')" 
+                        <button onclick="browseCategory('${escapedCategory}')" 
                                 style="background: #f3f4f6; border: 1px solid #e5e7eb; padding: 10px; border-radius: 4px; cursor: pointer; text-align: left;">
-                            ${category}
+                            ${escapeHtml(category)}
                         </button>
                     `;
                 });
@@ -517,14 +527,14 @@
 
             try {
                 const articles = await wikiSearch.getArticlesByCategory(category, 20);
-                let html = `<h3 style="margin-bottom: 15px;">📂 ${category} (${articles.length} articles)</h3>`;
+                let html = `<h3 style="margin-bottom: 15px;">📂 ${escapeHtml(category)} (${articles.length} articles)</h3>`;
                 html += '<button onclick="showWikipediaCategories()" style="margin-bottom: 10px; background: #6b7280; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer;">← Back to Categories</button>';
                 
                 articles.forEach(article => {
                     html += `
                         <div style="border-bottom: 1px solid #e5e7eb; padding: 12px 0;">
-                            <h4 style="margin: 0 0 8px 0; color: #1f2937;">${article.title}</h4>
-                            <p style="margin: 0; color: #6b7280; font-size: 0.9em;">${article.summary || 'No summary available'}</p>
+                            <h4 style="margin: 0 0 8px 0; color: #1f2937;">${escapeHtml(article.title)}</h4>
+                            <p style="margin: 0; color: #6b7280; font-size: 0.9em;">${escapeHtml(article.summary) || 'No summary available'}</p>
                         </div>
                     `;
                 });
