@@ -518,11 +518,8 @@ async function initializeWikipediaCache() {
         console.log('📤 Caching to PostgreSQL for faster future restarts...');
         try {
             await cacheWikipediaDatabase(resultPath);
-            
-            // Delete ephemeral disk file after successful cache
-            console.log('🧹 Removing ephemeral database file (will restore from PostgreSQL on next restart)...');
-            fs.unlinkSync(resultPath);
-            console.log(`✅ Freed ${formatBytes(fileSize)} from ephemeral disk`);
+            console.log('✅ Database cached successfully - will restore from PostgreSQL on next restart');
+            console.log(`📁 Keeping file on ephemeral disk for current session (${formatBytes(fileSize)})`);
         } catch (cacheError) {
             console.error(`⚠️  Failed to cache to PostgreSQL: ${cacheError.message}`);
             console.log(`📁 Database will be served from ephemeral disk (${formatBytes(fileSize)})`);
