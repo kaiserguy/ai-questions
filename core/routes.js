@@ -6,6 +6,7 @@ const https = require("https");
 // Configuration constants
 const DEFAULT_CHAT_MODEL = "gpt-3.5-turbo";
 const MAX_CHAT_CONTEXT_MESSAGES = 10;
+const WIKIPEDIA_CACHE_NAME = "wikipedia-db";
 
 // Debug token configuration - DISABLED in production for security
 // In production, debug endpoints require explicit DEBUG_TOKEN env var
@@ -1345,11 +1346,26 @@ module.exports = (db, ai, wikipedia, config) => {
     });
 
     // Download and serve Wikipedia SQLite database
-    router.get('/api/wikipedia-database', (req, res) => {
+    router.get('/api/wikipedia-database', async (req, res) => {
         const fs = require('fs');
         const path = require('path');
         
         const packageType = req.query.package || 'minimal';
+
+        if (db && typeof db.getCachedFile === 'function') {
+            try {
+                const cachedFile = await db.getCachedFile(WIKIPEDIA_CACHE_NAME);
+                if (cachedFile && cachedFile.data) {
+                    console.log(`[Wikipedia DB] Serving cached database from PostgreSQL (${packageType})`);
+                    res.setHeader('Content-Type', 'application/x-sqlite3');
+                    res.setHeader('Content-Length', cachedFile.data.length);
+                    res.setHeader('Cache-Control', 'max-age=86400'); // Cache for 1 day
+                    return res.send(cachedFile.data);
+                }
+            } catch (error) {
+                console.error(`[Wikipedia DB] Failed to load cached database: ${error.message}`);
+            }
+        }
         
         // Define database paths for different package types
         const dbPaths = {
@@ -1396,10 +1412,27 @@ module.exports = (db, ai, wikipedia, config) => {
     });
     
     // Check Wikipedia download status
-    router.get('/api/wikipedia-database/status', (req, res) => {
+    router.get('/api/wikipedia-database/status', async (req, res) => {
         const fs = require('fs');
         const path = require('path');
-        
+
+        if (db && typeof db.getCachedFileMetadata === 'function') {
+            try {
+                const cachedMetadata = await db.getCachedFileMetadata(WIKIPEDIA_CACHE_NAME);
+                if (cachedMetadata) {
+                    return res.json({
+                        status: 'ready',
+                        size: cachedMetadata.size,
+                        sizeMB: (cachedMetadata.size / 1024 / 1024).toFixed(2),
+                        downloadUrl: '/api/wikipedia-database',
+                        path: `${WIKIPEDIA_CACHE_NAME}.db`
+                    });
+                }
+            } catch (error) {
+                console.error(`[Wikipedia DB] Failed to load cached metadata: ${error.message}`);
+            }
+        }
+
         // Check all possible database locations
         const dbPaths = [
             path.join(__dirname, 'public', 'offline', 'wikipedia', 'minimal-wikipedia.sqlite'),
@@ -1428,4 +1461,3 @@ module.exports = (db, ai, wikipedia, config) => {
 
     return router;
 };
-

@@ -13,6 +13,7 @@ class PlaceholderDatabase extends DatabaseInterface {
         this.questionSchedules = [];
         this.scheduledExecutions = [];
         this.personalQuestionAnswers = [];
+        this.cachedFiles = new Map();
         this.dailyQuestions = [
             {
                 id: 1,
@@ -301,7 +302,38 @@ class PlaceholderDatabase extends DatabaseInterface {
         }
         return { success: false };
     }
+
+    async getCachedFileMetadata(name) {
+        const entry = this.cachedFiles.get(name);
+        if (!entry) {
+            return null;
+        }
+
+        return {
+            name,
+            updated_at: entry.updatedAt,
+            size: entry.data.length
+        };
+    }
+
+    async getCachedFile(name) {
+        const entry = this.cachedFiles.get(name);
+        if (!entry) {
+            return null;
+        }
+
+        return {
+            name,
+            data: entry.data,
+            updated_at: entry.updatedAt
+        };
+    }
+
+    async upsertCachedFile(name, data) {
+        const updatedAt = new Date();
+        this.cachedFiles.set(name, { data, updatedAt });
+        return { name, updated_at: updatedAt };
+    }
 }
 
 module.exports = PlaceholderDatabase;
-
