@@ -1,1 +1,1 @@
-web: node --expose-gc --max-old-space-size=460 hosted/hosted-app.js
+web: node --expose-gc --max-old-space-size=480 hosted/hosted-app.js

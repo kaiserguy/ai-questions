@@ -507,20 +507,20 @@ async function initializeWikipediaCache() {
     try {
         const resultPath = await downloadAndProcessWikipedia('simple', dbPath, dataDir);
         console.log(`✅ Wikipedia database ready at: ${resultPath}`);
+        
+        const fileSize = fs.statSync(resultPath).size;
         await cacheWikipediaDatabase(resultPath);
         
-        // Delete ephemeral disk file after caching to PostgreSQL (saves 210MB)
+        // Delete ephemeral disk file immediately after caching to free memory
         console.log('🧹 Removing ephemeral database file (served from PostgreSQL)...');
-        try {
-            fs.unlinkSync(resultPath);
-            console.log(`✅ Freed ${formatBytes(fs.statSync(resultPath).size || 210*1024*1024)} from ephemeral disk`);
-        } catch (e) {
-            // File might already be gone
-            console.log('✅ Database file cleaned up');
-        }
+        fs.unlinkSync(resultPath);
+        console.log(`✅ Freed ${formatBytes(fileSize)} from ephemeral disk`);
         
-        // Verify database tables (will use PostgreSQL cache on next check)
-        // Skip verification since we just validated before caching
+        // Force garbage collection after large upload
+        if (global.gc) {
+            console.log('🗑️  Running garbage collection...');
+            global.gc();
+        }
         
         // Reinitialize Wikipedia integration with the new database
         if (wikipedia && typeof wikipedia.initializeWikipedia === 'function') {
@@ -597,24 +597,19 @@ async function cacheWikipediaDatabase(dbPath) {
         return;
     }
 
-    // Stream file in chunks to avoid OOM
+    // Read entire file into memory at once (PostgreSQL requires full buffer)
+    // This will spike memory temporarily but is necessary for the upload
     const fileSize = fs.statSync(dbPath).size;
     console.log(`📤 Uploading database to PostgreSQL (${formatBytes(fileSize)})...`);
+    console.log('⚠️  Memory will spike temporarily during upload...');
     
-    const chunks = [];
-    const readStream = fs.createReadStream(dbPath, { highWaterMark: 4 * 1024 * 1024 }); // 4MB chunks
-    
-    for await (const chunk of readStream) {
-        chunks.push(chunk);
-        // Show progress
-        const totalRead = chunks.reduce((sum, c) => sum + c.length, 0);
-        const percent = ((totalRead / fileSize) * 100).toFixed(1);
-        process.stdout.write(`\r📤 Reading: ${percent}%`);
+    // Force garbage collection before reading large file
+    if (global.gc) {
+        global.gc();
     }
     
-    console.log('\n📤 Combining chunks...');
-    const fileData = Buffer.concat(chunks);
-    chunks.length = 0; // Free memory
+    console.log('📤 Reading database file...');
+    const fileData = await fs.promises.readFile(dbPath);
     
     console.log('📤 Uploading to PostgreSQL...');
     await db.upsertCachedFile(WIKIPEDIA_CACHE_NAME, fileData);
