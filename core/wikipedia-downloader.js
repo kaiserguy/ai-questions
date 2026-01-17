@@ -449,23 +449,8 @@ class WikipediaDownloader {
                     resolve(dbPath);
                 });
             });
-            
-            // Pipe streams together
-            readStream
-                .pipe(decompressStream)
-                .pipe(saxStream);
-            
-            readStream.on('error', (err) => {
-                db.close();
-                reject(err);
-            });
-            
-            decompressStream.on('error', (err) => {
-                db.close();
-                reject(err);
-            });
-        });
     }
+
 }
 
 /**
