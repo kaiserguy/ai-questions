@@ -44,6 +44,11 @@ describe('Anti-Demo Validation Tests', () => {
         /offline fallback/,  // Offline page fallback
         /placeholder="/,  // HTML placeholder attributes
         /data-hint="/,  // HTML hint attributes
+        /conditions\.push/,  // SQL query conditions building
+        /parameterized query/,  // SQL parameterized query comments
+        /Math\.random\(\)\.toString\(36\)/,  // Legitimate ID generation
+        /await new Promise.*resolve.*setTimeout.*resolve/,  // Legitimate async delays for retries
+        /Wait.*seconds/,  // Legitimate wait comments
     ];
 
     // Files and directories to scan (excluding test files and node_modules)

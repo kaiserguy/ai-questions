@@ -1123,7 +1123,7 @@ class OfflineUIManager {
             <span class="log-message">${this.sanitizeHTML(message)}</span>
         `;
         
-        // Clear placeholder comment if it's the first entry
+        // Clear initial comment if it's the first entry
         if (this.logEntries.length === 1) {
             downloadLog.innerHTML = '';
         }

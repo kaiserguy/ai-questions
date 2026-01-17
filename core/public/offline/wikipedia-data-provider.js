@@ -158,20 +158,20 @@ class WikipediaClientProvider extends WikipediaDataProvider {
             return [];
         }
 
-        // Build parameterized query with placeholders
-        const placeholders = [];
+        // Build parameterized query with conditions
+        const conditions = [];
         const params = [];
         
         terms.forEach((term) => {
             const escapedTerm = '%' + escapeSqlString(term) + '%';
-            placeholders.push(`(title LIKE ? OR content LIKE ? OR summary LIKE ?)`);
+            conditions.push(`(title LIKE ? OR content LIKE ? OR summary LIKE ?)`);
             params.push(escapedTerm, escapedTerm, escapedTerm);
         });
 
         const sql = `
             SELECT id, title, summary, categories, word_count
             FROM wikipedia_articles
-            WHERE ${placeholders.join(' OR ')}
+            WHERE ${conditions.join(' OR ')}
             ORDER BY word_count DESC
             LIMIT ?
         `;
