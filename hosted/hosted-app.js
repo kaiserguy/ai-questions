@@ -617,46 +617,46 @@ async function ensureWikipediaDbOnDisk(dbPath) {
             throw new Error('Incomplete cache');
         }
         
-        console.log(`📥 Fetched ${chunks.length} chunks, decompressing...`);
+        console.log(`📥 Fetched ${chunks.length} chunks, decompressing independently...`);
         
-        // Ensure chunks are in order and concatenate compressed data
+        // Ensure chunks are in order
         chunks.sort((a, b) => a.chunk_index - b.chunk_index);
         
-        const compressedBuffers = chunks.map(c => c.chunk_data);
-        const totalCompressedSize = compressedBuffers.reduce((sum, buf) => sum + buf.length, 0);
-        console.log(`📥 Concatenating ${formatBytes(totalCompressedSize)} compressed data...`);
-        
-        const compressedData = Buffer.concat(compressedBuffers);
-        
-        // Free chunk buffers
-        compressedBuffers.length = 0;
-        
-        // Force GC before decompression
-        if (global.gc) {
-            global.gc();
-        }
-        
-        console.log(`📥 Streaming decompression to disk...`);
-        
-        // Stream decompress to avoid loading full decompressed data in memory
         await fs.promises.mkdir(path.dirname(dbPath), { recursive: true });
         
-        return new Promise((resolve, reject) => {
-            const { Readable } = require('stream');
-            const writeStream = fs.createWriteStream(dbPath);
-            const gunzipStream = zlib.createGunzip();
+        // Each chunk was compressed independently, so decompress and write each one
+        const fd = await fs.promises.open(dbPath, 'w');
+        let offset = 0;
+        
+        for (let i = 0; i < chunks.length; i++) {
+            const chunk = chunks[i];
             
-            gunzipStream.on('error', reject);
-            writeStream.on('error', reject);
-            writeStream.on('finish', () => {
-                const fileSize = fs.statSync(dbPath).size;
-                console.log(`✅ Restored Wikipedia database (${formatBytes(fileSize)})`);
-                resolve();
-            });
+            // Decompress this chunk
+            const decompressed = await gunzip(chunk.chunk_data);
             
-            // Create readable stream from compressed buffer and pipe through gunzip to disk
-            Readable.from([compressedData]).pipe(gunzipStream).pipe(writeStream);
-        });
+            // Write to file at correct offset
+            await fd.write(decompressed, 0, decompressed.length, offset);
+            offset += decompressed.length;
+            
+            if ((i + 1) % 10 === 0 || i === chunks.length - 1) {
+                const progress = ((i + 1) / chunks.length * 100).toFixed(1);
+                console.log(`📥 Decompressed ${i + 1}/${chunks.length} chunks (${formatBytes(offset)}) - ${progress}%`);
+            }
+            
+            // Force GC periodically
+            if (i % 5 === 0 && global.gc) {
+                global.gc();
+            }
+        }
+        
+        await fd.close();
+        
+        const fileSize = fs.statSync(dbPath).size;
+        console.log(`✅ Restored Wikipedia database (${formatBytes(fileSize)})`);
+    } catch (error) {
+        console.error('❌ Failed to restore from chunks:', error.message);
+        throw error;
+    }
     }
     
     // Fall back to old monolithic format if no chunks
@@ -686,97 +686,67 @@ async function cacheWikipediaDatabase(dbPath) {
         return;
     }
 
-    // Compress and upload in chunks to avoid memory spikes
+    // Read and compress uncompressed chunks independently to avoid gzip stream corruption
     const fileSize = fs.statSync(dbPath).size;
-    const CHUNK_SIZE = 10 * 1024 * 1024; // 10MB chunks
-    console.log(`📤 Compressing and uploading database in chunks (${formatBytes(fileSize)})...`);
+    const CHUNK_SIZE = 10 * 1024 * 1024; // 10MB uncompressed chunks
+    console.log(`📤 Uploading database in independently compressed chunks (${formatBytes(fileSize)})...`);
     
     // Force garbage collection before starting
     if (global.gc) {
         global.gc();
     }
     
-    return new Promise((resolve, reject) => {
-        const readStream = fs.createReadStream(dbPath);
-        const gzipStream = zlib.createGzip({ level: 6 });
+    try {
+        // Delete any existing chunks first
+        await db.deleteFileChunks(WIKIPEDIA_CACHE_NAME);
         
-        let compressedChunks = [];
-        let currentChunkSize = 0;
+        // Read file in chunks, compress each independently
+        const fd = await fs.promises.open(dbPath, 'r');
         let chunkIndex = 0;
         let totalCompressedSize = 0;
-        const uploadedChunks = [];
+        let offset = 0;
         
-        gzipStream.on('data', async (chunk) => {
-            compressedChunks.push(chunk);
-            currentChunkSize += chunk.length;
+        while (offset < fileSize) {
+            const chunkSize = Math.min(CHUNK_SIZE, fileSize - offset);
+            const buffer = Buffer.allocUnsafe(chunkSize);
             
-            // When we have enough data for a chunk, upload it
-            if (currentChunkSize >= CHUNK_SIZE) {
-                const chunkBuffer = Buffer.concat(compressedChunks);
-                compressedChunks = [];
-                currentChunkSize = 0;
-                
-                // Pause stream while uploading
-                gzipStream.pause();
-                
-                try {
-                    // Note: total_chunks will be updated when we finish
-                    await db.insertFileChunk(WIKIPEDIA_CACHE_NAME, chunkIndex, chunkBuffer, -1);
-                    uploadedChunks.push(chunkIndex);
-                    totalCompressedSize += chunkBuffer.length;
-                    
-                    const progress = ((chunkIndex + 1) * CHUNK_SIZE / fileSize * 100).toFixed(1);
-                    console.log(`📤 Uploaded chunk ${chunkIndex + 1} (${formatBytes(chunkBuffer.length)}) - ~${progress}%`);
-                    
-                    chunkIndex++;
-                    gzipStream.resume();
-                } catch (error) {
-                    reject(error);
-                }
+            // Read chunk from file
+            await fd.read(buffer, 0, chunkSize, offset);
+            
+            // Compress this chunk independently
+            const compressed = await gzip(buffer);
+            
+            // Upload to PostgreSQL
+            await db.insertFileChunk(WIKIPEDIA_CACHE_NAME, chunkIndex, compressed, -1);
+            
+            totalCompressedSize += compressed.length;
+            offset += chunkSize;
+            chunkIndex++;
+            
+            const progress = (offset / fileSize * 100).toFixed(1);
+            console.log(`📤 Uploaded chunk ${chunkIndex} (${formatBytes(compressed.length)} compressed from ${formatBytes(chunkSize)}) - ${progress}%`);
+            
+            // Clear buffers and force GC periodically
+            if (chunkIndex % 5 === 0 && global.gc) {
+                global.gc();
             }
-        });
+        }
         
-        gzipStream.on('end', async () => {
-            try {
-                // Upload final chunk if any data remains
-                if (compressedChunks.length > 0) {
-                    const chunkBuffer = Buffer.concat(compressedChunks);
-                    await db.insertFileChunk(WIKIPEDIA_CACHE_NAME, chunkIndex, chunkBuffer, -1);
-                    uploadedChunks.push(chunkIndex);
-                    totalCompressedSize += chunkBuffer.length;
-                    console.log(`📤 Uploaded final chunk ${chunkIndex + 1} (${formatBytes(chunkBuffer.length)})`);
-                    chunkIndex++;
-                }
-                
-                const totalChunks = chunkIndex;
-                
-                // Update all chunks with correct total_chunks count
-                console.log(`📤 Finalizing ${totalChunks} chunks...`);
-                for (const idx of uploadedChunks) {
-                    const chunk = await db.pool.query(
-                        'SELECT chunk_data FROM cached_file_chunks WHERE name = $1 AND chunk_index = $2',
-                        [WIKIPEDIA_CACHE_NAME, idx]
-                    );
-                    if (chunk.rows[0]) {
-                        await db.insertFileChunk(WIKIPEDIA_CACHE_NAME, idx, chunk.rows[0].chunk_data, totalChunks);
-                    }
-                }
-                
-                const compressionRatio = ((1 - totalCompressedSize / fileSize) * 100).toFixed(1);
-                console.log(`✅ Compressed: ${formatBytes(fileSize)} → ${formatBytes(totalCompressedSize)} (${compressionRatio}% reduction)`);
-                console.log(`✅ Wikipedia database cached in PostgreSQL (${totalChunks} chunks, ${formatBytes(totalCompressedSize)})`);
-                
-                resolve();
-            } catch (error) {
-                reject(error);
-            }
-        });
+        await fd.close();
         
-        gzipStream.on('error', reject);
-        readStream.on('error', reject);
+        // Update all chunks with final count
+        const totalChunks = chunkIndex;
+        await db.pool.query(
+            `UPDATE cached_file_chunks SET total_chunks = $1 WHERE name = $2`,
+            [totalChunks, WIKIPEDIA_CACHE_NAME]
+        );
         
-        readStream.pipe(gzipStream);
-    });
+        console.log(`✅ Uploaded ${totalChunks} independently compressed chunks (${formatBytes(totalCompressedSize)} total, ${((1 - totalCompressedSize/fileSize) * 100).toFixed(1)}% compression)`);
+        console.log(`📊 Original: ${formatBytes(fileSize)}, Compressed: ${formatBytes(totalCompressedSize)}`);
+    } catch (error) {
+        console.error('❌ Failed to cache Wikipedia database:', error.message);
+        throw error;
+    }
 }
 
 /**
