@@ -417,7 +417,39 @@ class OfflineIntegrationManager {
      * Update resource status in UI
      */
     updateResourceStatus(resource, status, progress) {
+        // Update the component progress display
+        const componentMap = {
+            'libraries': 'coreLibraries',
+            'aiModel': 'aiModel',
+            'wikipedia': 'wikipediaDb'
+        };
+        
+        const componentId = componentMap[resource];
+        if (componentId) {
+            const componentEl = document.getElementById(componentId);
+            if (componentEl) {
+                const progressEl = componentEl.querySelector('.component-progress');
+                if (progressEl) {
+                    if (status === 'loaded') {
+                        progressEl.textContent = '100%';
+                        progressEl.style.color = '#10b981'; // Green
+                    } else if (status === 'downloading') {
+                        progressEl.textContent = `${progress}%`;
+                        progressEl.style.color = '#3b82f6'; // Blue
+                    } else if (status === 'error') {
+                        progressEl.textContent = 'Error';
+                        progressEl.style.color = '#ef4444'; // Red
+                    } else {
+                        progressEl.textContent = '0%';
+                        progressEl.style.color = '#6b7280'; // Gray
+                    }
+                }
+            }
+        }
+        
+        // Also update the detailed resource status container
         const container = document.getElementById('resourceStatus');
+        if (!container) return;
         
         // Find existing resource item or create new one
         let item = container.querySelector(`[data-resource="${resource}"]`);
