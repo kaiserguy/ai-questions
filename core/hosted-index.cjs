@@ -717,7 +717,7 @@ app.get('/', async (req, res) => {
     }
     
     const latestAnswers = await getLatestAnswers();
-    res.render('index', { 
+    res.render('hosted-index', { 
       todayQuestion, 
       todayAnswer,
       latestAnswers,
