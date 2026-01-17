@@ -203,6 +203,20 @@
                 <input type="text" class="wiki-search-input" id="wikiSearchInput" placeholder="Ask a question or enter search terms..." />
                 <button class="wiki-search-btn" id="wikiSearchBtn">🔍 Search</button>
             </div>
+            
+            <!-- Enhanced Wikipedia Features -->
+            <div style="display: flex; gap: 8px; margin: 10px 0; flex-wrap: wrap;">
+                <button onclick="showRandomWikipediaArticles()" style="background: #17a2b8; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer; font-size: 0.9em;">
+                    🎲 Random Articles
+                </button>
+                <button onclick="showWikipediaCategories()" style="background: #6f42c1; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer; font-size: 0.9em;">
+                    📂 Browse Categories
+                </button>
+                <button onclick="showWikipediaStats()" style="background: #fd7e14; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer; font-size: 0.9em;">
+                    📊 Database Statistics
+                </button>
+            </div>
+            
             <div class="wiki-search-status" id="wikiSearchStatus" style="margin: 10px 0; padding: 8px; background: #f0f9ff; border-radius: 4px; font-size: 0.9em; display: none;">
                 <span id="wikiStatusText">Initializing AI search...</span>
             </div>
@@ -291,7 +305,8 @@
     <script src="/offline/offline-ai-chat.js?v=8"></script>
     <script src="/offline/wikipedia-manager.js?v=5"></script>
     <script src="/offline/libs/sql-wasm.js"></script>
-    <script src="/offline/ai-wikipedia-search.js?v=26"></script>
+    <script src="/offline/wikipedia-data-provider.js"></script>
+    <script src="/offline/ai-wikipedia-search.js?v=27"></script>
     <script src="/offline/integration-manager.js?v=13"></script>
     <script src="/offline/ui-manager.js?v=7"></script>
     
@@ -427,6 +442,134 @@
                 modelStatusIcon.textContent = '⚠️';
                 modelStatusText.textContent = 'Waiting for model initialization...';
                 modelStatus.style.background = '#f3f4f6';
+            }
+        }
+
+        // Enhanced Wikipedia features using the data provider
+        async function showRandomWikipediaArticles() {
+            const wikiSearch = window.aiWikipediaSearch || window.offlineIntegrationManager?.wikipediaManager;
+            if (!wikiSearch || !wikiSearch.dataProvider) {
+                alert('Wikipedia database not ready. Please download the offline package first.');
+                return;
+            }
+
+            const resultsDiv = document.getElementById('wikiResults');
+            resultsDiv.innerHTML = '<div style="padding: 20px; text-align: center;">Loading random articles...</div>';
+
+            try {
+                const articles = await wikiSearch.getRandomArticles(5);
+                let html = '<h3 style="margin-bottom: 15px;">🎲 Random Articles</h3>';
+                
+                articles.forEach(article => {
+                    html += `
+                        <div style="border-bottom: 1px solid #e5e7eb; padding: 12px 0;">
+                            <h4 style="margin: 0 0 8px 0; color: #1f2937;">${article.title}</h4>
+                            <p style="margin: 0; color: #6b7280; font-size: 0.9em;">${article.summary || 'No summary available'}</p>
+                        </div>
+                    `;
+                });
+
+                resultsDiv.innerHTML = html;
+            } catch (error) {
+                console.error('Error loading random articles:', error);
+                resultsDiv.innerHTML = '<div style="padding: 20px; color: #dc3545;">Error loading random articles</div>';
+            }
+        }
+
+        async function showWikipediaCategories() {
+            const wikiSearch = window.aiWikipediaSearch || window.offlineIntegrationManager?.wikipediaManager;
+            if (!wikiSearch || !wikiSearch.dataProvider) {
+                alert('Wikipedia database not ready. Please download the offline package first.');
+                return;
+            }
+
+            const resultsDiv = document.getElementById('wikiResults');
+            resultsDiv.innerHTML = '<div style="padding: 20px; text-align: center;">Loading categories...</div>';
+
+            try {
+                const categories = await wikiSearch.getCategories();
+                let html = '<h3 style="margin-bottom: 15px;">📂 Article Categories</h3>';
+                html += '<div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 10px;">';
+                
+                categories.slice(0, 50).forEach(category => {
+                    html += `
+                        <button onclick="browseCategory('${category.replace(/'/g, "\\'")}')" 
+                                style="background: #f3f4f6; border: 1px solid #e5e7eb; padding: 10px; border-radius: 4px; cursor: pointer; text-align: left;">
+                            ${category}
+                        </button>
+                    `;
+                });
+
+                html += '</div>';
+                resultsDiv.innerHTML = html;
+            } catch (error) {
+                console.error('Error loading categories:', error);
+                resultsDiv.innerHTML = '<div style="padding: 20px; color: #dc3545;">Error loading categories</div>';
+            }
+        }
+
+        async function browseCategory(category) {
+            const wikiSearch = window.aiWikipediaSearch || window.offlineIntegrationManager?.wikipediaManager;
+            if (!wikiSearch || !wikiSearch.dataProvider) return;
+
+            const resultsDiv = document.getElementById('wikiResults');
+            resultsDiv.innerHTML = '<div style="padding: 20px; text-align: center;">Loading articles...</div>';
+
+            try {
+                const articles = await wikiSearch.getArticlesByCategory(category, 20);
+                let html = `<h3 style="margin-bottom: 15px;">📂 ${category} (${articles.length} articles)</h3>`;
+                html += '<button onclick="showWikipediaCategories()" style="margin-bottom: 10px; background: #6b7280; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer;">← Back to Categories</button>';
+                
+                articles.forEach(article => {
+                    html += `
+                        <div style="border-bottom: 1px solid #e5e7eb; padding: 12px 0;">
+                            <h4 style="margin: 0 0 8px 0; color: #1f2937;">${article.title}</h4>
+                            <p style="margin: 0; color: #6b7280; font-size: 0.9em;">${article.summary || 'No summary available'}</p>
+                        </div>
+                    `;
+                });
+
+                resultsDiv.innerHTML = html;
+            } catch (error) {
+                console.error('Error loading category articles:', error);
+                resultsDiv.innerHTML = '<div style="padding: 20px; color: #dc3545;">Error loading articles</div>';
+            }
+        }
+
+        async function showWikipediaStats() {
+            const wikiSearch = window.aiWikipediaSearch || window.offlineIntegrationManager?.wikipediaManager;
+            if (!wikiSearch || !wikiSearch.dataProvider) {
+                alert('Wikipedia database not ready. Please download the offline package first.');
+                return;
+            }
+
+            const resultsDiv = document.getElementById('wikiResults');
+            resultsDiv.innerHTML = '<div style="padding: 20px; text-align: center;">Loading statistics...</div>';
+
+            try {
+                const stats = await wikiSearch.getStatistics();
+                let html = '<h3 style="margin-bottom: 15px;">📊 Database Statistics</h3>';
+                html += `
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px;">
+                        <div style="background: #f0f9ff; border: 1px solid #bfdbfe; padding: 20px; border-radius: 8px; text-align: center;">
+                            <div style="font-size: 2em; font-weight: bold; color: #1e40af;">${stats.totalArticles.toLocaleString()}</div>
+                            <div style="color: #6b7280; margin-top: 8px;">Total Articles</div>
+                        </div>
+                        <div style="background: #f0fdf4; border: 1px solid #bbf7d0; padding: 20px; border-radius: 8px; text-align: center;">
+                            <div style="font-size: 2em; font-weight: bold; color: #15803d;">${stats.averageWordCount.toLocaleString()}</div>
+                            <div style="color: #6b7280; margin-top: 8px;">Avg. Word Count</div>
+                        </div>
+                        <div style="background: #fef3c7; border: 1px solid #fde047; padding: 20px; border-radius: 8px; text-align: center;">
+                            <div style="font-size: 2em; font-weight: bold; color: #a16207;">${stats.totalCategories.toLocaleString()}</div>
+                            <div style="color: #6b7280; margin-top: 8px;">Categories</div>
+                        </div>
+                    </div>
+                `;
+
+                resultsDiv.innerHTML = html;
+            } catch (error) {
+                console.error('Error loading statistics:', error);
+                resultsDiv.innerHTML = '<div style="padding: 20px; color: #dc3545;">Error loading statistics</div>';
             }
         }
 

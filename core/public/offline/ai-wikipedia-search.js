@@ -13,7 +13,9 @@ class AIWikipediaSearch {
         this.loading = false;
         this.db = null;
         this.dbReady = false;
-        this.simpleQA = null;
+        this.aiModel = null;
+        this.initialized = false;
+        this.dataProvider = null; // WikipediaClientProvider instance
     }
 
     /**
@@ -34,11 +36,13 @@ class AIWikipediaSearch {
             return false;
         }
 
-        // Initialize SimpleQAModel for AI query generation
-        if (typeof SimpleQAModel !== 'undefined') {
-            this.simpleQA = new SimpleQAModel();
-            await this.simpleQA.initialize();
-            console.log('[AIWikipediaSearch] SimpleQAModel initialized');
+        // Use AIModelManager (WebLLM) for AI query generation
+        if (window.offlineIntegrationManager && window.offlineIntegrationManager.aiModelManager) {
+            const aiManager = window.offlineIntegrationManager.aiModelManager;
+            if (aiManager.ready && aiManager.isReady()) {
+                this.aiModel = aiManager;
+                console.log('[AIWikipediaSearch] Connected to AIModelManager with WebLLM');
+            }
         } else {
             console.warn('[AIWikipediaSearch] SimpleQAModel not available, using basic search');
         }
@@ -147,6 +151,12 @@ class AIWikipediaSearch {
 
             this.db = new SQL.Database(dbData);
             this.dbReady = true;
+            
+            // Create data provider for enhanced features
+            if (typeof WikipediaClientProvider !== 'undefined') {
+                this.dataProvider = new WikipediaClientProvider(this.db);
+                console.log('[AIWikipediaSearch] Data provider initialized');
+            }
             
             // Get article count
             const result = this.db.exec('SELECT COUNT(*) FROM wikipedia_articles');
@@ -259,15 +269,26 @@ class AIWikipediaSearch {
      * @returns {Promise<string>} Optimized search query
      */
     async generateSearchQuery(userQuery) {
+        if (!this.aiModel || !this.aiModel.isReady()) {
+            console.warn('[AIWikipediaSearch] AI model not available, using keyword extraction');
+            return this.extractKeyTerms(userQuery);
+        }
+
         try {
-            // Use AI to understand the query intent and generate search terms
-            const prompt = `Based on the user's input, generate a SQL search query to find relevant Wikipedia articles. Your entire response will be used without modification. Only respond with the SQL query.
-            Question: "${userQuery}"`;
+            const prompt = `Generate a SQL query to search a Wikipedia database. The table is called 'wikipedia_articles' with columns: id, article_id, title, content, summary, categories, word_count, created_at.
+
+User question: "${userQuery}"
+
+Respond with ONLY the SQL query, nothing else. Use LIKE for text matching. Example: SELECT * FROM wikipedia_articles WHERE title LIKE '%term%' OR content LIKE '%term%' LIMIT 10`;
             
-            const response = await this.simpleQA.generateText(prompt, { maxLength: 50 });
+            const response = await this.aiModel.generateResponse(prompt);
             
-            console.log(`[AIWikipediaSearch] AI generated search terms: "${response}"`);
-            return response;
+            // Extract just the SQL query if the model added extra text
+            const sqlMatch = response.match(/SELECT[\s\S]+?(?:LIMIT \d+)?(?:;)?$/i);
+            const sql = sqlMatch ? sqlMatch[0].trim().replace(/;$/, '') : response.trim();
+            
+            console.log(`[AIWikipediaSearch] AI generated SQL: "${sql}"`);
+            return sql;
         } catch (error) {
             console.error('[AIWikipediaSearch] AI query generation failed:', error);
             return this.extractKeyTerms(userQuery);
@@ -349,7 +370,7 @@ class AIWikipediaSearch {
 
     /**
      * Search the local SQLite database
-     * @param {string} query - Search query
+     * @param {string} query - Search query or SQL statement
      * @returns {Promise<Array>} Search results
      */
     async searchLocalDatabase(query) {
@@ -358,11 +379,24 @@ class AIWikipediaSearch {
         }
 
         try {
-            // Use FTS5 for full-text search
-            // SQL.js doesn't include FTS5 by default, skip to LIKE search
-            const results = this.searchWithLike(query);
-            console.log(`[AIWikipediaSearch] Found ${results.length} results`);
-            return results;
+            // Check if query is a SQL statement
+            if (query.trim().toUpperCase().startsWith('SELECT')) {
+                // Execute the SQL query directly
+                console.log(`[AIWikipediaSearch] Executing SQL query: ${query}`);
+                const stmt = this.db.prepare(query);
+                const results = [];
+                while (stmt.step()) {
+                    results.push(stmt.getAsObject());
+                }
+                stmt.free();
+                console.log(`[AIWikipediaSearch] Found ${results.length} results`);
+                return results;
+            } else {
+                // Fallback to LIKE search
+                const results = this.searchWithLike(query);
+                console.log(`[AIWikipediaSearch] Found ${results.length} results`);
+                return results;
+            }
         } catch (error) {
             console.error('[AIWikipediaSearch] Database search error:', error);
             throw error;
@@ -655,6 +689,65 @@ class AIWikipediaSearch {
             aiReady: !!this.simpleQA,
             loading: this.loading
         };
+    }
+
+    /**
+     * Get random articles using data provider
+     * @param {number} count - Number of articles
+     * @returns {Promise<Array>} Random articles
+     */
+    async getRandomArticles(count = 5) {
+        if (!this.dataProvider) {
+            throw new Error('Data provider not initialized');
+        }
+        return await this.dataProvider.getRandomArticles(count);
+    }
+
+    /**
+     * Get database statistics using data provider
+     * @returns {Promise<Object>} Statistics
+     */
+    async getStatistics() {
+        if (!this.dataProvider) {
+            throw new Error('Data provider not initialized');
+        }
+        return await this.dataProvider.getStatistics();
+    }
+
+    /**
+     * Get all categories using data provider
+     * @returns {Promise<Array>} Categories
+     */
+    async getCategories() {
+        if (!this.dataProvider) {
+            throw new Error('Data provider not initialized');
+        }
+        return await this.dataProvider.getCategories();
+    }
+
+    /**
+     * Get articles by category using data provider
+     * @param {string} category - Category name
+     * @param {number} limit - Maximum results
+     * @returns {Promise<Array>} Articles
+     */
+    async getArticlesByCategory(category, limit = 20) {
+        if (!this.dataProvider) {
+            throw new Error('Data provider not initialized');
+        }
+        return await this.dataProvider.getArticlesByCategory(category, limit);
+    }
+
+    /**
+     * Get article by ID or title using data provider
+     * @param {string|number} idOrTitle - Article identifier
+     * @returns {Promise<Object>} Article
+     */
+    async getArticle(idOrTitle) {
+        if (!this.dataProvider) {
+            throw new Error('Data provider not initialized');
+        }
+        return await this.dataProvider.getArticle(idOrTitle);
     }
 }
 
