@@ -513,20 +513,19 @@ async function initializeWikipediaCache() {
         console.log(`✅ Wikipedia database ready at: ${resultPath}`);
         
         const fileSize = fs.statSync(resultPath).size;
-        await cacheWikipediaDatabase(resultPath);
+        console.log(`📁 Database will be served directly from ephemeral disk (${formatBytes(fileSize)})`);
+        console.log('💡 File persists until dyno restart, then will be regenerated');
         
-        // Delete ephemeral disk file immediately after caching to free memory
-        console.log('🧹 Removing ephemeral database file (served from PostgreSQL)...');
-        fs.unlinkSync(resultPath);
-        console.log(`✅ Freed ${formatBytes(fileSize)} from ephemeral disk`);
+        // Don't delete the file - we need to serve it to clients
+        // Ephemeral filesystem resets on restart anyway
         
-        // Force garbage collection after large upload
+        // Force garbage collection
         if (global.gc) {
             console.log('🗑️  Running garbage collection...');
             global.gc();
         }
         
-        // Reinitialize Wikipedia integration with the new database
+        // Reinitialize Wikipedia integration
         if (wikipedia && typeof wikipedia.initializeWikipedia === 'function') {
             wikipedia.initializeWikipedia();
         }
