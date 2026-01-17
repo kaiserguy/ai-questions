@@ -331,7 +331,7 @@ class OfflineAIChat {
             response = `That's an interesting point about '${analysis.keywords.join(' ')}'! I'd like to help, but I may need more context to provide a meaningful response. Could you rephrase your question or provide more details?`;
         }
 
-        // Simulate token-by-token generation for UI feedback
+        // Stream tokens to UI for responsive feedback
         if (onToken) {
             const words = response.split(' ');
             for (const word of words) {

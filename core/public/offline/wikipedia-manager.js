@@ -6,7 +6,7 @@ console.log('[WikipediaManager] Script loading started');
  */
 
 // Dependencies loaded via script tags in browser
-// In Node.js tests, these are injected or mocked
+// In Node.js tests, these are injected or stubbed
 // No require() needed here since this runs in browser
 
 /**

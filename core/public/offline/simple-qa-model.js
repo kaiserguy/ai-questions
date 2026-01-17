@@ -138,6 +138,31 @@ class SimpleQAModel {
             throw new Error('Model not initialized');
         }
 
+        // Handle SQL query generation for Wikipedia search
+        if (prompt.includes('generate a SQL search query')) {
+            const questionMatch = prompt.match(/Question: "(.+)"/);
+            if (questionMatch) {
+                const question = questionMatch[1];
+                // Parse search terms and generate SQL query
+                const keywords = question.split(/\s+/)
+                    .filter(word => word.length > 2)
+                    .filter(word => !/^(what|where|when|who|why|how|is|are|was|were|the|a|an|in|on|at|to|for|of|with|about|tell|me|explain|describe)$/i.test(word));
+                
+                const searchTerm = keywords.join(' ') || question;
+                
+                // Escape special SQL characters to prevent injection
+                const escapedTerm = searchTerm
+                    .replace(/\\/g, '\\\\')
+                    .replace(/'/g, "''")
+                    .replace(/%/g, '\\%')
+                    .replace(/_/g, '\\_');
+                
+                // Generate SQL query with escaped search term
+                const sql = `SELECT * FROM wikipedia_articles WHERE title LIKE '%${escapedTerm}%' OR content LIKE '%${escapedTerm}%' OR summary LIKE '%${escapedTerm}%' LIMIT 10`;
+                return sql;
+            }
+        }
+
         // Extract keywords from Wikipedia search prompts
         if (prompt.includes('Extract the main search keywords')) {
             // Extract the question from the prompt
