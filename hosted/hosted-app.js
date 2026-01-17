@@ -575,13 +575,17 @@ async function getWikipediaCacheMetadata() {
         if (chunkedMetadata) {
             console.log(`🔍 Found ${chunkedMetadata.chunks_present} of ${chunkedMetadata.total_chunks} chunks in cache`);
             
-            if (chunkedMetadata.chunks_present === chunkedMetadata.total_chunks) {
+            // Use parseInt to ensure both are numbers for comparison
+            const chunksPresent = parseInt(chunkedMetadata.chunks_present);
+            const totalChunks = parseInt(chunkedMetadata.total_chunks);
+            
+            if (chunksPresent === totalChunks) {
                 return {
                     size: chunkedMetadata.total_size,
                     updated_at: chunkedMetadata.updated_at
                 };
             } else {
-                console.warn(`⚠️  Incomplete cache: ${chunkedMetadata.chunks_present}/${chunkedMetadata.total_chunks} chunks`);
+                console.warn(`⚠️  Incomplete cache: ${chunksPresent}/${totalChunks} chunks`);
             }
         } else {
             console.log('🔍 No chunked cache found, checking old format...');
