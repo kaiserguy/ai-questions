@@ -658,7 +658,13 @@ async function ensureWikipediaDbOnDisk(dbPath) {
             const decompressed = await gunzip(chunk.chunk_data);
             
             // Write to file at correct offset
-            await fd.write(decompressed, 0, decompressed.length, offset);
+            const { bytesWritten } = await fd.write(decompressed, 0, decompressed.length, offset);
+            
+            // Verify write succeeded
+            if (bytesWritten !== decompressed.length) {
+                throw new Error(`Write failed: expected ${decompressed.length} bytes, wrote ${bytesWritten}`);
+            }
+            
             offset += decompressed.length;
             
             if ((i + 1) % 10 === 0 || i === chunks.length - 1) {
@@ -672,6 +678,8 @@ async function ensureWikipediaDbOnDisk(dbPath) {
             }
         }
         
+        // Sync to ensure all writes are flushed to disk
+        await fd.sync();
         await fd.close();
         
         const fileSize = fs.statSync(dbPath).size;
