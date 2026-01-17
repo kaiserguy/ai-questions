@@ -395,8 +395,8 @@ module.exports = (db, ai, wikipedia, config) => {
         }
     });
 
-    // API to list available AI models
-    router.get("/api/models", ensureAuthenticated, async (req, res) => {
+    // API to list available AI models (public so homepage dropdown works)
+    router.get("/api/models", async (req, res) => {
         try {
             const modelsResponse = await ai.listModels(req.user ? req.user.id : null);
             res.json(modelsResponse.models);
@@ -407,7 +407,7 @@ module.exports = (db, ai, wikipedia, config) => {
     });
 
     // API route for /api/models/all (alias for /api/models)
-    router.get("/api/models/all", ensureAuthenticated, async (req, res) => {
+    router.get("/api/models/all", async (req, res) => {
         try {
             const modelsResponse = await ai.listModels(req.user ? req.user.id : null);
             
