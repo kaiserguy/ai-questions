@@ -649,24 +649,6 @@ async function ensureWikipediaDbOnDisk(dbPath) {
     console.log(`✅ Restored Wikipedia database from PostgreSQL cache (${formatBytes(decompressed.length)})`);
 }
 
-    if (!db || typeof db.getCachedFile !== 'function') {
-        return;
-    }
-
-    const cachedFile = await db.getCachedFile(WIKIPEDIA_CACHE_NAME);
-    if (!cachedFile || !cachedFile.data) {
-        return;
-    }
-
-    await fs.promises.mkdir(path.dirname(dbPath), { recursive: true });
-    
-    console.log(`📥 Decompressing database (${formatBytes(cachedFile.data.length)})...`);
-    const decompressed = await gunzip(cachedFile.data);
-    
-    await fs.promises.writeFile(dbPath, decompressed);
-    console.log(`✅ Restored Wikipedia database from PostgreSQL cache (${formatBytes(decompressed.length)})...`);
-}
-
 async function cacheWikipediaDatabase(dbPath) {
     if (!db || typeof db.insertFileChunk !== 'function') {
         return;
