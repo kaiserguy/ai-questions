@@ -5,11 +5,9 @@ console.log('[WikipediaManager] Script loading started');
  * Real implementation that handles local Wikipedia data with LunrSearch integration
  */
 
-// Only use require in actual Node.js environment (not browser with polyfills)
-if (typeof module !== 'undefined' && module.exports && typeof require === 'function') {
-    var WikipediaStorage = require('./storage/wikipedia-storage').WikipediaStorage;
-    var LunrSearch = require('./search/lunr-search');
-}
+// Dependencies loaded via script tags in browser
+// In Node.js tests, these are injected or mocked
+// No require() needed here since this runs in browser
 
 /**
  * Cross-environment logging utility.

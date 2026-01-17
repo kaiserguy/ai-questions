@@ -11,3 +11,4 @@ scripts/wikipedia_output/*
 scripts/wikipedia_packages/*
 **.log
 .env
+.env.local

@@ -146,6 +146,38 @@ module.exports = (db, ai, wikipedia, config) => {
         });
     });
 
+    // API endpoint to receive client-side logs
+    router.post('/api/client-logs', express.json(), (req, res) => {
+        const { logs } = req.body;
+        
+        if (!logs || !Array.isArray(logs)) {
+            return res.status(400).json({ error: 'Invalid log format' });
+        }
+
+        // Log each client message to server console
+        logs.forEach(log => {
+            const prefix = `[CLIENT ${log.type.toUpperCase()}]`;
+            const timestamp = new Date(log.timestamp).toLocaleTimeString();
+            const url = new URL(log.url).pathname;
+            
+            switch(log.type) {
+                case 'error':
+                    console.error(`${prefix} [${timestamp}] ${url}:`, log.message);
+                    break;
+                case 'warn':
+                    console.warn(`${prefix} [${timestamp}] ${url}:`, log.message);
+                    break;
+                case 'info':
+                    console.info(`${prefix} [${timestamp}] ${url}:`, log.message);
+                    break;
+                default:
+                    console.log(`${prefix} [${timestamp}] ${url}:`, log.message);
+            }
+        });
+
+        res.json({ success: true, received: logs.length });
+    });
+
     // API to get current user info
     router.get('/api/user', (req, res) => {
         // Check for debug token first (only works if DEBUG_TOKEN is set)

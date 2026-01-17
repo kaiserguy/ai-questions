@@ -89,6 +89,20 @@
         }
 
         /**
+         * Check if any model exists in storage
+         * @returns {Promise<boolean>}
+         */
+        async hasModel() {
+            try {
+                const files = await this.getAll('model-files');
+                return files && files.length > 0;
+            } catch (error) {
+                console.error('Error checking for models:', error);
+                return false;
+            }
+        }
+
+        /**
          * Get model metadata
          * @param {string} modelId - Model identifier
          * @returns {Promise<Object|null>}

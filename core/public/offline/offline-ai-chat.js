@@ -20,8 +20,19 @@ class OfflineAIChat {
         try {
             console.log('Initializing offline AI chat...');
             
+            // First, try to use AIModelManager (WebLLM) if available
+            if (window.offlineIntegrationManager && window.offlineIntegrationManager.aiModelManager) {
+                const aiManager = window.offlineIntegrationManager.aiModelManager;
+                if (aiManager.ready && aiManager.isReady()) {
+                    console.log('Connected to AIModelManager with WebLLM');
+                    this.localAI = aiManager;
+                } else {
+                    console.log('AIModelManager exists but not ready yet');
+                    this.localAI = null;
+                }
+            }
             // Try to use SimpleQAModel (real AI with TF-IDF)
-            if (typeof SimpleQAModel !== 'undefined') {
+            else if (typeof SimpleQAModel !== 'undefined') {
                 console.log('Initializing SimpleQAModel...');
                 this.localAI = new SimpleQAModel();
                 const initialized = await this.localAI.initialize();
@@ -141,8 +152,22 @@ class OfflineAIChat {
             let responseText;
             let modelUsed = 'fallback-ai';
 
+            // Try to use AIModelManager (WebLLM) if available
+            if (this.initialized && this.localAI && this.localAI instanceof AIModelManager) {
+                console.log('Generating response with WebLLM...');
+                
+                try {
+                    responseText = await this.localAI.generateResponse(message);
+                    if (responseText) {
+                        modelUsed = 'webllm';
+                    }
+                } catch (modelError) {
+                    console.warn('Error using WebLLM:', modelError);
+                    responseText = null;
+                }
+            }
             // Try to use SimpleQAModel (real AI with TF-IDF) if available
-            if (this.initialized && this.localAI && this.localAI instanceof SimpleQAModel) {
+            else if (this.initialized && this.localAI && this.localAI instanceof SimpleQAModel) {
                 console.log('Generating response with SimpleQAModel (real AI with TF-IDF)...');
                 
                 try {

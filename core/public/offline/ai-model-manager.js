@@ -124,13 +124,8 @@ class AIModelManager {
 
         const config = this.modelConfigs[this.packageType];
         
-        // Check if we're in a browser environment with WebLLM support
-        if (typeof window === 'undefined' || !window.webllm) {
-            throw new Error(
-                'WebLLM is not available. AI chat requires WebLLM to be loaded. ' +
-                'Please ensure the WebLLM library is included in your page.'
-            );
-        }
+        // WebLLM availability already checked in initialize()
+        // This method should only be called when WebLLM is available
 
         // Real WebLLM implementation
         const initProgressCallback = (progress) => {

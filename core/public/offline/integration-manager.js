@@ -225,6 +225,15 @@ class OfflineIntegrationManager {
             this.initialized = true;
             this.isInitialized = true;
             this.updateStatus('All components initialized successfully');
+            
+            // Update download button to show completion
+            this.updateDownloadButton('ready');
+            
+            // Update model status in the UI
+            if (typeof updateModelStatus === 'function') {
+                updateModelStatus();
+            }
+            
             return true;
         } else {
             // Show UI but mark as not fully initialized
@@ -232,6 +241,20 @@ class OfflineIntegrationManager {
             this.isInitialized = false;
             this.updateStatus('UI shown but AI models not fully initialized yet');
             return false;
+        }
+    }
+    
+    /**
+     * Update download button state
+     */
+    updateDownloadButton(state) {
+        const downloadBtn = document.getElementById('downloadBtn');
+        if (!downloadBtn) return;
+        
+        if (state === 'ready') {
+            downloadBtn.textContent = '✓ Downloaded';
+            downloadBtn.disabled = true;
+            downloadBtn.classList.add('downloaded');
         }
     }
     

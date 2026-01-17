@@ -16,9 +16,13 @@
             }
 
             // Initialize Integration Manager (for offline mode)
-            if (typeof IntegrationManager !== 'undefined') {
-                window.app = new IntegrationManager();
-                console.log('[OfflineInit] IntegrationManager initialized');
+            if (typeof OfflineIntegrationManager !== 'undefined') {
+                window.offlineIntegrationManager = new OfflineIntegrationManager();
+                window.app = window.offlineIntegrationManager; // Keep backward compatibility
+                console.log('[OfflineInit] OfflineIntegrationManager initialized');
+                
+                // Initialize to detect existing components
+                await window.offlineIntegrationManager.initialize();
             } else {
                 console.log('[OfflineInit] Running in server mode - using API chat endpoint');
             }
@@ -78,6 +82,10 @@
             if (typeof OfflineAIChat !== 'undefined') {
                 window.offlineAIChat = new OfflineAIChat();
                 console.log('[OfflineInit] OfflineAIChat instance created');
+                
+                // Initialize the chat (this sets initialized = true)
+                await window.offlineAIChat.initialize();
+                console.log('[OfflineInit] OfflineAIChat initialized');
                 
                 // Update model status (defined in offline.ejs)
                 if (typeof updateModelStatus === 'function') {
