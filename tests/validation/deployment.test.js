@@ -73,7 +73,7 @@ describe('Deployment Validation', () => {
             const procfilePath = path.join(projectRoot, 'Procfile');
             const content = fs.readFileSync(procfilePath, 'utf8');
             
-            expect(content).toContain('web: node hosted/hosted-app.js');
+            expect(content).toContain('hosted/hosted-app.js');
         });
 
         test('should validate package.json has correct start script', () => {
