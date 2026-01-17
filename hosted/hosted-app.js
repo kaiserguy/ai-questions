@@ -8,6 +8,10 @@
 const express = require("express");
 const session = require("express-session");
 const { Pool } = require("pg");
+const zlib = require("zlib");
+const { promisify } = require("util");
+const gzip = promisify(zlib.gzip);
+const gunzip = promisify(zlib.gunzip);
 const passport = require("passport");
 const GoogleStrategy = require("passport-google-oauth20").Strategy;
 const path = require("path");
@@ -581,8 +585,12 @@ async function ensureWikipediaDbOnDisk(dbPath) {
     }
 
     await fs.promises.mkdir(path.dirname(dbPath), { recursive: true });
-    await fs.promises.writeFile(dbPath, cachedFile.data);
-    console.log(`✅ Restored Wikipedia database from PostgreSQL cache (${formatBytes(cachedFile.data.length)})`);
+    
+    console.log(`📥 Decompressing database (${formatBytes(cachedFile.data.length)})...`);
+    const decompressed = await gunzip(cachedFile.data);
+    
+    await fs.promises.writeFile(dbPath, decompressed);
+    console.log(`✅ Restored Wikipedia database from PostgreSQL cache (${formatBytes(decompressed.length)})...`);
 }
 
 async function cacheWikipediaDatabase(dbPath) {
@@ -597,23 +605,25 @@ async function cacheWikipediaDatabase(dbPath) {
         return;
     }
 
-    // Read entire file into memory at once (PostgreSQL requires full buffer)
-    // This will spike memory temporarily but is necessary for the upload
+    // Compress before uploading to reduce memory usage
     const fileSize = fs.statSync(dbPath).size;
-    console.log(`📤 Uploading database to PostgreSQL (${formatBytes(fileSize)})...`);
-    console.log('⚠️  Memory will spike temporarily during upload...');
+    console.log(`📤 Compressing database (${formatBytes(fileSize)})...`);
     
     // Force garbage collection before reading large file
     if (global.gc) {
         global.gc();
     }
     
-    console.log('📤 Reading database file...');
     const fileData = await fs.promises.readFile(dbPath);
+    console.log('📤 Compressing with gzip...');
+    const compressed = await gzip(fileData, { level: 6 }); // Level 6 = balanced compression
+    
+    const compressionRatio = ((1 - compressed.length / fileSize) * 100).toFixed(1);
+    console.log(`✅ Compressed: ${formatBytes(fileSize)} → ${formatBytes(compressed.length)} (${compressionRatio}% reduction)`);
     
     console.log('📤 Uploading to PostgreSQL...');
-    await db.upsertCachedFile(WIKIPEDIA_CACHE_NAME, fileData);
-    console.log(`✅ Wikipedia database cached in PostgreSQL (${formatBytes(fileData.length)})`);
+    await db.upsertCachedFile(WIKIPEDIA_CACHE_NAME, compressed);
+    console.log(`✅ Wikipedia database cached in PostgreSQL (${formatBytes(compressed.length)})...`);
 }
 
 /**
