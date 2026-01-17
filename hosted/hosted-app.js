@@ -628,10 +628,11 @@ async function ensureWikipediaDbOnDisk(dbPath) {
 
     console.log('📥 Restoring Wikipedia database from PostgreSQL chunks...');
     
-    // Try chunked format first (new format)
-    const chunks = await db.getFileChunks(WIKIPEDIA_CACHE_NAME);
-    
-    if (chunks && chunks.length > 0) {
+    try {
+        // Try chunked format first (new format)
+        const chunks = await db.getFileChunks(WIKIPEDIA_CACHE_NAME);
+        
+        if (chunks && chunks.length > 0) {
         const totalChunks = chunks[0].total_chunks;
         
         if (chunks.length !== totalChunks) {
@@ -675,10 +676,7 @@ async function ensureWikipediaDbOnDisk(dbPath) {
         
         const fileSize = fs.statSync(dbPath).size;
         console.log(`✅ Restored Wikipedia database (${formatBytes(fileSize)})`);
-    } catch (error) {
-        console.error('❌ Failed to restore from chunks:', error.message);
-        throw error;
-    }
+        return;
     }
     
     // Fall back to old monolithic format if no chunks
@@ -694,6 +692,10 @@ async function ensureWikipediaDbOnDisk(dbPath) {
     
     await fs.promises.writeFile(dbPath, decompressed);
     console.log(`✅ Restored Wikipedia database from PostgreSQL cache (${formatBytes(decompressed.length)})`);
+    } catch (error) {
+        console.error('❌ Failed to restore from cache:', error.message);
+        throw error;
+    }
 }
 
 async function cacheWikipediaDatabase(dbPath) {
