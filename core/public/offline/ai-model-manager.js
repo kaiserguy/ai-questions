@@ -35,7 +35,7 @@ class AIModelManager {
                     maxIterations: 5,      // Limited reasoning - fewer search iterations
                     maxHistory: 3,         // Track only recent failed queries
                     maxResults: 10,        // Collect articles for analysis
-                    batchSize: 50,         // Score 50 titles at a time (100 results = 2 batches)
+                    batchSize: 20,         // Score 20 titles at a time (fast responses)
                     contextWindow: 32768   // ~32K tokens
                 }
             },
@@ -48,7 +48,7 @@ class AIModelManager {
                     maxIterations: 8,      // Better reasoning - moderate iterations
                     maxHistory: 5,         // Track more failed queries
                     maxResults: 10,        // More articles for analysis
-                    batchSize: 50,         // Score 50 titles at a time (128K context)
+                    batchSize: 25,         // Score 25 titles at a time
                     contextWindow: 131072  // ~128K tokens
                 }
             },
@@ -61,7 +61,7 @@ class AIModelManager {
                     maxIterations: 12,     // Strong reasoning - more iterations
                     maxHistory: 8,         // Track many failed queries
                     maxResults: 15,        // Comprehensive article collection
-                    batchSize: 100,        // Score 100 titles at a time (1 batch)
+                    batchSize: 30,         // Score 30 titles at a time
                     contextWindow: 131072  // ~128K tokens
                 }
             },
@@ -74,7 +74,7 @@ class AIModelManager {
                     maxIterations: 15,     // Excellent reasoning - maximum iterations
                     maxHistory: 10,        // Track extensive query history
                     maxResults: 20,        // Maximum article collection
-                    batchSize: 100,        // Score 100 titles at a time (1 batch)
+                    batchSize: 30,         // Score 30 titles at a time
                     contextWindow: 131072  // ~128K tokens
                 }
             }
