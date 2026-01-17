@@ -152,12 +152,24 @@ class OfflineAIChat {
             let responseText;
             let modelUsed = 'fallback-ai';
 
+            // Check for AIModelManager at generation time (not just at init)
+            // This allows us to pick up models that were downloaded after initialization
+            if (!this.localAI || !(this.localAI instanceof AIModelManager)) {
+                if (window.offlineIntegrationManager && window.offlineIntegrationManager.aiModelManager) {
+                    const aiManager = window.offlineIntegrationManager.aiModelManager;
+                    if (aiManager.ready && aiManager.isReady()) {
+                        console.log('[OfflineAIChat] Found AIModelManager, connecting...');
+                        this.localAI = aiManager;
+                    }
+                }
+            }
+
             // Try to use AIModelManager (WebLLM) if available
             if (this.initialized && this.localAI && this.localAI instanceof AIModelManager) {
                 console.log('Generating response with WebLLM...');
                 
                 try {
-                    responseText = await this.localAI.generateResponse(message);
+                    responseText = await this.localAI.generateResponse(message, onToken);
                     if (responseText) {
                         modelUsed = 'webllm';
                     }

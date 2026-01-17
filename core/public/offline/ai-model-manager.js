@@ -164,9 +164,10 @@ class AIModelManager {
     /**
      * Generate a response to a prompt
      * @param {string} prompt - The input prompt
+     * @param {Function} onToken - Optional callback for streaming tokens
      * @returns {Promise<string>} Generated response
      */
-    async generateResponse(prompt) {
+    async generateResponse(prompt, onToken = null) {
         if (!this.isReady()) {
             throw new Error('Model is not ready. Call initialize() first.');
         }
@@ -182,14 +183,34 @@ class AIModelManager {
         }
 
         try {
-            // Real WebLLM inference
-            const response = await this.engine.chat.completions.create({
-                messages: [{ role: 'user', content: prompt }],
-                temperature: 0.7,
-                max_tokens: 512
-            });
-            
-            return response.choices[0].message.content;
+            // Use streaming if callback provided
+            if (onToken && typeof onToken === 'function') {
+                const completion = await this.engine.chat.completions.create({
+                    messages: [{ role: 'user', content: prompt }],
+                    temperature: 0.7,
+                    max_tokens: 512,
+                    stream: true
+                });
+                
+                let fullResponse = '';
+                for await (const chunk of completion) {
+                    const delta = chunk.choices[0]?.delta?.content || '';
+                    if (delta) {
+                        fullResponse += delta;
+                        onToken(delta);
+                    }
+                }
+                return fullResponse;
+            } else {
+                // Non-streaming fallback
+                const response = await this.engine.chat.completions.create({
+                    messages: [{ role: 'user', content: prompt }],
+                    temperature: 0.7,
+                    max_tokens: 512
+                });
+                
+                return response.choices[0].message.content;
+            }
         } catch (error) {
             this.error = error.message;
             console.error('[AIModelManager] Response generation failed:', error);

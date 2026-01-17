@@ -10,6 +10,17 @@
     <link rel="stylesheet" href="/css/toast.css">
     <link rel="stylesheet" href="/css/offline-progress.css">
     <link rel="stylesheet" href="/css/wikipedia-search.css">
+    <style>
+        .cursor {
+            animation: blink 1s step-end infinite;
+            color: #3498db;
+            font-weight: bold;
+        }
+        @keyframes blink {
+            0%, 50% { opacity: 1; }
+            51%, 100% { opacity: 0; }
+        }
+    </style>
     <script src="/js/client-error-reporter.js"></script>
 </head>
 <body class="offline-page">
@@ -265,7 +276,7 @@
     <script src="/offline/search/lunr-search.js?v=3"></script>
     
     <!-- Download Layer -->
-    <script src="/offline/download-manager.js?v=3"></script>
+    <script src="/offline/download-manager.js?v=10"></script>
     <script src="/offline/download/download-manager-v2.js?v=3"></script>
     
     <!-- Inference Layer -->
@@ -276,13 +287,13 @@
     <!-- Core Logic -->
     <script src="/offline/transformers-ai-model.js?v=5"></script>
     <script src="/offline/local-ai-model.js?v=5"></script>
-    <script src="/offline/ai-model-manager.js?v=5"></script>
-    <script src="/offline/offline-ai-chat.js?v=6"></script>
+    <script src="/offline/ai-model-manager.js?v=7"></script>
+    <script src="/offline/offline-ai-chat.js?v=8"></script>
     <script src="/offline/wikipedia-manager.js?v=5"></script>
     <script src="/offline/libs/sql-wasm.js"></script>
     <script src="/offline/wikipedia-public-search.js?v=5"></script>
     <script src="/offline/ai-wikipedia-search.js?v=5"></script>
-    <script src="/offline/integration-manager.js?v=6"></script>
+    <script src="/offline/integration-manager.js?v=9"></script>
     <script src="/offline/ui-manager.js?v=6"></script>
     
     <!-- Initialization -->
@@ -330,15 +341,27 @@
                         return;
                     }
 
-                    // Generate response using local model
-                    const response = await window.offlineAIChat.generateResponse(message);
+                    // Create a placeholder message for streaming
+                    const messageDiv = document.createElement('div');
+                    messageDiv.className = 'message ai';
+                    messageDiv.innerHTML = '<strong>AI Assistant:</strong> <span class="streaming-content"></span><span class="cursor">▊</span>';
+                    chatContainer.appendChild(messageDiv);
+                    const contentSpan = messageDiv.querySelector('.streaming-content');
+                    const cursor = messageDiv.querySelector('.cursor');
+                    
+                    // Stream tokens as they arrive
+                    const response = await window.offlineAIChat.generateResponse(message, (token) => {
+                        contentSpan.textContent += token;
+                        chatContainer.scrollTop = chatContainer.scrollHeight;
+                    });
+
+                    // Remove cursor when done
+                    if (cursor) cursor.remove();
 
                     if (response.success) {
-                        // Add AI response to UI
-                        addMessageToUI('ai', response.response);
                         chatHistory.push({ role: 'assistant', content: response.response });
                     } else {
-                        addMessageToUI('ai', `Error: ${response.error}`);
+                        contentSpan.textContent = `Error: ${response.error}`;
                     }
                 } catch (error) {
                     console.error('Chat error:', error);
@@ -411,6 +434,6 @@
     </script>
 
     <!-- Offline Mode Initialization -->
-    <script src="/offline/offline-init.js?v=1.0.3"></script>
+    <script src="/offline/offline-init.js?v=1.0.5"></script>
 </body>
 </html>

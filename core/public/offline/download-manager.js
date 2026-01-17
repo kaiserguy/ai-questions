@@ -72,38 +72,38 @@ class DownloadManager {
             minimal: {
                 name: 'Minimal Package',
                 aiModel: {
-                    name: 'TinyBERT Model',
-                    size: '~150MB'
+                    name: 'Llama-3.2-1B',
+                    size: '~664MB'
                 },
                 wikipedia: {
                     name: 'Wikipedia Subset',
                     size: '~20MB'
                 },
-                totalSize: '~200MB'
+                totalSize: '~714MB'
             },
             standard: {
                 name: 'Standard Package',
                 aiModel: {
-                    name: 'Phi-3 Mini Model',
-                    size: '~500MB'
+                    name: 'Llama-3.2-3B',
+                    size: '~1.5GB'
                 },
                 wikipedia: {
                     name: 'Simple Wikipedia',
                     size: '~50MB'
                 },
-                totalSize: '~800MB'
+                totalSize: '~1.55GB'
             },
             full: {
                 name: 'Full Package',
                 aiModel: {
-                    name: 'Multiple AI Models',
-                    size: '~1.5GB'
+                    name: 'Llama-3.1-8B',
+                    size: '~4.5GB'
                 },
                 wikipedia: {
                     name: 'Extended Wikipedia',
                     size: '~200MB'
                 },
-                totalSize: '~2GB'
+                totalSize: '~4.7GB'
             }
         };
     }
@@ -321,6 +321,29 @@ class DownloadManager {
         this.updateResource('aiModel', 'downloading', 0);
         
         try {
+            // WebLLM models are downloaded automatically by the AIModelManager
+            // We just need to initialize it with progress tracking
+            if (typeof AIModelManager !== 'undefined') {
+                const aiManager = new AIModelManager(this.packageType);
+                
+                await aiManager.initialize((progress) => {
+                    // Convert WebLLM progress to percentage
+                    const percent = progress.progress || 0;
+                    this.updateResource('aiModel', 'downloading', percent * 100);
+                    
+                    if (progress.text) {
+                        this.updateProgress(`AI Model: ${progress.text}`);
+                    }
+                });
+                
+                // Store the initialized manager so it can be used by integration manager
+                this.initializedAIManager = aiManager;
+                
+                this.updateResource('aiModel', 'loaded', 100);
+                return;
+            }
+            
+            // Fallback to old download method if AIModelManager not available
             // Model URLs based on package type
             // Use CDN URLs as primary source since local resources are not currently hosted
             // Note: These URLs point to large model files (hundreds of MB to GB)

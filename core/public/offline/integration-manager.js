@@ -143,21 +143,27 @@ class OfflineIntegrationManager {
         this.updateStatus('Initializing offline components...');
         
         try {
-            // Create managers if they don't exist (for production use)
+            // Use the AI manager that was initialized during download if available
+            if (this.downloadManager && this.downloadManager.initializedAIManager) {
+                this.aiModelManager = this.downloadManager.initializedAIManager;
+                this.aiManager = this.aiModelManager;
+                console.log('[IntegrationManager] Using AI manager from download process');
+            }
+            // Otherwise create managers if they don't exist (for production use)
             // Tests will inject test managers before calling this method
-            if (!this.aiModelManager && typeof AIModelManager !== 'undefined') {
+            else if (!this.aiModelManager && typeof AIModelManager !== 'undefined') {
                 this.aiModelManager = new AIModelManager(this.packageType);
+                this.aiManager = this.aiModelManager; // Keep both references
             }
             
             if (!this.wikipediaManager && typeof WikipediaManager !== 'undefined') {
                 this.wikipediaManager = new WikipediaManager(this.packageType);
             }
             
-            // Initialize AI Model Manager if it exists
-            if (this.aiModelManager) {
-                await this.aiModelManager.initialize();
-                this.aiManager = this.aiModelManager; // Keep both references
-            }
+            // Don't initialize AI model on page load - it triggers downloads
+            // The model will be initialized during the download process
+            // or lazily when first used for chat
+            console.log('[IntegrationManager] Managers created, skipping AI model auto-load');
             
             // Initialize Wikipedia Manager if it exists
             if (this.wikipediaManager) {
