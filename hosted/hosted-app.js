@@ -22,6 +22,9 @@ const PostgresDatabase = require("../core/pg-db");
 const ExternalLLMClient = require("../core/external-llm-client");
 const commonRoutes = require("../core/routes");
 
+const WIKIPEDIA_CACHE_NAME = "wikipedia-db";
+const WIKIPEDIA_CACHE_MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000;
+
 // Public configuration
 const PUBLIC_CONFIG = {
     isLocal: false,
@@ -456,50 +459,136 @@ app.listen(PORT, () => {
     }
     
     // Auto-download Wikipedia database if not present
-    initializeWikipediaCache();
+    initializeWikipediaCache().catch((error) => {
+        console.error(`❌ Wikipedia cache initialization failed: ${error.message}`);
+    });
 });
 
 /**
  * Initialize Wikipedia cache on server startup
  * Downloads Wikipedia database if not already present (using Node.js downloader)
  */
-function initializeWikipediaCache() {
+async function initializeWikipediaCache() {
     const dbPath = path.resolve(PUBLIC_CONFIG.wikipedia.dbPath);
     const dataDir = path.join(path.dirname(dbPath), 'wikipedia_data');
-    
-    // Check if Wikipedia database already exists
-    if (fs.existsSync(dbPath)) {
-        const stats = fs.statSync(dbPath);
-        const sizeMB = (stats.size / 1024 / 1024).toFixed(2);
-        console.log(`✅ Wikipedia database ready: ${sizeMB} MB`);
-        
-        // Verify database tables
+    const cacheMetadata = await getWikipediaCacheMetadata();
+    const cacheAgeMs = cacheMetadata
+        ? Date.now() - new Date(cacheMetadata.updated_at).getTime()
+        : null;
+    const cacheIsFresh = cacheMetadata && cacheAgeMs <= WIKIPEDIA_CACHE_MAX_AGE_MS;
+    const localFileInfo = getWikipediaFileInfo(dbPath);
+    const localFileIsFresh = localFileInfo && localFileInfo.ageMs <= WIKIPEDIA_CACHE_MAX_AGE_MS;
+
+    if (localFileIsFresh) {
+        console.log(`✅ Wikipedia database ready on disk (${localFileInfo.sizeMB} MB)`);
+
+        if (!cacheIsFresh) {
+            await cacheWikipediaDatabase(dbPath);
+        }
+
+        verifyWikipediaTables(dbPath);
+        return;
+    }
+
+    if (cacheIsFresh) {
+        console.log(`✅ Wikipedia database cache found in PostgreSQL (${formatBytes(cacheMetadata.size)})`);
+        await ensureWikipediaDbOnDisk(dbPath);
         verifyWikipediaTables(dbPath);
         return;
     }
     
-    console.log('📥 Wikipedia database not found, downloading minimal package...');
+    console.log('📥 Wikipedia database cache missing or stale, downloading minimal package...');
     console.log('⏱️  This may take 5-10 minutes on first startup...');
     
     // Use Node.js Wikipedia downloader (no Python dependency)
     const { downloadAndProcessWikipedia } = require('../core/wikipedia-downloader');
-    
-    downloadAndProcessWikipedia('simple', dbPath, dataDir)
-        .then((resultPath) => {
-            console.log(`✅ Wikipedia database ready at: ${resultPath}`);
-            
-            // Verify database tables
+
+    try {
+        const resultPath = await downloadAndProcessWikipedia('simple', dbPath, dataDir);
+        console.log(`✅ Wikipedia database ready at: ${resultPath}`);
+        await cacheWikipediaDatabase(resultPath);
+        
+        // Verify database tables
+        verifyWikipediaTables(dbPath);
+        
+        // Reinitialize Wikipedia integration with the new database
+        if (wikipedia && typeof wikipedia.initializeWikipedia === 'function') {
+            wikipedia.initializeWikipedia();
+        }
+    } catch (error) {
+        console.error(`❌ Wikipedia download/processing failed: ${error.message}`);
+
+        if (cacheMetadata) {
+            console.log('♻️ Falling back to cached Wikipedia database from PostgreSQL');
+            await ensureWikipediaDbOnDisk(dbPath);
             verifyWikipediaTables(dbPath);
-            
-            // Reinitialize Wikipedia integration with the new database
-            if (wikipedia && typeof wikipedia.initializeWikipedia === 'function') {
-                wikipedia.initializeWikipedia();
-            }
-        })
-        .catch((error) => {
-            console.error(`❌ Wikipedia download/processing failed: ${error.message}`);
-            console.log('💡 Wikipedia will be available for manual download from /offline page');
-        });
+            return;
+        }
+
+        console.log('💡 Wikipedia will be available for manual download from /offline page');
+    }
+}
+
+function getWikipediaFileInfo(dbPath) {
+    if (!fs.existsSync(dbPath)) {
+        return null;
+    }
+
+    const stats = fs.statSync(dbPath);
+    return {
+        size: stats.size,
+        sizeMB: (stats.size / 1024 / 1024).toFixed(2),
+        ageMs: Date.now() - stats.mtimeMs
+    };
+}
+
+async function getWikipediaCacheMetadata() {
+    if (!db || typeof db.getCachedFileMetadata !== 'function') {
+        return null;
+    }
+
+    try {
+        return await db.getCachedFileMetadata(WIKIPEDIA_CACHE_NAME);
+    } catch (error) {
+        console.warn(`⚠️ Failed to load Wikipedia cache metadata: ${error.message}`);
+        return null;
+    }
+}
+
+async function ensureWikipediaDbOnDisk(dbPath) {
+    if (fs.existsSync(dbPath)) {
+        return;
+    }
+
+    if (!db || typeof db.getCachedFile !== 'function') {
+        return;
+    }
+
+    const cachedFile = await db.getCachedFile(WIKIPEDIA_CACHE_NAME);
+    if (!cachedFile || !cachedFile.data) {
+        return;
+    }
+
+    await fs.promises.mkdir(path.dirname(dbPath), { recursive: true });
+    await fs.promises.writeFile(dbPath, cachedFile.data);
+    console.log(`✅ Restored Wikipedia database from PostgreSQL cache (${formatBytes(cachedFile.data.length)})`);
+}
+
+async function cacheWikipediaDatabase(dbPath) {
+    if (!db || typeof db.upsertCachedFile !== 'function') {
+        return;
+    }
+
+    const fileData = await fs.promises.readFile(dbPath);
+    await db.upsertCachedFile(WIKIPEDIA_CACHE_NAME, fileData);
+    console.log(`✅ Wikipedia database cached in PostgreSQL (${formatBytes(fileData.length)})`);
+}
+
+function formatBytes(bytes) {
+    if (!bytes || Number.isNaN(bytes)) {
+        return '0 MB';
+    }
+    return `${(bytes / 1024 / 1024).toFixed(2)} MB`;
 }
 
 /**
@@ -544,5 +633,3 @@ function verifyWikipediaTables(dbPath) {
         });
     });
 }
-
-

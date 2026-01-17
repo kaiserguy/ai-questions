@@ -116,8 +116,19 @@ class DatabaseInterface {
     async updateScheduleNextRun(scheduleId, nextRunDate) {
         throw new Error("Method 'updateScheduleNextRun()' must be implemented.");
     }
+
+    async getCachedFileMetadata(name) {
+        throw new Error("Method 'getCachedFileMetadata()' must be implemented.");
+    }
+
+    async getCachedFile(name) {
+        throw new Error("Method 'getCachedFile()' must be implemented.");
+    }
+
+    async upsertCachedFile(name, data) {
+        throw new Error("Method 'upsertCachedFile()' must be implemented.");
+    }
 }
 
 module.exports = DatabaseInterface;
-
 

@@ -93,6 +93,16 @@ class PgDatabase extends DatabaseInterface {
             // Create scheduling tables
             await this.createSchedulingTables();
 
+            // Create cached files table for large blobs like Wikipedia database
+            await this.pool.query(`
+                CREATE TABLE IF NOT EXISTS cached_files (
+                    name TEXT PRIMARY KEY,
+                    data BYTEA NOT NULL,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            `);
+            console.log("Cached files table created/verified");
+
             console.log("Database initialization completed successfully");
         } catch (err) {
             console.error("Error during database initialization:", err);
@@ -433,8 +443,38 @@ class PgDatabase extends DatabaseInterface {
         );
         return result.rows.length > 0 ? result.rows[0] : null;
     }
+
+    async getCachedFileMetadata(name) {
+        const result = await this.pool.query(
+            `SELECT name, updated_at, OCTET_LENGTH(data) as size
+             FROM cached_files
+             WHERE name = $1`,
+            [name]
+        );
+        return result.rows[0] || null;
+    }
+
+    async getCachedFile(name) {
+        const result = await this.pool.query(
+            `SELECT name, data, updated_at
+             FROM cached_files
+             WHERE name = $1`,
+            [name]
+        );
+        return result.rows[0] || null;
+    }
+
+    async upsertCachedFile(name, data) {
+        const result = await this.pool.query(
+            `INSERT INTO cached_files (name, data, updated_at)
+             VALUES ($1, $2, CURRENT_TIMESTAMP)
+             ON CONFLICT (name)
+             DO UPDATE SET data = EXCLUDED.data, updated_at = CURRENT_TIMESTAMP
+             RETURNING name, updated_at`,
+            [name, data]
+        );
+        return result.rows[0];
+    }
 }
 
 module.exports = PgDatabase;
-
-
