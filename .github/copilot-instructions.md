@@ -28,8 +28,8 @@ Run the complete validation suite to ensure code quality:
 # Run unit and integration tests
 npm test
 ```
-**Time**: 7-10 seconds. NEVER CANCEL - comprehensive test suite with 113 total tests.
-**Expected**: Some tests may fail (46 failed, 67 passed is normal) - tests include scenarios for missing classes and development environment limitations.
+**Time**: 15-20 seconds. NEVER CANCEL - comprehensive test suite with 750 total tests (726 passing, 24 skipped).
+**Expected**: All 726 tests should pass. Pre-push hook automatically runs full validation suite.
 
 ```bash
 # Run linting (ESLint may not be configured - this is expected)
@@ -83,7 +83,7 @@ ALWAYS run these before committing changes:
 ```bash
 # 1. Full test suite
 npm test
-# Expected: Some test failures are normal (46 failed, 67 passed), ~7 seconds
+# Expected: All 726 tests pass (24 skipped), ~15-20 seconds
 
 # 2. JavaScript syntax validation  
 ./tests/validation/validate-javascript-syntax.sh
@@ -144,8 +144,12 @@ The GitHub Actions workflow (`/github/workflows/deploy.yml`) runs comprehensive 
   - `core/hosted-index.cjs`: Heroku entry point (per Procfile)
 
 - **`hosted/`**: Cloud-specific code
-  - `hosted/hosted-app.js`: Heroku application logic
+  - `hosted/hosted-app.js`: Heroku application logic with Wikipedia caching
   - `hosted/package-generator.js`: Local package generation
+  - **Wikipedia Cache**: Uses PostgreSQL chunked storage (10MB uncompressed chunks, independently compressed with gzip)
+    - Original: 627 MB → Compressed: 163 MB (74% compression)
+    - Uses `Buffer.alloc()` to prevent corruption (never use `Buffer.allocUnsafe()` for cached data)
+    - Validates database integrity before caching and after restoration
 
 - **`local/`**: Local deployment code  
   - `local/local-app.js`: Local server entry point
@@ -242,14 +246,17 @@ HEROKU_EMAIL=...
 
 ### Build Times (with appropriate timeouts)
 - **Dependencies install**: 60-90 seconds (NEVER CANCEL - includes many packages)
-- **Test suite execution**: 8-10 seconds  
+- **Test suite execution**: 15-20 seconds (750 tests)
 - **Linting and validation**: 1-5 seconds per script
 - **Server startup**: 10-30 seconds (includes network validation)
+- **Wikipedia cache restoration**: 8-12 seconds (63 chunks, 627 MB)
+- **Wikipedia processing from scratch**: 8-12 minutes (271K articles)
 - **Full CI/CD pipeline**: 15-25 minutes
 
 ### Runtime Performance  
 - **Local app startup**: 10-15 seconds
-- **Hosted app startup**: 5-10 seconds (with database)
+- **Hosted app startup**: 15-25 seconds (includes Wikipedia cache restoration)
+- **Hosted app startup (cached Wikipedia)**: 5-10 seconds (subsequent restarts with valid cache)
 - **AI response generation**: 2-10 seconds (depends on model/API)
 - **Wikipedia search**: 1-3 seconds (with local database)
 - **Package generation**: 30-60 seconds (large offline packages)
