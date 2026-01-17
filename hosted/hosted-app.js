@@ -617,13 +617,9 @@ async function ensureWikipediaDbOnDisk(dbPath) {
             throw new Error('Incomplete cache');
         }
         
-        console.log(`📥 Fetched ${chunks.length} chunks, decompressing...`);
+        console.log(`📥 Fetched ${chunks.length} chunks, streaming decompression...`);
         
-        // Concatenate all compressed chunks
-        const compressedData = Buffer.concat(chunks.map(c => c.chunk_data));
-        console.log(`📥 Reassembled ${formatBytes(compressedData.length)} compressed data, streaming decompression...`);
-        
-        // Stream decompress to avoid loading full 630MB in memory
+        // Stream decompress directly from chunks to avoid memory spike
         await fs.promises.mkdir(path.dirname(dbPath), { recursive: true });
         
         return new Promise((resolve, reject) => {
@@ -638,9 +634,14 @@ async function ensureWikipediaDbOnDisk(dbPath) {
                 resolve();
             });
             
-            // Pipe: compressed buffer → gunzip → disk
-            const { Readable } = require('stream');
-            Readable.from([compressedData]).pipe(gunzipStream).pipe(writeStream);
+            // Pipe gunzip output to disk
+            gunzipStream.pipe(writeStream);
+            
+            // Write all compressed chunks to gunzip stream in order
+            for (const chunk of chunks) {
+                gunzipStream.write(chunk.chunk_data);
+            }
+            gunzipStream.end();
         });
     }
     
