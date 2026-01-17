@@ -391,7 +391,7 @@ class WikipediaDownloader {
                             // Progress update every 500 articles for better visibility
                             if (articlesProcessed % 500 === 0) {
                                 const totalPages = articlesProcessed + articlesSkipped;
-                                process.stdout.write(`\r📝 Processing: ${articlesProcessed.toLocaleString()} articles | ${articlesSkipped.toLocaleString()} skipped | ${totalPages.toLocaleString()} pages total`);
+                                console.log(`📝 Processing: ${articlesProcessed.toLocaleString()} articles | ${articlesSkipped.toLocaleString()} skipped | ${totalPages.toLocaleString()} pages total`);
                                 
                                 // More aggressive garbage collection for memory-constrained environments
                                 if (articlesProcessed % 1000 === 0 && global.gc) {
@@ -405,7 +405,7 @@ class WikipediaDownloader {
                         // Show skipped progress too (every 5000 to avoid spam)
                         if (articlesSkipped % 5000 === 0) {
                             const totalPages = articlesProcessed + articlesSkipped;
-                            process.stdout.write(`\r📝 Processing: ${articlesProcessed.toLocaleString()} articles | ${articlesSkipped.toLocaleString()} skipped | ${totalPages.toLocaleString()} pages total`);
+                            console.log(`📝 Processing: ${articlesProcessed.toLocaleString()} articles | ${articlesSkipped.toLocaleString()} skipped | ${totalPages.toLocaleString()} pages total`);
                         }
                     }
                     
@@ -624,7 +624,7 @@ async function downloadAndProcessWikipedia(datasetName = 'simple', dbPath = './w
     const downloadProgress = (progress, downloaded, total) => {
         const downloadedMB = (downloaded / 1024 / 1024).toFixed(1);
         const totalMB = (total / 1024 / 1024).toFixed(1);
-        process.stdout.write(`\r📥 Download & process: ${progress.toFixed(1)}% (${downloadedMB}MB / ${totalMB}MB)`);
+        console.log(`📥 Download & process: ${progress.toFixed(1)}% (${downloadedMB}MB / ${totalMB}MB)`);
     };
     
     try {
