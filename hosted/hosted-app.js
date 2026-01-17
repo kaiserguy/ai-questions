@@ -619,29 +619,17 @@ async function ensureWikipediaDbOnDisk(dbPath) {
         
         console.log(`📥 Fetched ${chunks.length} chunks, decompressing...`);
         
-        // Decompress chunks and write to disk
-        await fs.promises.mkdir(path.dirname(dbPath), { recursive: true });
-        const writeStream = fs.createWriteStream(dbPath);
-        const gunzipStream = zlib.createGunzip();
+        // Concatenate all compressed chunks first, then decompress
+        const compressedData = Buffer.concat(chunks.map(c => c.chunk_data));
+        console.log(`📥 Reassembled ${formatBytes(compressedData.length)} compressed data, decompressing...`);
         
-        return new Promise((resolve, reject) => {
-            gunzipStream.pipe(writeStream);
-            
-            writeStream.on('finish', () => {
-                const fileSize = fs.statSync(dbPath).size;
-                console.log(`✅ Restored Wikipedia database (${formatBytes(fileSize)})`);
-                resolve();
-            });
-            
-            writeStream.on('error', reject);
-            gunzipStream.on('error', reject);
-            
-            // Write all compressed chunks to gunzip stream
-            for (const chunk of chunks) {
-                gunzipStream.write(chunk.chunk_data);
-            }
-            gunzipStream.end();
-        });
+        const decompressed = await gunzip(compressedData);
+        
+        await fs.promises.mkdir(path.dirname(dbPath), { recursive: true });
+        await fs.promises.writeFile(dbPath, decompressed);
+        
+        const fileSize = fs.statSync(dbPath).size;
+        console.log(`✅ Restored Wikipedia database (${formatBytes(fileSize)})`);
     }
     
     // Fall back to old monolithic format if no chunks
