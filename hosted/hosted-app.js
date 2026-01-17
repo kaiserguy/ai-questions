@@ -619,17 +619,29 @@ async function ensureWikipediaDbOnDisk(dbPath) {
         
         console.log(`📥 Fetched ${chunks.length} chunks, decompressing...`);
         
-        // Concatenate all compressed chunks first, then decompress
+        // Concatenate all compressed chunks
         const compressedData = Buffer.concat(chunks.map(c => c.chunk_data));
-        console.log(`📥 Reassembled ${formatBytes(compressedData.length)} compressed data, decompressing...`);
+        console.log(`📥 Reassembled ${formatBytes(compressedData.length)} compressed data, streaming decompression...`);
         
-        const decompressed = await gunzip(compressedData);
-        
+        // Stream decompress to avoid loading full 630MB in memory
         await fs.promises.mkdir(path.dirname(dbPath), { recursive: true });
-        await fs.promises.writeFile(dbPath, decompressed);
         
-        const fileSize = fs.statSync(dbPath).size;
-        console.log(`✅ Restored Wikipedia database (${formatBytes(fileSize)})`);
+        return new Promise((resolve, reject) => {
+            const writeStream = fs.createWriteStream(dbPath);
+            const gunzipStream = zlib.createGunzip();
+            
+            gunzipStream.on('error', reject);
+            writeStream.on('error', reject);
+            writeStream.on('finish', () => {
+                const fileSize = fs.statSync(dbPath).size;
+                console.log(`✅ Restored Wikipedia database (${formatBytes(fileSize)})`);
+                resolve();
+            });
+            
+            // Pipe: compressed buffer → gunzip → disk
+            const { Readable } = require('stream');
+            Readable.from([compressedData]).pipe(gunzipStream).pipe(writeStream);
+        });
     }
     
     // Fall back to old monolithic format if no chunks
