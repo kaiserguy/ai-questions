@@ -8,6 +8,7 @@
 const express = require("express");
 const path = require("path");
 const fs = require("fs");
+const { spawn } = require("child_process");
 
 // Import core components
 const createApp = require("../core/app");
@@ -108,6 +109,9 @@ app.use((req, res, next) => {
     next();
 });
 
+// Serve cached WebLLM model files
+app.use('/webllm-models', express.static(path.join(__dirname, 'cache', 'webllm-models')));
+
 // Serve offline HTML5 endpoint from /core/views/offline
 app.get("/offline", (req, res) => {
     res.render("offline", { 
@@ -136,6 +140,9 @@ app.listen(PORT, () => {
     
     // Auto-download Wikipedia database if not present
     initializeWikipediaCache();
+    
+    // Auto-download minimal AI model if not present
+    initializeAIModelCache();
 });
 
 /**
@@ -303,6 +310,58 @@ function verifyWikipediaTables(dbPath) {
                 db.close();
             });
         });
+    });
+}
+
+/**
+ * Initialize AI model cache on server startup
+ * Downloads WebLLM model files server-side if not already cached
+ */
+function initializeAIModelCache() {
+    const modelCacheDir = path.join(__dirname, 'cache', 'webllm-models');
+    const modelId = 'Llama-3.2-1B-Instruct-q4f16_1-MLC';
+    const modelDir = path.join(modelCacheDir, modelId);
+    
+    console.log('🤖 Checking AI model cache...');
+    
+    // Check if model is already cached
+    if (fs.existsSync(modelDir)) {
+        const files = fs.readdirSync(modelDir);
+        if (files.length > 0) {
+            console.log(`✅ AI model already cached: ${modelId}`);
+            console.log(`   Location: ${modelDir}`);
+            console.log(`   Files: ${files.length} files`);
+            return;
+        }
+    }
+    
+    console.log('📥 Downloading WebLLM model (this may take a few minutes)...');
+    console.log(`   Model: ${modelId} (~664MB)`);
+    
+    // Create cache directory
+    if (!fs.existsSync(modelCacheDir)) {
+        fs.mkdirSync(modelCacheDir, { recursive: true });
+    }
+    
+    // Download model files using Node.js script
+    const downloadScript = path.join(__dirname, 'download-webllm-model.js');
+    const downloadProcess = spawn('node', [downloadScript, modelId, modelDir], {
+        stdio: 'inherit'
+    });
+    
+    downloadProcess.on('close', (code) => {
+        if (code === 0) {
+            console.log('✅ AI model download complete');
+            console.log(`   Cached at: ${modelDir}`);
+        } else {
+            console.error(`❌ AI model download failed with code ${code}`);
+            console.log('   The app will attempt to download from CDN when needed');
+        }
+    });
+    
+    downloadProcess.on('error', (error) => {
+        console.error('❌ Failed to start AI model download:', error.message);
+        console.log('   The app will attempt to download from CDN when needed');
     });
 }
 

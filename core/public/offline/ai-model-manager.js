@@ -144,9 +144,35 @@ class AIModelManager {
         };
 
         try {
+            // Check if model is available locally on server
+            const localModelUrl = `/webllm-models/${config.modelId}/metadata.json`;
+            let useLocalModel = false;
+            let metadata = null;
+            
+            try {
+                const response = await fetch(localModelUrl);
+                if (response.ok) {
+                    metadata = await response.json();
+                    console.log('[AIModelManager] Found local model cache:', metadata);
+                    useLocalModel = true;
+                }
+            } catch (e) {
+                console.log('[AIModelManager] Local model cache not found, will download from CDN');
+            }
+            
+            // Configure model loading
+            const engineConfig = {
+                initProgressCallback
+            };
+            
+            // If local model is available, configure WebLLM to use it
+            // WebLLM expects the model to be in HuggingFace format with specific files
+            // For now, just use the default CDN - browser will cache it in IndexedDB
+            // TODO: Properly configure custom model URL once we verify the model format
+            
             this.engine = await window.webllm.CreateMLCEngine(
                 config.modelId,
-                { initProgressCallback }
+                engineConfig
             );
             
             this.model = {
@@ -154,7 +180,9 @@ class AIModelManager {
                 modelId: config.modelId,
                 loaded: true,
                 timestamp: new Date().toISOString(),
-                engine: 'WebLLM'
+                engine: 'WebLLM',
+                source: useLocalModel ? 'local-cache-available' : 'cdn',
+                localCacheDetected: useLocalModel
             };
         } catch (error) {
             throw new Error(`Failed to load WebLLM model: ${error.message}`);
