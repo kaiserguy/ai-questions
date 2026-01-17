@@ -295,16 +295,25 @@ class AIWikipediaSearch {
             return [];
         }
 
+        // Get context budget from AI model configuration
+        const budget = this.aiModel.getContextBudget ? this.aiModel.getContextBudget() : {
+            maxIterations: 8,
+            maxHistory: 5,
+            maxResults: 10
+        };
+        
+        console.log(`[AIWikipediaSearch] Using context budget: ${budget.maxIterations} iterations, ${budget.maxResults} max results`);
+
         const collectedArticles = [];
         const searchHistory = []; // Track unsuccessful searches
+        const seenTitles = new Set(); // Track articles already found
         let consecutiveDone = 0; // Track consecutive DONE attempts
         let iteration = 0;
-        const maxIterations = 20; // Increased safety limit
 
         try {
             console.log(`[AIWikipediaSearch] Starting iterative preliminary search...`);
             
-            while (iteration < maxIterations && !this.searchCancelled) {
+            while (iteration < budget.maxIterations && !this.searchCancelled) {
                 iteration++;
                 
                 // Build article context
@@ -313,10 +322,11 @@ class AIWikipediaSearch {
                     articleContext = `\n\nArticles read so far:\n${collectedArticles.map((a, i) => `${i + 1}. "${a.title}" (Relevancy: ${a.relevancy}/10)`).join('\n')}\n`;
                 }
                 
-                // Build search history to prevent repeats
+                // Build search history to prevent repeats (limit to budget)
                 let historyContext = '';
                 if (searchHistory.length > 0) {
-                    historyContext = `\n\nPrevious SQL queries that found nothing:\n${searchHistory.map((s, i) => `${i + 1}. ${s}`).join('\n')}\n\nTry DIFFERENT query!`;
+                    const recentHistory = searchHistory.slice(-budget.maxHistory); // Only show recent failed queries
+                    historyContext = `\n\nPrevious SQL queries that found nothing:\n${recentHistory.map((s, i) => `${i + 1}. ${s}`).join('\n')}\n\nTry DIFFERENT query!`;
                 }
                 
                 // Ask AI to generate SQL query to find next article
@@ -328,6 +338,12 @@ User's question: "${userQuery}"${articleContext}${historyContext}
 
 ${collectedArticles.length === 0 ? 'STATUS: No articles found yet.\n' : `STATUS: ${collectedArticles.length} articles collected.\n`}
 Your task: Write a SELECT query to find ONE relevant article.
+
+IMPORTANT:
+- Use LIKE operator for text searches: WHERE title LIKE '%keyword%' OR content LIKE '%keyword%'
+- AVOID using '=' with categories (it's comma-separated text)
+- Limit to 1 result: LIMIT 1
+- Try exact title match first, then content searches
 
 Examples:
 - Question: "capital of France?" → Query: SELECT title, summary FROM wikipedia_articles WHERE title LIKE '%Paris%' LIMIT 1
@@ -390,6 +406,16 @@ Response (SQL query or DONE):`;
                 if (stmt.step()) {
                     const article = stmt.getAsObject();
                     
+                    // Skip if we've already seen this article
+                    if (seenTitles.has(article.title)) {
+                        console.log(`[AIWikipediaSearch] Duplicate article "${article.title}" - skipping`);
+                        searchHistory.push(sql.substring(0, 100));
+                        stmt.free();
+                        continue;
+                    }
+                    
+                    seenTitles.add(article.title);
+                    
                     // Ask AI to score this article's relevancy
                     try {
                         const scorePrompt = `Database search task: "${userQuery}"\nFound article: "${article.title}"\nSummary: ${(article.summary || article.snippet).substring(0, 200)}\n\nRelevance score (0-10)?\nRespond with ONLY a number 0-10:`;
@@ -402,10 +428,31 @@ Response (SQL query or DONE):`;
                     
                     collectedArticles.push(article);
                     console.log(`[AIWikipediaSearch] Read article: "${article.title}" (relevancy: ${article.relevancy}/10)`);
+                    
+                    // Early exit based on budget maxResults
+                    if (collectedArticles.length >= budget.maxResults) {
+                        console.log(`[AIWikipediaSearch] Reached maximum articles (${budget.maxResults}) for this model`);
+                        break;
+                    }
+                    
+                    // Early exit if we have enough articles and none are highly relevant
+                    const halfBudget = Math.floor(budget.maxResults / 2);
+                    if (collectedArticles.length >= halfBudget) {
+                        const maxRelevancy = Math.max(...collectedArticles.map(a => a.relevancy || 0));
+                        if (maxRelevancy <= 3) {
+                            console.log(`[AIWikipediaSearch] Early exit - ${collectedArticles.length} articles but max relevancy only ${maxRelevancy}/10`);
+                            break;
+                        }
+                    }
                 } else {
-                    // No article found - add SQL to history to prevent repeats
+                    // No article found - add SQL to history to prevent repeats (limit history size)
                     console.log(`[AIWikipediaSearch] Query returned no results - adding to history`);
                     searchHistory.push(sql.substring(0, 100));
+                    
+                    // Trim history to budget size
+                    if (searchHistory.length > budget.maxHistory) {
+                        searchHistory.shift(); // Remove oldest
+                    }
                 }
                 stmt.free();
                 
@@ -414,8 +461,8 @@ Response (SQL query or DONE):`;
                 this.showMessage(`AI reading articles... (${collectedArticles.length} read, best: ${bestScore}/10)`, 'info');
             }
             
-            if (iteration >= maxIterations) {
-                console.log(`[AIWikipediaSearch] Reached iteration limit with ${collectedArticles.length} articles`);
+            if (iteration >= budget.maxIterations) {
+                console.log(`[AIWikipediaSearch] Reached iteration limit (${budget.maxIterations}) with ${collectedArticles.length} articles`);
             }
             
             if (this.searchCancelled) {
@@ -431,103 +478,31 @@ Response (SQL query or DONE):`;
     }
 
     /**
-     * Use AI to generate optimized search query from user input
+     * Use AI to gather and score relevant articles
      * @param {string} userQuery - User's natural language query
-     * @returns {Promise<string>} Optimized search query
+     * @returns {Promise<Array|null>} Sorted articles or null if cancelled
      */
     async generateSearchQuery(userQuery) {
-        if (!this.aiModel || !this.aiModel.isReady()) {
-            console.warn('[AIWikipediaSearch] AI model not available, using keyword extraction');
-            return this.extractKeyTerms(userQuery);
+        // Do preliminary search to gather and score articles
+        const contextArticles = await this.doPreliminarySearch(userQuery);
+        
+        // If search was cancelled, display the articles we read instead
+        if (this.searchCancelled && contextArticles.length > 0) {
+            console.log(`[AIWikipediaSearch] Displaying ${contextArticles.length} articles from cancelled search`);
+            this.displayArticleList(contextArticles, userQuery);
+            return null; // Signal to skip final search
         }
-
-        try {
-            // Phase 1: Do preliminary search to gather context
-            const contextArticles = await this.doPreliminarySearch(userQuery);
-            
-            // If search was cancelled, display the articles we read instead
-            if (this.searchCancelled && contextArticles.length > 0) {
-                console.log(`[AIWikipediaSearch] Displaying ${contextArticles.length} articles from cancelled search`);
-                this.displayArticleList(contextArticles, userQuery);
-                return null; // Signal to skip final search
-            }
-            
-            // Build context from articles if found
-            let articleContext = '';
-            let bestArticleTitle = null;
-            if (contextArticles.length > 0) {
-                // Get high-scoring articles
-                const topArticles = contextArticles.filter(a => a.relevancy >= 7).slice(0, 3);
-                
-                if (topArticles.length > 0) {
-                    articleContext = '\n\nHighly relevant articles found:\n';
-                    topArticles.forEach((article, idx) => {
-                        articleContext += `- "${article.title}" (${article.relevancy}/10)\n`;
-                    });
-                    bestArticleTitle = topArticles[0].title;
-                } else {
-                    // No high-scoring articles, use best one
-                    const best = contextArticles.sort((a, b) => (b.relevancy || 0) - (a.relevancy || 0))[0];
-                    articleContext = `\n\nBest match found: "${best.title}" (${best.relevancy}/10)\n`;
-                    bestArticleTitle = best.title;
-                }
-            }
-
-            const prompt = `SQLite Wikipedia database query task.
-
-User question: "${userQuery}"${articleContext}
-
-Schema: wikipedia_articles (id, article_id, title, content, summary, categories, word_count)
-
-${bestArticleTitle ? `Focus on finding: "${bestArticleTitle}" or closely related articles.\n\n` : ''}Generate a SELECT query that returns the most specific, relevant articles.
-- Use EXACT title match if possible: WHERE title = '...'
-- Or use narrow LIKE patterns: WHERE title LIKE '%term%'
-- Limit to 1-5 results max
-
-Respond with ONLY the SQL query:`;
-            
-            let response = await this.aiModel.generateResponse(prompt);
-            
-            // Clean up response - remove code fences, semicolons, extra whitespace
-            response = response.replace(/```sql?/gi, '').replace(/```/g, '').trim();
-            response = response.replace(/;+$/g, '').trim();
-            
-            // Extract just the SQL query if the model added extra text
-            const sqlMatch = response.match(/SELECT[\s\S]+?(?:LIMIT \d+)?$/i);
-            const sql = sqlMatch ? sqlMatch[0].trim() : response.trim();
-            
-            // Normalize to single line for cleaner logs
-            const cleanSql = sql.replace(/\s+/g, ' ').trim();
-            
-            console.log(`[AIWikipediaSearch] AI generated SQL: "${cleanSql}"`);
-            console.log(`[AIWikipediaSearch] Original query: "${userQuery}"`);
-            return cleanSql;
-        } catch (error) {
-            console.error('[AIWikipediaSearch] AI query generation failed:', error);
-            return this.extractKeyTerms(userQuery);
+        
+        // Sort articles by relevancy and return them
+        if (contextArticles.length > 0) {
+            const sortedArticles = contextArticles.sort((a, b) => (b.relevancy || 0) - (a.relevancy || 0));
+            console.log(`[AIWikipediaSearch] Returning ${sortedArticles.length} articles sorted by relevancy (best: ${sortedArticles[0].relevancy}/10)`);
+            return sortedArticles; // Return articles instead of SQL query
         }
-    }
-
-    /**
-     * Extract key terms from a query (fallback method)
-     * @param {string} query - User query
-     * @returns {string} Key terms
-     */
-    extractKeyTerms(query) {
-        // Remove common stop words and extract meaningful terms
-        const stopWords = new Set([
-            'what', 'is', 'are', 'the', 'a', 'an', 'how', 'does', 'do', 'can', 'could',
-            'would', 'should', 'will', 'tell', 'me', 'about', 'explain', 'describe',
-            'i', 'want', 'to', 'know', 'learn', 'understand', 'please', 'help',
-            'of', 'in', 'on', 'at', 'for', 'with', 'by', 'from', 'and', 'or', 'but'
-        ]);
-
-        const words = query.toLowerCase()
-            .replace(/[^\w\s]/g, '')
-            .split(/\s+/)
-            .filter(word => word.length > 2 && !stopWords.has(word));
-
-        return words.join(' ');
+        
+        // No articles found
+        console.log(`[AIWikipediaSearch] No articles found during preliminary search`);
+        return [];
     }
 
     /**
@@ -617,36 +592,22 @@ Respond with ONLY the SQL query:`;
         this.showLoading();
 
         try {
-            // Generate AI-optimized search query
-            const searchQuery = await this.generateSearchQuery(userQuery);
+            // Get AI-scored articles (returns array of articles, not SQL query)
+            const results = await this.generateSearchQuery(userQuery);
             
             // If search was cancelled and articles were displayed, we're done
-            if (searchQuery === null) {
+            if (results === null) {
                 this.loading = false;
                 return;
             }
             
-            console.log(`[AIWikipediaSearch] Searching for: "${searchQuery}" (original: "${userQuery}")`);
-
-            let results = [];
-
-            if (this.dbReady && this.db) {
-                // Search local database using FTS5
-                results = await this.searchLocalDatabase(searchQuery);
+            // Display the sorted articles
+            if (results && results.length > 0) {
+                console.log(`[AIWikipediaSearch] Displaying ${results.length} AI-scored articles`);
+                this.displayArticleList(results, userQuery);
             } else {
-                // Try to initialize database if not ready
-                try {
-                    await this.initializeDatabase();
-                    results = await this.searchLocalDatabase(searchQuery);
-                } catch (error) {
-                    console.error('[AIWikipediaSearch] Database not available:', error);
-                    this.showMessage('Wikipedia database not available. Please download the offline package first.', 'warning');
-                    this.loading = false;
-                    return;
-                }
+                this.showMessage('No relevant articles found. Try rephrasing your question.', 'warning');
             }
-
-            this.displayResults(results, userQuery, searchQuery);
         } catch (error) {
             console.error('[AIWikipediaSearch] Search failed:', error);
             this.showMessage('Search failed. Please try again.', 'error');
@@ -718,8 +679,23 @@ Respond with ONLY the SQL query:`;
         try {
             // Check if query is a SQL statement
             if (query.trim().toUpperCase().startsWith('SELECT')) {
+                // Auto-correct common SQL errors
+                let correctedQuery = query;
+                
+                // Fix: category -> categories (plural)
+                correctedQuery = correctedQuery.replace(/\bcategory\b/gi, 'categories');
+                
+                // Fix: MySQL LIMIT syntax to SQLite (LIMIT offset, count -> LIMIT count OFFSET offset)
+                correctedQuery = correctedQuery.replace(/LIMIT\s+(\d+)\s*,\s*(\d+)/gi, (match, offset, count) => {
+                    return `LIMIT ${count} OFFSET ${offset}`;
+                });
+                
+                if (correctedQuery !== query) {
+                    console.log(`[AIWikipediaSearch] Auto-corrected SQL: ${correctedQuery}`);
+                }
+                
                 // Validate the SQL query for safety before execution
-                if (!this.validateSqlQuery(query)) {
+                if (!this.validateSqlQuery(correctedQuery)) {
                     console.warn('[AIWikipediaSearch] Unsafe SQL query rejected, falling back to LIKE search');
                     const results = this.searchWithLike(query);
                     console.log(`[AIWikipediaSearch] Found ${results.length} results (fallback)`);
@@ -727,8 +703,8 @@ Respond with ONLY the SQL query:`;
                 }
                 
                 // Execute the validated SQL query
-                console.log(`[AIWikipediaSearch] Executing validated SQL query: ${query}`);
-                const stmt = this.db.prepare(query);
+                console.log(`[AIWikipediaSearch] Executing validated SQL query: ${correctedQuery}`);
+                const stmt = this.db.prepare(correctedQuery);
                 const results = [];
                 while (stmt.step()) {
                     results.push(stmt.getAsObject());
@@ -744,7 +720,18 @@ Respond with ONLY the SQL query:`;
             }
         } catch (error) {
             console.error('[AIWikipediaSearch] Database search error:', error);
-            throw error;
+            console.error('[AIWikipediaSearch] Failed query:', query);
+            
+            // Try fallback LIKE search as last resort
+            try {
+                console.log('[AIWikipediaSearch] Attempting fallback LIKE search...');
+                const fallbackResults = this.searchWithLike(query);
+                console.log(`[AIWikipediaSearch] Fallback found ${fallbackResults.length} results`);
+                return fallbackResults;
+            } catch (fallbackError) {
+                console.error('[AIWikipediaSearch] Fallback search also failed:', fallbackError);
+                return []; // Return empty results rather than throwing
+            }
         }
     }
 

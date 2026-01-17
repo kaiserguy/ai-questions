@@ -30,25 +30,49 @@ class AIModelManager {
                 modelId: 'Qwen2.5-0.5B-Instruct-q4f16_1-MLC',  // Tiny model (~300MB)
                 description: 'Mobile-optimized tiny model for basic Q&A',
                 sizeBytes: 300 * 1024 * 1024,  // ~300MB
-                minStorageBytes: 500 * 1024 * 1024  // Need 500MB free for safety
+                minStorageBytes: 500 * 1024 * 1024,  // Need 500MB free for safety
+                contextBudget: {
+                    maxIterations: 5,      // Limited reasoning - fewer search iterations
+                    maxHistory: 3,         // Track only recent failed queries
+                    maxResults: 5,         // Collect fewer articles for final analysis
+                    contextWindow: 32768   // ~32K tokens
+                }
             },
             'minimal': {
                 modelId: 'Llama-3.2-1B-Instruct-q4f16_1-MLC',  // Small model (~600MB)
                 description: 'Lightweight model for basic Q&A',
                 sizeBytes: 600 * 1024 * 1024,  // ~600MB
-                minStorageBytes: 800 * 1024 * 1024  // Need 800MB free for safety
+                minStorageBytes: 800 * 1024 * 1024,  // Need 800MB free for safety
+                contextBudget: {
+                    maxIterations: 8,      // Better reasoning - moderate iterations
+                    maxHistory: 5,         // Track more failed queries
+                    maxResults: 10,        // More articles for analysis
+                    contextWindow: 131072  // ~128K tokens
+                }
             },
             'standard': {
                 modelId: 'Llama-3.2-3B-Instruct-q4f16_1-MLC',  // Medium model (~1.8GB)
                 description: 'Balanced model for general Q&A',
                 sizeBytes: 1800 * 1024 * 1024,  // ~1.8GB
-                minStorageBytes: 2200 * 1024 * 1024  // Need 2.2GB free for safety
+                minStorageBytes: 2200 * 1024 * 1024,  // Need 2.2GB free for safety
+                contextBudget: {
+                    maxIterations: 12,     // Strong reasoning - more iterations
+                    maxHistory: 8,         // Track many failed queries
+                    maxResults: 15,        // Comprehensive article collection
+                    contextWindow: 131072  // ~128K tokens
+                }
             },
             'full': {
                 modelId: 'Llama-3.1-8B-Instruct-q4f32_1-MLC',  // Full model (~4.5GB)
                 description: 'Full-featured model for comprehensive Q&A',
                 sizeBytes: 4500 * 1024 * 1024,  // ~4.5GB
-                minStorageBytes: 5500 * 1024 * 1024  // Need 5.5GB free for safety
+                minStorageBytes: 5500 * 1024 * 1024,  // Need 5.5GB free for safety
+                contextBudget: {
+                    maxIterations: 15,     // Excellent reasoning - maximum iterations
+                    maxHistory: 10,        // Track extensive query history
+                    maxResults: 20,        // Maximum article collection
+                    contextWindow: 131072  // ~128K tokens
+                }
             }
         };
     }
@@ -69,6 +93,61 @@ class AIModelManager {
             throw new Error(`Invalid package type: ${packageType}. Must be one of: ${validPackages.join(', ')}`);
         }
         this.packageType = packageType;
+    }
+
+    /**
+     * Check available storage quota
+     * @returns {Promise<{available: number, total: number, used: number, sufficient: boolean}>}
+     */
+    async checkStorageQuota() {
+        const config = this.modelConfigs[this.packageType];
+        const requiredBytes = config ? config.minStorageBytes : 500 * 1024 * 1024;
+        
+        try {
+            if (navigator.storage && navigator.storage.estimate) {
+                const estimate = await navigator.storage.estimate();
+                const available = (estimate.quota || 0) - (estimate.usage || 0);
+                const result = {
+                    available: available,
+                    total: estimate.quota || 0,
+                    used: estimate.usage || 0,
+                    required: requiredBytes,
+                    sufficient: available >= requiredBytes
+                };
+                
+                console.log(`[AIModelManager] Storage check: ${this._formatBytes(available)} available, ${this._formatBytes(requiredBytes)} required`);
+                return result;
+            }
+        } catch (error) {
+            console.warn('[AIModelManager] Could not check storage quota:', error.message);
+        }
+        
+        // Fallback if storage API not available
+        return {
+            available: Infinity,
+            total: Infinity,
+            used: 0,
+            required: requiredBytes,
+            sufficient: true
+        };
+    }
+
+    /**
+     * Get context budget for current model
+     * @returns {Object} Context budget configuration
+     */
+    getContextBudget() {
+        const config = this.modelConfigs[this.packageType];
+        if (!config || !config.contextBudget) {
+            // Default budget if not configured
+            return {
+                maxIterations: 8,
+                maxHistory: 5,
+                maxResults: 10,
+                contextWindow: 32768
+            };
+        }
+        return config.contextBudget;
     }
 
     /**
