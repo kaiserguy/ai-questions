@@ -767,8 +767,12 @@ class OfflineUIManager {
     
     /**
      * Set up Wikipedia search handlers
+     * NOTE: Disabled - AIWikipediaSearch handles this directly
      */
     setupWikiSearchHandlers() {
+        // Search handlers are now managed by AIWikipediaSearch class
+        // This prevents duplicate event handlers and search calls
+        /*
         if (this.elements.wikiSearchBtn) {
             this.elements.wikiSearchBtn.addEventListener('click', () => this.searchWikipedia());
         }
@@ -780,6 +784,9 @@ class OfflineUIManager {
                     this.searchWikipedia();
                 }
             });
+        */
+            
+        if (this.elements.wikiSearchInput) {
             
             // Add input validation
             this.elements.wikiSearchInput.addEventListener('input', (e) => {

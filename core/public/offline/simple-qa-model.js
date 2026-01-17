@@ -135,20 +135,32 @@ class SimpleQAModel {
      */
     async generateText(prompt, options = {}) {
         if (!this.initialized) {
-            return [];
+            throw new Error('Model not initialized');
         }
 
-        // Try to find a relevant topic
+        // Extract keywords from Wikipedia search prompts
+        if (prompt.includes('Extract the main search keywords')) {
+            // Extract the question from the prompt
+            const questionMatch = prompt.match(/Question: "(.+)"/);
+            if (questionMatch) {
+                const question = questionMatch[1];
+                // Extract meaningful keywords (nouns, proper nouns)
+                const keywords = question.split(/\s+/)
+                    .filter(word => word.length > 2)
+                    .filter(word => !/^(what|where|when|who|why|how|is|are|was|were|the|a|an|in|on|at|to|for|of|with)$/i.test(word))
+                    .join(' ');
+                return keywords || question;
+            }
+        }
+
+        // Try to find a relevant topic for other queries
         const match = this.findBestMatch(prompt);
         
-        let response = '';
         if (match && match.topic) {
-            response = `Based on your question about ${match.topic}: ${match.definition}`;
-        } else {
-            response = `Regarding your question: ${prompt.substring(0, 50)}... I can provide information about various topics in artificial intelligence, programming, and technology.`;
+            return `Based on your question about ${match.topic}: ${match.definition}`;
         }
-
-        return [{ generated_text: response }];
+        
+        return `Regarding your question: ${prompt.substring(0, 50)}... I can provide information about various topics in artificial intelligence, programming, and technology.`;
     }
 }
 

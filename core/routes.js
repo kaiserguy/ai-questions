@@ -1344,6 +1344,73 @@ module.exports = (db, ai, wikipedia, config) => {
         }
     });
 
+    // Download and serve Wikipedia SQLite database
+    router.get('/api/wikipedia-database', (req, res) => {
+        const fs = require('fs');
+        const path = require('path');
+        const { spawn } = require('child_process');
+        
+        const packageType = req.query.package || 'minimal';
+        const localDir = path.join(__dirname, '..', 'local');
+        const dbPath = path.join(localDir, 'wikipedia.db');
+        
+        // Check if database already exists
+        if (fs.existsSync(dbPath)) {
+            console.log(`[Wikipedia DB] Serving existing database: ${dbPath}`);
+            const stat = fs.statSync(dbPath);
+            console.log(`[Wikipedia DB] Database size: ${(stat.size / 1024 / 1024).toFixed(2)} MB`);
+            return res.sendFile(dbPath);
+        }
+        
+        console.log(`[Wikipedia DB] Database not found. Triggering download...`);
+        
+        // Return 202 Accepted - download will happen asynchronously
+        res.status(202).json({ 
+            status: 'downloading',
+            message: 'Server is downloading Wikipedia database. This may take several minutes.',
+            checkStatusUrl: '/api/wikipedia-database/status',
+            estimatedTime: '5-10 minutes'
+        });
+        
+        // Trigger download asynchronously
+        const manageScript = path.join(localDir, 'manage-wikipedia.sh');
+        
+        if (fs.existsSync(manageScript)) {
+            console.log(`[Wikipedia DB] Starting download using ${manageScript}...`);
+            const download = spawn('bash', [manageScript, 'download', 'simple'], {
+                cwd: localDir,
+                detached: true,
+                stdio: 'ignore'
+            });
+            download.unref();
+        } else {
+            console.log(`[Wikipedia DB] manage-wikipedia.sh not found, cannot auto-download`);
+        }
+    });
+    
+    // Check Wikipedia download status
+    router.get('/api/wikipedia-database/status', (req, res) => {
+        const fs = require('fs');
+        const path = require('path');
+        const localDir = path.join(__dirname, '..', 'local');
+        const dbPath = path.join(localDir, 'wikipedia.db');
+        
+        if (fs.existsSync(dbPath)) {
+            const stat = fs.statSync(dbPath);
+            res.json({
+                status: 'ready',
+                size: stat.size,
+                sizeMB: (stat.size / 1024 / 1024).toFixed(2),
+                downloadUrl: '/api/wikipedia-database'
+            });
+        } else {
+            res.json({
+                status: 'not_ready',
+                message: 'Wikipedia database not yet available'
+            });
+        }
+    });
+
     return router;
 };
 

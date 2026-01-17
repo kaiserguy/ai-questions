@@ -48,18 +48,75 @@ class AIWikipediaSearch {
             await this.initializeDatabase();
         } catch (error) {
             console.error('[AIWikipediaSearch] Database initialization failed:', error);
+            // Don't return false - UI should still work, just without database
         }
 
-        // Set up event listeners
-        this.searchButton.addEventListener('click', () => this.performSearch());
-        this.searchInput.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') {
-                this.performSearch();
-            }
-        });
+        // Set up event listeners (only once)
+        if (!this.initialized) {
+            this.searchButton.addEventListener('click', () => this.performSearch());
+            this.searchInput.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') {
+                    this.performSearch();
+                }
+            });
+        }
 
+        // Update status indicator
+        this.updateStatusIndicator();
+
+        this.initialized = true;
         console.log('[AIWikipediaSearch] Initialized successfully');
         return true;
+    }
+
+    /**
+     * Check if Wikipedia search is ready
+     * @returns {boolean} True if database is loaded
+     */
+    isReady() {
+        return this.dbReady && this.db !== null;
+    }
+
+    /**
+     * Search method for integration manager compatibility
+     * @param {string} query - Search query
+     * @returns {Promise<Array>} Search results
+     */
+    async search(query) {
+        if (!this.dbReady || !this.db) {
+            throw new Error('Wikipedia database not loaded');
+        }
+        
+        // Generate search query and perform search
+        const searchQuery = await this.generateSearchQuery(query);
+        return await this.searchLocalDatabase(searchQuery);
+    }
+
+    /**
+     * Update the Wikipedia search status indicator
+     */
+    updateStatusIndicator() {
+        const statusEl = document.getElementById('wikiSearchStatus');
+        const statusText = document.getElementById('wikiStatusText');
+        
+        console.log('[AIWikipediaSearch] updateStatusIndicator called, dbReady:', this.dbReady, 'db:', !!this.db);
+        
+        if (!statusEl || !statusText) {
+            console.log('[AIWikipediaSearch] Status elements not found');
+            return;
+        }
+        
+        if (this.dbReady) {
+            console.log('[AIWikipediaSearch] Setting status to READY (green)');
+            statusEl.style.display = 'block';
+            statusEl.style.background = '#d1fae5';
+            statusText.textContent = '✅ Local Wikipedia database loaded and ready';
+        } else {
+            console.log('[AIWikipediaSearch] Setting status to NOT READY (yellow warning)');
+            statusEl.style.display = 'block';
+            statusEl.style.background = '#fef3c7';
+            statusText.textContent = '⚠️ Download the offline package to enable local Wikipedia search';
+        }
     }
 
     /**
@@ -80,31 +137,120 @@ class AIWikipediaSearch {
                 locateFile: file => `/offline/libs/${file}`
             });
 
-            // Fetch the Wikipedia database
-            console.log('[AIWikipediaSearch] Fetching Wikipedia database...');
-            const response = await fetch('/offline/wikipedia/minimal-wikipedia.sqlite');
+            // Retrieve the Wikipedia database from IndexedDB
+            console.log('[AIWikipediaSearch] Retrieving Wikipedia database from IndexedDB...');
+            const dbData = await this.getWikipediaFromStorage();
             
-            if (!response.ok) {
-                throw new Error(`Failed to fetch database: ${response.status}`);
+            if (!dbData) {
+                throw new Error('Wikipedia database not found in storage. Please download it first.');
             }
 
-            const arrayBuffer = await response.arrayBuffer();
-            const uint8Array = new Uint8Array(arrayBuffer);
-            
-            this.db = new SQL.Database(uint8Array);
+            this.db = new SQL.Database(dbData);
             this.dbReady = true;
             
             // Get article count
-            const result = this.db.exec('SELECT COUNT(*) FROM articles');
+            const result = this.db.exec('SELECT COUNT(*) FROM wikipedia_articles');
             const count = result[0]?.values[0]?.[0] || 0;
             console.log(`[AIWikipediaSearch] Database loaded with ${count} articles`);
+            
+            // Update status indicator now that database is ready
+            this.updateStatusIndicator();
             
             return true;
         } catch (error) {
             console.error('[AIWikipediaSearch] Database initialization error:', error);
             this.dbReady = false;
+            // Update status to show error/not ready
+            this.updateStatusIndicator();
             throw error;
         }
+    }
+
+    /**
+     * Retrieve Wikipedia database from IndexedDB
+     * @returns {Promise<Uint8Array>} The database file
+     */
+    async getWikipediaFromStorage() {
+        return new Promise((resolve, reject) => {
+            const request = indexedDB.open('OfflineAI', 2);
+            
+            request.onerror = () => reject(request.error);
+            
+            request.onupgradeneeded = (event) => {
+                // Database doesn't exist yet - create the stores
+                const db = event.target.result;
+                if (!db.objectStoreNames.contains('wikipedia')) {
+                    db.createObjectStore('wikipedia', { keyPath: 'name' });
+                }
+                if (!db.objectStoreNames.contains('libraries')) {
+                    db.createObjectStore('libraries', { keyPath: 'name' });
+                }
+                if (!db.objectStoreNames.contains('models')) {
+                    db.createObjectStore('models', { keyPath: 'name' });
+                }
+            };
+            
+            request.onsuccess = (event) => {
+                const db = event.target.result;
+                
+                console.log('[AIWikipediaSearch] Database opened successfully');
+                console.log('[AIWikipediaSearch] Available object stores:', Array.from(db.objectStoreNames));
+                
+                // Check if wikipedia store exists
+                if (!db.objectStoreNames.contains('wikipedia')) {
+                    console.log('[AIWikipediaSearch] Wikipedia store not found in database');
+                    resolve(null);
+                    return;
+                }
+                
+                console.log('[AIWikipediaSearch] Wikipedia store found, listing all keys...');
+                const transaction = db.transaction(['wikipedia'], 'readonly');
+                const store = transaction.objectStore('wikipedia');
+                
+                // First, get ALL keys to see what's actually stored
+                const getAllKeysRequest = store.getAllKeys();
+                getAllKeysRequest.onsuccess = () => {
+                    const allKeys = getAllKeysRequest.result;
+                    console.log('[AIWikipediaSearch] All keys in wikipedia store:', allKeys);
+                    
+                    // Try different possible names (includes legacy names for backwards compatibility)
+                    const names = ['Simple-Wikipedia-210MB', 'Wikipedia-Subset-20MB', 'Simple-Wikipedia-50MB', 'Extended-Wikipedia'];
+                    
+                    const tryName = (index) => {
+                        if (index >= names.length) {
+                            console.log('[AIWikipediaSearch] No Wikipedia database found with any known name');
+                            resolve(null);
+                            return;
+                        }
+                        
+                        console.log(`[AIWikipediaSearch] Trying to get: ${names[index]}`);
+                        const getRequest = store.get(names[index]);
+                        
+                        getRequest.onsuccess = () => {
+                            if (getRequest.result && getRequest.result.data) {
+                                console.log(`[AIWikipediaSearch] Found Wikipedia database: ${names[index]}`);
+                                resolve(getRequest.result.data);
+                            } else {
+                                console.log(`[AIWikipediaSearch] ${names[index]} not found or has no data`);
+                                tryName(index + 1);
+                            }
+                        };
+                        
+                        getRequest.onerror = () => {
+                            console.log(`[AIWikipediaSearch] Error retrieving ${names[index]}`);
+                            tryName(index + 1);
+                        };
+                    };
+                    
+                    tryName(0);
+                };
+                
+                getAllKeysRequest.onerror = () => {
+                    console.error('[AIWikipediaSearch] Error getting keys from wikipedia store');
+                    resolve(null);
+                };
+            };
+        });
     }
 
     /**
@@ -113,29 +259,15 @@ class AIWikipediaSearch {
      * @returns {Promise<string>} Optimized search query
      */
     async generateSearchQuery(userQuery) {
-        if (!this.simpleQA) {
-            // Fallback: extract key terms
-            return this.extractKeyTerms(userQuery);
-        }
-
         try {
             // Use AI to understand the query intent and generate search terms
-            const prompt = `Extract the main search keywords from this question for a Wikipedia search. 
-            Return only the key terms separated by spaces, no explanation.
+            const prompt = `Based on the user's input, generate a SQL search query to find relevant Wikipedia articles. Your entire response will be used without modification. Only respond with the SQL query.
             Question: "${userQuery}"`;
             
             const response = await this.simpleQA.generateText(prompt, { maxLength: 50 });
             
-            // Clean up the response
-            let searchTerms = response.trim();
-            
-            // If AI returns a sentence, extract key terms
-            if (searchTerms.includes('.') || searchTerms.length > 50) {
-                searchTerms = this.extractKeyTerms(userQuery);
-            }
-            
-            console.log(`[AIWikipediaSearch] AI generated search terms: "${searchTerms}"`);
-            return searchTerms;
+            console.log(`[AIWikipediaSearch] AI generated search terms: "${response}"`);
+            return response;
         } catch (error) {
             console.error('[AIWikipediaSearch] AI query generation failed:', error);
             return this.extractKeyTerms(userQuery);
@@ -227,47 +359,8 @@ class AIWikipediaSearch {
 
         try {
             // Use FTS5 for full-text search
-            const ftsQuery = query.split(/\s+/).map(term => `"${term}"*`).join(' OR ');
-            
-            const sql = `
-                SELECT 
-                    a.id,
-                    a.title,
-                    a.summary,
-                    a.url,
-                    a.categories,
-                    snippet(articles_fts, 1, '<mark>', '</mark>', '...', 30) as snippet
-                FROM articles_fts
-                JOIN articles a ON articles_fts.rowid = a.id
-                WHERE articles_fts MATCH ?
-                ORDER BY rank
-                LIMIT 10
-            `;
-
-            let results = [];
-            
-            try {
-                const stmt = this.db.prepare(sql);
-                stmt.bind([ftsQuery]);
-                
-                while (stmt.step()) {
-                    const row = stmt.getAsObject();
-                    results.push({
-                        id: row.id,
-                        title: row.title,
-                        summary: row.summary || row.snippet,
-                        url: row.url,
-                        categories: row.categories,
-                        snippet: row.snippet
-                    });
-                }
-                stmt.free();
-            } catch (ftsError) {
-                console.warn('[AIWikipediaSearch] FTS search failed, trying LIKE search:', ftsError);
-                // Fallback to LIKE search
-                results = this.searchWithLike(query);
-            }
-
+            // SQL.js doesn't include FTS5 by default, skip to LIKE search
+            const results = this.searchWithLike(query);
             console.log(`[AIWikipediaSearch] Found ${results.length} results`);
             return results;
         } catch (error) {
@@ -287,9 +380,9 @@ class AIWikipediaSearch {
         const params = terms.flatMap(term => [`%${term}%`, `%${term}%`, `%${term}%`]);
 
         const sql = `
-            SELECT id, title, summary, url, categories,
+            SELECT id, title, summary, categories,
                    substr(content, 1, 200) as snippet
-            FROM articles
+            FROM wikipedia_articles
             WHERE ${conditions}
             LIMIT 10
         `;
@@ -305,7 +398,6 @@ class AIWikipediaSearch {
                     id: row.id,
                     title: row.title,
                     summary: row.summary || row.snippet + '...',
-                    url: row.url,
                     categories: row.categories,
                     snippet: row.snippet
                 });
@@ -394,7 +486,7 @@ class AIWikipediaSearch {
         this.showLoading();
 
         try {
-            const sql = 'SELECT * FROM articles WHERE id = ?';
+            const sql = 'SELECT * FROM wikipedia_articles WHERE id = ?';
             const stmt = this.db.prepare(sql);
             stmt.bind([id]);
             

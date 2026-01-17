@@ -63,7 +63,7 @@
         <!-- Download Section -->
         <div class="download-section" id="downloadSection">
             <h2>📦 Choose Your Offline Package</h2>
-            <p>Select the package that best fits your needs and device capabilities. AI models are Phi-3 variants (compatible with Ollama):
+            <p>Select the package that best fits your needs and device capabilities. AI models are Llama variants optimized for offline use:
             
             <div class="download-options" id="downloadOptions">
                 <div class="option-card" data-package="minimal">
@@ -71,8 +71,8 @@
                     <div class="option-description">Essential AI capabilities with basic Wikipedia content</div>
                     <div class="option-specs">
                         • AI Model: Llama-3.2-1B (664MB)<br>
-                        • Wikipedia: Simple English (50MB)<br>
-                        • Total: ~714MB
+                        • Wikipedia: Simple English (210MB)<br>
+                        • Total: ~874MB
                     </div>
                 </div>
                 
@@ -276,7 +276,7 @@
     <script src="/offline/search/lunr-search.js?v=3"></script>
     
     <!-- Download Layer -->
-    <script src="/offline/download-manager.js?v=10"></script>
+    <script src="/offline/download-manager.js?v=19"></script>
     <script src="/offline/download/download-manager-v2.js?v=3"></script>
     
     <!-- Inference Layer -->
@@ -287,14 +287,13 @@
     <!-- Core Logic -->
     <script src="/offline/transformers-ai-model.js?v=5"></script>
     <script src="/offline/local-ai-model.js?v=5"></script>
-    <script src="/offline/ai-model-manager.js?v=7"></script>
+    <script src="/offline/ai-model-manager.js?v=8"></script>
     <script src="/offline/offline-ai-chat.js?v=8"></script>
     <script src="/offline/wikipedia-manager.js?v=5"></script>
     <script src="/offline/libs/sql-wasm.js"></script>
-    <script src="/offline/wikipedia-public-search.js?v=5"></script>
-    <script src="/offline/ai-wikipedia-search.js?v=5"></script>
-    <script src="/offline/integration-manager.js?v=9"></script>
-    <script src="/offline/ui-manager.js?v=6"></script>
+    <script src="/offline/ai-wikipedia-search.js?v=26"></script>
+    <script src="/offline/integration-manager.js?v=13"></script>
+    <script src="/offline/ui-manager.js?v=7"></script>
     
     <!-- Initialization -->
     <script>
@@ -434,6 +433,6 @@
     </script>
 
     <!-- Offline Mode Initialization -->
-    <script src="/offline/offline-init.js?v=1.0.5"></script>
+    <script src="/offline/offline-init.js?v=1.0.6"></script>
 </body>
 </html>

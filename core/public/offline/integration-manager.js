@@ -136,6 +136,12 @@ class OfflineIntegrationManager {
      * Initialize AI and Wikipedia components
      */
     async initializeComponents() {
+        // Prevent duplicate initialization
+        if (this.initialized) {
+            console.log('[OfflineIntegrationManager] Components already initialized, skipping');
+            return;
+        }
+        
         if (!this.packageType) {
             throw new Error('Package type must be set before initializing components');
         }
@@ -156,8 +162,8 @@ class OfflineIntegrationManager {
                 this.aiManager = this.aiModelManager; // Keep both references
             }
             
-            if (!this.wikipediaManager && typeof WikipediaManager !== 'undefined') {
-                this.wikipediaManager = new WikipediaManager(this.packageType);
+            if (!this.wikipediaManager && typeof AIWikipediaSearch !== 'undefined') {
+                this.wikipediaManager = new AIWikipediaSearch();
             }
             
             // Don't initialize AI model on page load - it triggers downloads
@@ -165,13 +171,13 @@ class OfflineIntegrationManager {
             // or lazily when first used for chat
             console.log('[IntegrationManager] Managers created, skipping AI model auto-load');
             
-            // Initialize Wikipedia Manager if it exists
+            // Initialize AIWikipediaSearch if it exists
             if (this.wikipediaManager) {
                 try {
                     await this.wikipediaManager.initialize();
                     this.wikiManager = this.wikipediaManager; // Keep both references
                 } catch (wikiError) {
-                    console.warn('Wikipedia Manager initialization failed:', wikiError);
+                    console.warn('AIWikipediaSearch initialization failed:', wikiError);
                     this.wikipediaManager = null; // Clear failed manager
                     // Don't throw - allow initialization to continue without Wikipedia
                 }
@@ -180,6 +186,12 @@ class OfflineIntegrationManager {
             this.initialized = true;
             this.isInitialized = true;
             this.checkInitializationComplete();
+            
+            // Force UI update immediately after initialization
+            this.updateDownloadButton('ready');
+            if (typeof updateModelStatus === 'function') {
+                setTimeout(() => updateModelStatus(), 200);
+            }
             
         } catch (error) {
             this.error = error.message;
@@ -237,7 +249,7 @@ class OfflineIntegrationManager {
             
             // Update model status in the UI
             if (typeof updateModelStatus === 'function') {
-                updateModelStatus();
+                setTimeout(() => updateModelStatus(), 100);
             }
             
             return true;
@@ -245,7 +257,7 @@ class OfflineIntegrationManager {
             // Show UI but mark as not fully initialized
             this.initialized = false;
             this.isInitialized = false;
-            this.updateStatus('UI shown but AI models not fully initialized yet');
+            this.updateStatus('Initializing offline components...');
             return false;
         }
     }

@@ -37,12 +37,18 @@
             }
 
             // Initialize AI-Powered Wikipedia Search (primary)
-            if (typeof AIWikipediaSearch !== 'undefined') {
+            // Check if integration manager already created one
+            if (window.offlineIntegrationManager && window.offlineIntegrationManager.wikipediaManager) {
+                window.aiWikipediaSearch = window.offlineIntegrationManager.wikipediaManager;
+                console.log('[OfflineInit] Using AI Wikipedia search from integration manager');
+            } else if (typeof AIWikipediaSearch !== 'undefined') {
                 window.aiWikipediaSearch = new AIWikipediaSearch();
                 await window.aiWikipediaSearch.initialize();
                 console.log('[OfflineInit] AI Wikipedia search initialized');
-                
-                // Update status indicator and show the wiki section
+            }
+            
+            // Update status indicator and show the wiki section
+            if (window.aiWikipediaSearch) {
                 const statusEl = document.getElementById('wikiSearchStatus');
                 const statusText = document.getElementById('wikiStatusText');
                 const wikiSection = document.getElementById('wikiSection');

@@ -100,6 +100,14 @@ class AIModelManager {
             this.initialized = true;
             this.loading = false;
             console.log('[AIModelManager] Model loaded successfully');
+            
+            // Dispatch event for UI update
+            window.dispatchEvent(new Event('modelLoaded'));
+            
+            // Update UI directly
+            if (typeof updateModelStatus === 'function') {
+                updateModelStatus();
+            }
         } catch (error) {
             this.loading = false;
             this.ready = false;

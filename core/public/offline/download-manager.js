@@ -411,24 +411,22 @@ class DownloadManager {
         this.updateResource('wikipedia', 'downloading', 0);
         
         try {
-            // Wikipedia database URLs based on package type
-            // Use CDN URLs as primary source since local resources are not currently hosted
-            // This allows downloads to work when CDN resources are available
+            // Wikipedia database URLs - try server first, then public sources
             const wikiUrls = {
                 'minimal': {
-                    name: 'Wikipedia-Subset-20MB',
-                    url: 'https://dumps.wikimedia.org/other/kiwix/zim/wikipedia/wikipedia_en_top_2023-01.zim',
-                    fallbackUrl: '/offline-resources/wikipedia/wikipedia-subset-20mb.db'
+                    name: 'Simple-Wikipedia-210MB',
+                    serverUrl: `/api/wikipedia-database?package=minimal`,
+                    dataset: 'minimal'
                 },
                 'standard': {
                     name: 'Simple-Wikipedia-50MB',
-                    url: 'https://dumps.wikimedia.org/other/kiwix/zim/wikipedia/wikipedia_en_simple_all_2023-01.zim',
-                    fallbackUrl: '/offline-resources/wikipedia/simple-wikipedia-50mb.db'
+                    serverUrl: `/api/wikipedia-database?package=standard`,
+                    dataset: 'standard'
                 },
                 'full': {
                     name: 'Extended-Wikipedia',
-                    url: 'https://dumps.wikimedia.org/other/kiwix/zim/wikipedia/wikipedia_en_all_nopic_2023-01.zim',
-                    fallbackUrl: '/offline-resources/wikipedia/extended-wikipedia.db'
+                    serverUrl: `/api/wikipedia-database?package=full`,
+                    dataset: 'full'
                 }
             };
             
@@ -437,33 +435,123 @@ class DownloadManager {
                 throw new Error(`Unknown package type: ${this.packageType}`);
             }
             
-            // Check if Wikipedia database already exists
-            if (await this.fileExists(wikiConfig.name)) {
-                console.log(`${wikiConfig.name} already exists, skipping download`);
-                this.updateResource('wikipedia', 'loaded', 100);
-                return;
+            // Check if Wikipedia database already exists in IndexedDB with actual data
+            const existingFile = await this.getFile(wikiConfig.name);
+            if (existingFile && existingFile.data && existingFile.data.length > 0) {
+                console.log(`${wikiConfig.name} already exists with ${this.formatBytes(existingFile.data.length)}, checking if in correct store...`);
+                
+                // Verify it's in the wikipedia store
+                const wikiTransaction = this.db.transaction(['wikipedia'], 'readonly');
+                const wikiStore = wikiTransaction.objectStore('wikipedia');
+                const checkWikiStore = wikiStore.get(wikiConfig.name);
+                
+                await new Promise((resolve) => {
+                    checkWikiStore.onsuccess = () => {
+                        if (checkWikiStore.result && checkWikiStore.result.data) {
+                            console.log(`${wikiConfig.name} found in correct wikipedia store, skipping download`);
+                            resolve(true);
+                        } else {
+                            console.log(`${wikiConfig.name} found but not in wikipedia store, will re-download`);
+                            resolve(false);
+                        }
+                    };
+                    checkWikiStore.onerror = () => resolve(false);
+                });
+                
+                // If found in correct store, skip download
+                if (checkWikiStore.result && checkWikiStore.result.data) {
+                    this.updateResource('wikipedia', 'loaded', 100);
+                    return;
+                }
             }
             
-            // Try to download from primary URL first
-            let downloadUrl = wikiConfig.url;
+            console.log(`[DownloadManager] Attempting Wikipedia download...`);
+            
+            // Try server endpoint first
             try {
-                await this.downloadResource(wikiConfig.name, downloadUrl, (progress) => {
-                    this.updateResource('wikipedia', 'downloading', progress);
-                });
-            } catch (primaryError) {
-                console.log(`Primary Wikipedia URL failed, trying fallback...`);
-                downloadUrl = wikiConfig.fallbackUrl;
-                await this.downloadResource(wikiConfig.name, downloadUrl, (progress) => {
-                    this.updateResource('wikipedia', 'downloading', progress);
-                });
+                console.log(`Trying server endpoint: ${wikiConfig.serverUrl}`);
+                const response = await fetch(wikiConfig.serverUrl);
+                
+                if (response.ok) {
+                    console.log('[DownloadManager] Server has Wikipedia database, downloading...');
+                    await this.downloadResource(wikiConfig.name, wikiConfig.serverUrl, (progress) => {
+                        this.updateResource('wikipedia', 'downloading', progress);
+                    });
+                    this.updateResource('wikipedia', 'loaded', 100);
+                    return;
+                } else if (response.status === 202) {
+                    // Server is downloading Wikipedia - poll for status
+                    const statusData = await response.json();
+                    console.log('[DownloadManager] Server downloading Wikipedia, polling for status...');
+                    this.updateProgress('Server downloading Wikipedia database...');
+                    
+                    await this.pollWikipediaStatus(wikiConfig);
+                    this.updateResource('wikipedia', 'loaded', 100);
+                    return;
+                } else {
+                    const errorData = await response.json();
+                    console.log('[DownloadManager] Server Wikipedia not available:', errorData.message);
+                    throw new Error(`Server cannot provide Wikipedia: ${errorData.message}`);
+                }
+            } catch (serverError) {
+                console.error('[DownloadManager] Server endpoint failed:', serverError.message);
+                throw new Error(`Cannot download Wikipedia: ${serverError.message}`);
             }
             
-            this.updateResource('wikipedia', 'loaded', 100);
         } catch (error) {
+            console.error('[DownloadManager] Wikipedia download failed:', error);
             this.updateResource('wikipedia', 'error', 0);
             throw new Error(`Failed to download Wikipedia database: ${error.message}`);
         }
     }
+    
+    /**
+     * Poll server for Wikipedia download status
+     */
+    async pollWikipediaStatus(wikiConfig) {
+        const maxAttempts = 120; // 10 minutes (5 second intervals)
+        let attempts = 0;
+        
+        while (attempts < maxAttempts) {
+            if (this.aborted) throw new Error('Download aborted');
+            
+            await new Promise(resolve => setTimeout(resolve, 5000)); // Wait 5 seconds
+            
+            try {
+                const statusResponse = await fetch('/api/wikipedia-database/status');
+                const status = await statusResponse.json();
+                
+                if (status.status === 'ready') {
+                    console.log(`[DownloadManager] Server Wikipedia ready, downloading...`);
+                    this.updateProgress(`Downloading Wikipedia database (${status.sizeMB} MB)...`);
+                    
+                    await this.downloadResource(wikiConfig.name, wikiConfig.serverUrl, (progress) => {
+                        this.updateResource('wikipedia', 'downloading', progress);
+                    });
+                    return;
+                }
+                
+                attempts++;
+                const elapsed = Math.floor(attempts * 5 / 60);
+                this.updateProgress(`Server preparing Wikipedia... (${elapsed} min elapsed)`);
+                
+            } catch (pollError) {
+                console.error('[DownloadManager] Status poll failed:', pollError);
+                attempts++;
+            }
+        }
+        
+        throw new Error('Wikipedia download timed out');
+    }
+    
+    /**
+     * Download Wikipedia from public sources (REMOVED - CORS blocked)
+     * This method cannot work in browsers due to CORS restrictions
+     */
+    async downloadFromPublicSources(wikiConfig) {
+        throw new Error('Cannot download directly from Wikimedia due to CORS restrictions. Server must download instead.');
+    }
+    
     
     /**
      * Helper to wrap a promise with a timeout
@@ -744,13 +832,16 @@ class DownloadManager {
         }
         
         return new Promise((resolve, reject) => {
-            // Determine which store to use based on file type
+            // Determine which store to use based on file type (case-insensitive)
+            const nameLower = name.toLowerCase();
             let storeName = 'libraries';
-            if (name.includes('model') || name.includes('bert') || name.includes('llama')) {
+            if (nameLower.includes('model') || nameLower.includes('bert') || nameLower.includes('llama')) {
                 storeName = 'models';
-            } else if (name.includes('wikipedia') || name.includes('wiki')) {
+            } else if (nameLower.includes('wikipedia') || nameLower.includes('wiki')) {
                 storeName = 'wikipedia';
             }
+            
+            console.log(`[DownloadManager] Storing ${name} in ${storeName} store`);
             
             const transaction = this.db.transaction([storeName], 'readwrite');
             const store = transaction.objectStore(storeName);
@@ -764,7 +855,10 @@ class DownloadManager {
             
             const request = store.put(fileData);
             
-            request.onsuccess = () => resolve();
+            request.onsuccess = () => {
+                console.log(`[DownloadManager] Successfully stored ${name} (${this.formatBytes(data.length)})`);
+                resolve();
+            };
             request.onerror = () => reject(request.error);
         });
     }
@@ -816,7 +910,8 @@ class DownloadManager {
     async fileExists(name) {
         try {
             const file = await this.getFile(name);
-            return file !== null;
+            // Check if file exists AND has actual data
+            return file !== null && file.data && file.data.length > 0;
         } catch (error) {
             // If storage not available, assume file doesn't exist
             console.log('Storage not available, assuming file does not exist');
