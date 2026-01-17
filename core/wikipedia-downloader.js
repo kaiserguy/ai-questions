@@ -323,8 +323,8 @@ class WikipediaDownloader {
         let articlesProcessed = 0;
         let articlesSkipped = 0;
             
-            // Batch processing for better performance
-            const BATCH_SIZE = 100;
+            // Batch processing for better performance (smaller for memory constraints)
+            const BATCH_SIZE = 25;
             let batch = [];
             
             saxStream.on('opentag', (node) => {
@@ -345,8 +345,8 @@ class WikipediaDownloader {
                 if (currentElement === 'title') {
                     pageTitle += text;
                 } else if (currentElement === 'text') {
-                    // Limit text accumulation to prevent memory issues
-                    if (pageText.length < 100000) {
+                    // Strict limit on text accumulation for memory-constrained environments
+                    if (pageText.length < 50000) {
                         pageText += text;
                     }
                 } else if (currentElement === 'id' && !pageId) {
@@ -355,7 +355,7 @@ class WikipediaDownloader {
             });
             
             saxStream.on('cdata', (cdata) => {
-                if (currentElement === 'text' && inPage && pageText.length < 100000) {
+                if (currentElement === 'text' && inPage && pageText.length < 50000) {
                     pageText += cdata;
                 }
             });
@@ -393,8 +393,8 @@ class WikipediaDownloader {
                                 const totalPages = articlesProcessed + articlesSkipped;
                                 process.stdout.write(`\r📝 Processing: ${articlesProcessed.toLocaleString()} articles | ${articlesSkipped.toLocaleString()} skipped | ${totalPages.toLocaleString()} pages total`);
                                 
-                                // Periodic garbage collection hint
-                                if (articlesProcessed % 10000 === 0 && global.gc) {
+                                // More aggressive garbage collection for memory-constrained environments
+                                if (articlesProcessed % 1000 === 0 && global.gc) {
                                     global.gc();
                                 }
                             }
