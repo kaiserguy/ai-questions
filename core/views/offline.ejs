@@ -63,16 +63,33 @@
         <!-- Download Section -->
         <div class="download-section" id="downloadSection">
             <h2>📦 Choose Your Offline Package</h2>
-            <p>Select the package that best fits your needs and device capabilities. AI models are Llama variants optimized for offline use:
+            <p>Select the package that best fits your needs and device capabilities:</p>
+            
+            <!-- Storage Warning Banner -->
+            <div class="storage-warning" id="storageWarning" style="display: none;">
+                <span class="warning-icon">⚠️</span>
+                <span class="warning-text" id="storageWarningText">Limited storage detected. Consider the Mobile package.</span>
+            </div>
             
             <div class="download-options" id="downloadOptions">
+                <div class="option-card" data-package="mobile">
+                    <div class="option-badge recommended-mobile" id="mobileBadge" style="display: none;">Recommended for your device</div>
+                    <div class="option-title">📱 Mobile</div>
+                    <div class="option-description">Optimized for phones and tablets with limited storage</div>
+                    <div class="option-specs">
+                        • AI Model: Qwen2.5-0.5B (~300MB)<br>
+                        • Wikipedia: Simple English (210MB)<br>
+                        • Total: ~510MB
+                    </div>
+                </div>
+                
                 <div class="option-card" data-package="minimal">
-                    <div class="option-title">🎯 Minimal Performance</div>
+                    <div class="option-title">🎯 Minimal</div>
                     <div class="option-description">Essential AI capabilities with basic Wikipedia content</div>
                     <div class="option-specs">
-                        • AI Model: Llama-3.2-1B (664MB)<br>
+                        • AI Model: Llama-3.2-1B (~600MB)<br>
                         • Wikipedia: Simple English (210MB)<br>
-                        • Total: ~874MB
+                        • Total: ~810MB
                     </div>
                 </div>
                 

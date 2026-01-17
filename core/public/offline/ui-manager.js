@@ -74,6 +74,9 @@ class OfflineUIManager {
             // Check browser compatibility
             await this.checkBrowserCompatibility();
             
+            // Check storage and recommend package
+            await this.checkStorageAndRecommendPackage();
+            
             // Check for existing data
             await this.checkExistingData();
             
@@ -85,6 +88,114 @@ class OfflineUIManager {
             this.displayToast('Failed to initialize UI. Please refresh the page.', 'error');
             throw error;
         }
+    }
+    
+    /**
+     * Check storage availability and recommend appropriate package
+     */
+    async checkStorageAndRecommendPackage() {
+        try {
+            // Check if mobile device
+            const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+            
+            // Check storage quota
+            let storageInfo = { available: -1, sufficient: true, unknown: true };
+            if (navigator.storage && navigator.storage.estimate) {
+                const estimate = await navigator.storage.estimate();
+                const available = (estimate.quota || 0) - (estimate.usage || 0);
+                storageInfo = {
+                    available: available,
+                    total: estimate.quota || 0,
+                    used: estimate.usage || 0,
+                    unknown: false
+                };
+            }
+            
+            // Determine recommended package
+            let recommendedPackage = 'minimal';
+            let showWarning = false;
+            let warningText = '';
+            
+            if (isMobile) {
+                recommendedPackage = 'mobile';
+                showWarning = true;
+                warningText = 'Mobile device detected. The Mobile package is recommended for best performance.';
+            } else if (storageInfo.available >= 0 && storageInfo.available < 800 * 1024 * 1024) {
+                recommendedPackage = 'mobile';
+                showWarning = true;
+                warningText = `Limited storage detected (${this.formatBytes(storageInfo.available)} available). The Mobile package is recommended.`;
+            } else if (storageInfo.available >= 0 && storageInfo.available < 2200 * 1024 * 1024) {
+                recommendedPackage = 'minimal';
+            } else if (storageInfo.available >= 0 && storageInfo.available < 5500 * 1024 * 1024) {
+                recommendedPackage = 'standard';
+            } else {
+                recommendedPackage = 'standard';
+            }
+            
+            // Show storage warning if needed
+            if (showWarning) {
+                const warningEl = document.getElementById('storageWarning');
+                const warningTextEl = document.getElementById('storageWarningText');
+                if (warningEl && warningTextEl) {
+                    warningTextEl.textContent = warningText;
+                    warningEl.style.display = 'flex';
+                }
+            }
+            
+            // Show recommended badge on mobile card
+            if (recommendedPackage === 'mobile') {
+                const mobileBadge = document.getElementById('mobileBadge');
+                const mobileCard = document.querySelector('.option-card[data-package="mobile"]');
+                if (mobileBadge) {
+                    mobileBadge.style.display = 'block';
+                }
+                if (mobileCard) {
+                    mobileCard.classList.add('recommended');
+                }
+            }
+            
+            // Mark packages that may have insufficient storage
+            if (storageInfo.available >= 0) {
+                const packageSizes = {
+                    mobile: 500 * 1024 * 1024,
+                    minimal: 800 * 1024 * 1024,
+                    standard: 4000 * 1024 * 1024,
+                    full: 12500 * 1024 * 1024
+                };
+                
+                this.elements.optionCards.forEach(card => {
+                    const pkg = card.dataset.package;
+                    const requiredSize = packageSizes[pkg] || 0;
+                    if (storageInfo.available < requiredSize) {
+                        card.classList.add('insufficient-storage');
+                        // Add warning text to card
+                        let warningDiv = card.querySelector('.option-storage-warning');
+                        if (!warningDiv) {
+                            warningDiv = document.createElement('div');
+                            warningDiv.className = 'option-storage-warning';
+                            warningDiv.textContent = `Requires ${this.formatBytes(requiredSize)} - you have ${this.formatBytes(storageInfo.available)}`;
+                            card.appendChild(warningDiv);
+                        }
+                    }
+                });
+            }
+            
+            console.log(`[UIManager] Storage check: ${this.formatBytes(storageInfo.available)} available, recommended: ${recommendedPackage}`);
+            
+        } catch (error) {
+            console.warn('Could not check storage for package recommendation:', error);
+        }
+    }
+    
+    /**
+     * Format bytes to human-readable string
+     */
+    formatBytes(bytes) {
+        if (bytes < 0) return 'Unknown';
+        if (bytes < 1024) return bytes + ' B';
+        if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+        if (bytes < 1024 * 1024 * 1024) return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+        return (bytes / (1024 * 1024 * 1024)).toFixed(2) + ' GB';
     }
     
     /**
@@ -306,6 +417,7 @@ class OfflineUIManager {
      */
     getPackageName(packageType) {
         const names = {
+            mobile: 'Mobile',
             minimal: 'Minimal',
             standard: 'Standard',
             full: 'Premium'

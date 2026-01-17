@@ -346,3 +346,124 @@
         grid-template-columns: 1fr;
     }
 }
+
+
+/* Storage Warning Banner */
+.storage-warning {
+    background: linear-gradient(135deg, #fef3c7, #fde68a);
+    border: 1px solid #f59e0b;
+    border-radius: 8px;
+    padding: 12px 16px;
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    animation: slideDown 0.3s ease;
+}
+
+@keyframes slideDown {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.storage-warning .warning-icon {
+    font-size: 24px;
+}
+
+.storage-warning .warning-text {
+    flex: 1;
+    color: #92400e;
+    font-weight: 500;
+}
+
+/* Mobile Recommended Badge */
+.option-badge {
+    position: absolute;
+    top: -10px;
+    right: 10px;
+    background: linear-gradient(135deg, #10b981, #059669);
+    color: white;
+    padding: 4px 12px;
+    border-radius: 12px;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    box-shadow: 0 2px 4px rgba(16, 185, 129, 0.3);
+    animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+    0%, 100% {
+        box-shadow: 0 2px 4px rgba(16, 185, 129, 0.3);
+    }
+    50% {
+        box-shadow: 0 2px 12px rgba(16, 185, 129, 0.5);
+    }
+}
+
+.option-card {
+    position: relative;
+}
+
+/* Mobile-specific option card styling */
+.option-card[data-package="mobile"] {
+    border: 2px solid transparent;
+    transition: border-color 0.3s ease;
+}
+
+.option-card[data-package="mobile"].recommended {
+    border-color: #10b981;
+    background: linear-gradient(135deg, #f0fdf4, #ecfdf5);
+}
+
+/* Storage indicator on option cards */
+.option-storage-warning {
+    display: none;
+    margin-top: 8px;
+    padding: 6px 10px;
+    background: #fef3c7;
+    border-radius: 4px;
+    font-size: 12px;
+    color: #92400e;
+}
+
+.option-card.insufficient-storage .option-storage-warning {
+    display: block;
+}
+
+.option-card.insufficient-storage {
+    opacity: 0.7;
+    border-color: #f59e0b;
+}
+
+/* Mobile-first responsive adjustments */
+@media (max-width: 768px) {
+    .storage-warning {
+        flex-direction: column;
+        text-align: center;
+        gap: 8px;
+    }
+    
+    .option-badge {
+        position: static;
+        display: inline-block;
+        margin-bottom: 8px;
+    }
+    
+    .download-options {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+    }
+    
+    .option-card {
+        width: 100%;
+    }
+}

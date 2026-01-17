@@ -10,7 +10,7 @@ class AIModelManager {
             throw new Error('Package type is required');
         }
         
-        const validPackages = ['minimal', 'standard', 'full'];
+        const validPackages = ['mobile', 'minimal', 'standard', 'full'];
         if (!validPackages.includes(packageType)) {
             throw new Error(`Invalid package type: ${packageType}. Must be one of: ${validPackages.join(', ')}`);
         }
@@ -24,25 +24,38 @@ class AIModelManager {
         this.model = null;
         
         // Model configurations for different package types
+        // Sizes are approximate and include model weights + WASM runtime
         this.modelConfigs = {
+            'mobile': {
+                modelId: 'Qwen2.5-0.5B-Instruct-q4f16_1-MLC',  // Tiny model (~300MB)
+                description: 'Mobile-optimized tiny model for basic Q&A',
+                sizeBytes: 300 * 1024 * 1024,  // ~300MB
+                minStorageBytes: 500 * 1024 * 1024  // Need 500MB free for safety
+            },
             'minimal': {
-                modelId: 'Llama-3.2-1B-Instruct-q4f16_1-MLC',  // Smallest model (~0.5GB)
-                description: 'Lightweight model for basic Q&A'
+                modelId: 'Llama-3.2-1B-Instruct-q4f16_1-MLC',  // Small model (~600MB)
+                description: 'Lightweight model for basic Q&A',
+                sizeBytes: 600 * 1024 * 1024,  // ~600MB
+                minStorageBytes: 800 * 1024 * 1024  // Need 800MB free for safety
             },
             'standard': {
-                modelId: 'Llama-3.2-3B-Instruct-q4f16_1-MLC',  // Medium model (~1.5GB)
-                description: 'Balanced model for general Q&A'
+                modelId: 'Llama-3.2-3B-Instruct-q4f16_1-MLC',  // Medium model (~1.8GB)
+                description: 'Balanced model for general Q&A',
+                sizeBytes: 1800 * 1024 * 1024,  // ~1.8GB
+                minStorageBytes: 2200 * 1024 * 1024  // Need 2.2GB free for safety
             },
             'full': {
                 modelId: 'Llama-3.1-8B-Instruct-q4f32_1-MLC',  // Full model (~4.5GB)
-                description: 'Full-featured model for comprehensive Q&A'
+                description: 'Full-featured model for comprehensive Q&A',
+                sizeBytes: 4500 * 1024 * 1024,  // ~4.5GB
+                minStorageBytes: 5500 * 1024 * 1024  // Need 5.5GB free for safety
             }
         };
     }
 
     /**
      * Set the package type for model selection
-     * @param {string} packageType - Type of package ('minimal', 'standard', 'full')
+     * @param {string} packageType - Type of package ('mobile', 'minimal', 'standard', 'full')
      */
     setPackageType(packageType) {
         // Allow null/undefined/empty for testing
@@ -51,11 +64,91 @@ class AIModelManager {
             return;
         }
         
-        const validPackages = ['minimal', 'standard', 'full'];
+        const validPackages = ['mobile', 'minimal', 'standard', 'full'];
         if (!validPackages.includes(packageType)) {
             throw new Error(`Invalid package type: ${packageType}. Must be one of: ${validPackages.join(', ')}`);
         }
         this.packageType = packageType;
+    }
+
+    /**
+     * Check available storage quota
+     * @returns {Promise<{available: number, total: number, used: number, sufficient: boolean}>}
+     */
+    async checkStorageQuota() {
+        const config = this.modelConfigs[this.packageType];
+        const requiredBytes = config ? config.minStorageBytes : 500 * 1024 * 1024;
+        
+        try {
+            if (navigator.storage && navigator.storage.estimate) {
+                const estimate = await navigator.storage.estimate();
+                const available = (estimate.quota || 0) - (estimate.usage || 0);
+                const result = {
+                    available: available,
+                    total: estimate.quota || 0,
+                    used: estimate.usage || 0,
+                    required: requiredBytes,
+                    sufficient: available >= requiredBytes
+                };
+                
+                console.log(`[AIModelManager] Storage check: ${this._formatBytes(available)} available, ${this._formatBytes(requiredBytes)} required`);
+                return result;
+            }
+        } catch (error) {
+            console.warn('[AIModelManager] Could not check storage quota:', error.message);
+        }
+        
+        // If we can't check, assume sufficient (will fail gracefully later if not)
+        return {
+            available: -1,
+            total: -1,
+            used: -1,
+            required: requiredBytes,
+            sufficient: true,
+            unknown: true
+        };
+    }
+
+    /**
+     * Format bytes to human-readable string
+     * @private
+     */
+    _formatBytes(bytes) {
+        if (bytes < 0) return 'Unknown';
+        if (bytes < 1024) return bytes + ' B';
+        if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+        if (bytes < 1024 * 1024 * 1024) return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+        return (bytes / (1024 * 1024 * 1024)).toFixed(2) + ' GB';
+    }
+
+    /**
+     * Get recommended package type based on device capabilities
+     * @returns {Promise<string>}
+     */
+    async getRecommendedPackage() {
+        // Check if mobile device
+        const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+        
+        // Check storage
+        const storage = await this.checkStorageQuota();
+        
+        if (isMobile || storage.available < 800 * 1024 * 1024) {
+            return 'mobile';
+        } else if (storage.available < 2200 * 1024 * 1024) {
+            return 'minimal';
+        } else if (storage.available < 5500 * 1024 * 1024) {
+            return 'standard';
+        } else {
+            return 'full';
+        }
+    }
+
+    /**
+     * Check if device is mobile
+     * @returns {boolean}
+     */
+    static isMobileDevice() {
+        return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
     }
 
     /**
@@ -90,6 +183,24 @@ class AIModelManager {
         this.error = null;
 
         try {
+            // Check storage quota before attempting download
+            const storage = await this.checkStorageQuota();
+            if (!storage.sufficient && !storage.unknown) {
+                const config = this.modelConfigs[this.packageType];
+                const availableStr = this._formatBytes(storage.available);
+                const requiredStr = this._formatBytes(storage.required);
+                
+                // Suggest a smaller package if available
+                let suggestion = '';
+                if (this.packageType !== 'mobile') {
+                    suggestion = ' Try selecting the "Mobile" package which requires less storage.';
+                }
+                
+                throw new Error(
+                    `Insufficient storage space. Available: ${availableStr}, Required: ${requiredStr}.${suggestion}`
+                );
+            }
+            
             // Load model based on package type
             console.log(`[AIModelManager] Loading model for package: ${this.packageType}`);
             
@@ -124,7 +235,7 @@ class AIModelManager {
      */
     async _loadModel(progressCallback) {
         // Validate package type
-        const validPackages = ['minimal', 'standard', 'full'];
+        const validPackages = ['mobile', 'minimal', 'standard', 'full'];
         
         if (!validPackages.includes(this.packageType)) {
             throw new Error(`Invalid package type: ${this.packageType}`);
@@ -157,6 +268,13 @@ class AIModelManager {
                 engine: 'WebLLM'
             };
         } catch (error) {
+            // Check if it's a storage/cache error
+            if (error.message && error.message.includes('Cache')) {
+                throw new Error(
+                    `Failed to cache AI model. This is usually caused by insufficient storage space. ` +
+                    `Try clearing browser data or selecting a smaller model package. Original error: ${error.message}`
+                );
+            }
             throw new Error(`Failed to load WebLLM model: ${error.message}`);
         }
     }
@@ -242,6 +360,51 @@ class AIModelManager {
                 engine: this.model.engine,
                 timestamp: this.model.timestamp
             } : null
+        };
+    }
+
+    /**
+     * Get model configuration info
+     * @returns {Object} Model configuration
+     */
+    getModelConfig() {
+        return this.modelConfigs[this.packageType] || null;
+    }
+
+    /**
+     * Get all available model configurations
+     * @returns {Object} All model configurations
+     */
+    static getAvailableModels() {
+        return {
+            'mobile': {
+                modelId: 'Qwen2.5-0.5B-Instruct-q4f16_1-MLC',
+                description: 'Mobile-optimized tiny model for basic Q&A',
+                sizeBytes: 300 * 1024 * 1024,
+                sizeLabel: '~300 MB',
+                recommended: 'Mobile devices, limited storage'
+            },
+            'minimal': {
+                modelId: 'Llama-3.2-1B-Instruct-q4f16_1-MLC',
+                description: 'Lightweight model for basic Q&A',
+                sizeBytes: 600 * 1024 * 1024,
+                sizeLabel: '~600 MB',
+                recommended: 'Tablets, older computers'
+            },
+            'standard': {
+                modelId: 'Llama-3.2-3B-Instruct-q4f16_1-MLC',
+                description: 'Balanced model for general Q&A',
+                sizeBytes: 1800 * 1024 * 1024,
+                sizeLabel: '~1.8 GB',
+                recommended: 'Most desktop computers'
+            },
+            'full': {
+                modelId: 'Llama-3.1-8B-Instruct-q4f32_1-MLC',
+                description: 'Full-featured model for comprehensive Q&A',
+                sizeBytes: 4500 * 1024 * 1024,
+                sizeLabel: '~4.5 GB',
+                recommended: 'High-end computers with ample storage'
+            }
         };
     }
 
