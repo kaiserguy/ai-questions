@@ -847,8 +847,34 @@
             const modelSelect = document.getElementById('model-select');
             const selectedModel = modelSelect.value;
             
-            // Make AJAX request to get answer
-            fetch(`/api/question?model=${selectedModel}`)
+            if (!selectedModel) {
+                document.getElementById('loading-indicator').style.display = 'none';
+                setButtonLoading(button, false);
+                if (typeof toast !== 'undefined') {
+                    toast.error('Please select a model first');
+                } else {
+                    alert('Please select a model first');
+                }
+                return;
+            }
+            
+            // First, get the current question
+            fetch('/api/question')
+                .then(response => response.json())
+                .then(questionData => {
+                    // Now generate an answer with the selected model
+                    return fetch('/api/generate-answer', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            question: questionData.question,
+                            context: questionData.context,
+                            modelId: selectedModel
+                        })
+                    });
+                })
                 .then(response => {
                     if (!response.ok) {
                         // Handle HTTP error responses
@@ -865,23 +891,25 @@
                     return response.json();
                 })
                 .then(data => {
+                    const answer = data.answer;
+                    
                     // Create answer HTML
                     const answerDiv = document.createElement('div');
                     answerDiv.className = 'answer';
-                    answerDiv.textContent = data.answer;
+                    answerDiv.textContent = answer.answer;
                     
                     const metaDiv = document.createElement('div');
                     metaDiv.className = 'meta';
                     metaDiv.innerHTML = `
-                        <span>Model: ${data.modelName || data.model}</span>
-                        <span>Confidence: ${(data.confidence * 100).toFixed(2)}%</span>
-                        <span>Date: ${new Date(data.date).toLocaleDateString()}</span>
-                        <button class="trash-button" onclick="deleteAnswer(${data.id})">🗑️</button>
+                        <span>Model: ${answer.model_name || answer.model}</span>
+                        <span>Confidence: ${(answer.confidence * 100).toFixed(2)}%</span>
+                        <span>Date: ${new Date(answer.date).toLocaleDateString()}</span>
+                        <button class="trash-button" onclick="deleteAnswer(${answer.id})">🗑️</button>
                     `;
                     
                     const historyLink = document.createElement('a');
                     historyLink.className = 'history-link';
-                    historyLink.href = `/history?question=${encodeURIComponent(data.question)}`;
+                    historyLink.href = `/history?question=${encodeURIComponent(answer.question)}`;
                     historyLink.textContent = 'View answer history for this question';
                     
                     // Get the question card
@@ -905,6 +933,11 @@
                     
                     // Re-enable button
                     setButtonLoading(button, false);
+                    
+                    // Show success toast
+                    if (typeof toast !== 'undefined') {
+                        toast.success('Answer generated successfully!');
+                    }
                     
                     // Refresh the page after 2 seconds to update the latest answers section
                     setTimeout(() => {
