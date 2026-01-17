@@ -459,8 +459,18 @@ class DownloadManager {
             
             // Check if Wikipedia database already exists in IndexedDB with actual data
             const existingFile = await this.getFile(wikiConfig.name);
-            if (existingFile && existingFile.data && existingFile.data.length > 0) {
-                console.log(`${wikiConfig.name} already exists with ${this.formatBytes(existingFile.data.length)}, checking if in correct store...`);
+            
+            // Define minimum expected sizes for corruption detection (in bytes)
+            const minSizes = {
+                'Simple-Wikipedia-210MB': 200 * 1024 * 1024, // 200 MB minimum
+                'Simple-Wikipedia-50MB': 45 * 1024 * 1024,   // 45 MB minimum
+                'Extended-Wikipedia': 400 * 1024 * 1024      // 400 MB minimum
+            };
+            
+            const minSize = minSizes[wikiConfig.name] || 1024 * 1024; // 1 MB default
+            
+            if (existingFile && existingFile.data && existingFile.data.length >= minSize) {
+                console.log(`${wikiConfig.name} already exists with ${this.formatBytes(existingFile.data.length)}, validating...`);
                 
                 // Verify it's in the wikipedia store
                 const wikiTransaction = this.db.transaction(['wikipedia'], 'readonly');
@@ -469,22 +479,24 @@ class DownloadManager {
                 
                 await new Promise((resolve) => {
                     checkWikiStore.onsuccess = () => {
-                        if (checkWikiStore.result && checkWikiStore.result.data) {
-                            console.log(`${wikiConfig.name} found in correct wikipedia store, skipping download`);
+                        if (checkWikiStore.result && checkWikiStore.result.data && checkWikiStore.result.data.length >= minSize) {
+                            console.log(`${wikiConfig.name} validated in wikipedia store (${this.formatBytes(checkWikiStore.result.data.length)}), skipping download`);
                             resolve(true);
                         } else {
-                            console.log(`${wikiConfig.name} found but not in wikipedia store, will re-download`);
+                            console.log(`${wikiConfig.name} found but corrupted or too small, will re-download`);
                             resolve(false);
                         }
                     };
                     checkWikiStore.onerror = () => resolve(false);
                 });
                 
-                // If found in correct store, skip download
-                if (checkWikiStore.result && checkWikiStore.result.data) {
+                // If found in correct store and valid size, skip download
+                if (checkWikiStore.result && checkWikiStore.result.data && checkWikiStore.result.data.length >= minSize) {
                     this.updateResource('wikipedia', 'loaded', 100);
                     return;
                 }
+            } else if (existingFile && existingFile.data) {
+                console.warn(`${wikiConfig.name} exists but corrupted (${this.formatBytes(existingFile.data.length)} < ${this.formatBytes(minSize)}), will re-download`);
             }
             
             console.log(`[DownloadManager] Attempting Wikipedia download...`);
