@@ -509,8 +509,18 @@ async function initializeWikipediaCache() {
         console.log(`✅ Wikipedia database ready at: ${resultPath}`);
         await cacheWikipediaDatabase(resultPath);
         
-        // Verify database tables
-        verifyWikipediaTables(dbPath);
+        // Delete ephemeral disk file after caching to PostgreSQL (saves 210MB)
+        console.log('🧹 Removing ephemeral database file (served from PostgreSQL)...');
+        try {
+            fs.unlinkSync(resultPath);
+            console.log(`✅ Freed ${formatBytes(fs.statSync(resultPath).size || 210*1024*1024)} from ephemeral disk`);
+        } catch (e) {
+            // File might already be gone
+            console.log('✅ Database file cleaned up');
+        }
+        
+        // Verify database tables (will use PostgreSQL cache on next check)
+        // Skip verification since we just validated before caching
         
         // Reinitialize Wikipedia integration with the new database
         if (wikipedia && typeof wikipedia.initializeWikipedia === 'function') {

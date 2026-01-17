@@ -237,12 +237,12 @@ class WikipediaDownloader {
     }
     
     /**
-     * Extract and process Wikipedia XML dump into SQLite database
-     * Memory-optimized for low-memory environments
+     * Download and stream-process Wikipedia dump without saving compressed file to disk
+     * Memory-optimized: HTTP → BZ2 decompress → XML parse → SQLite
      */
-    extractAndProcess(compressedFile, dbPath, progressCallback = null) {
+    downloadAndStreamProcess(dataset, dbPath, progressCallback = null) {
         return new Promise((resolve, reject) => {
-            console.log(`📝 Processing ${compressedFile} into ${dbPath}`);
+            console.log(`📝 Streaming ${dataset.name} from ${dataset.url}`);
             
             // Initialize database with memory-optimized settings
             const db = new WikipediaDatabase(dbPath);
@@ -253,30 +253,75 @@ class WikipediaDownloader {
                 global.gc();
             }
             
-            // Create read stream with smaller buffer
-            const readStream = fs.createReadStream(compressedFile, {
-                highWaterMark: 64 * 1024 // 64KB chunks instead of default 64KB
-            });
+            const downloadWithRedirects = (url) => {
+                const parsedUrl = new URL(url);
+                const client = parsedUrl.protocol === 'https:' ? https : http;
+                
+                const request = client.get(url, (response) => {
+                    if (response.statusCode === 301 || response.statusCode === 302) {
+                        downloadWithRedirects(response.headers.location);
+                        return;
+                    }
+                    
+                    if (response.statusCode !== 200) {
+                        reject(new Error(`HTTP ${response.statusCode}: ${response.statusMessage}`));
+                        return;
+                    }
+                    
+                    const totalSize = parseInt(response.headers['content-length'], 10) || 0;
+                    let downloaded = 0;
+                    let lastProgress = 0;
+                    
+                    response.on('data', (chunk) => {
+                        downloaded += chunk.length;
+                        if (progressCallback && totalSize > 0) {
+                            const progress = (downloaded / totalSize) * 100;
+                            if (progress - lastProgress >= 5) { // Report every 5%
+                                progressCallback(progress, downloaded, totalSize);
+                                lastProgress = progress;
+                            }
+                        }
+                    });
+                    
+                    // Stream pipeline: HTTP → BZ2 → XML Parser → Database
+                    const decompressStream = unbzip2();
+                    const saxStream = sax.createStream(true, { 
+                        trim: true,
+                        normalize: true,
+                        lowercase: false,
+                        xmlns: false,
+                        position: false
+                    });
+                    
+                    // Connect streams
+                    response.pipe(decompressStream).pipe(saxStream);
+                    
+                    // Set up XML processing (same as before)
+                    this.setupXMLProcessing(saxStream, db, dbPath, resolve, reject);
+                });
+                
+                request.on('error', (err) => reject(err));
+                request.setTimeout(600000, () => {
+                    request.destroy();
+                    reject(new Error('Download timeout'));
+                });
+            };
             
-            const decompressStream = unbzip2();
-            
-            // Create SAX parser with strict mode
-            const saxStream = sax.createStream(true, { 
-                trim: true,
-                normalize: true,
-                lowercase: false,
-                xmlns: false,
-                position: false
-            });
-            
-            // State variables - minimize object allocations
-            let currentElement = null;
-            let pageTitle = '';
-            let pageText = '';
-            let pageId = '';
-            let inPage = false;
-            let articlesProcessed = 0;
-            let articlesSkipped = 0;
+            downloadWithRedirects(dataset.url);
+        });
+    }
+    
+    /**
+     * Set up XML processing handlers (extracted from extractAndProcess)
+     */
+    setupXMLProcessing(saxStream, db, dbPath, resolve, reject) {
+        let currentElement = null;
+        let pageTitle = '';
+        let pageText = '';
+        let pageId = '';
+        let inPage = false;
+        let articlesProcessed = 0;
+        let articlesSkipped = 0;
             
             // Batch processing for better performance
             const BATCH_SIZE = 100;
@@ -343,22 +388,25 @@ class WikipediaDownloader {
                             db.insertBatch(batch);
                             batch = [];
                             
-                            // Progress update
-                            if (articlesProcessed % 1000 === 0) {
-                                process.stdout.write(`\r📝 Processed ${articlesProcessed.toLocaleString()} articles (${articlesSkipped.toLocaleString()} skipped)`);
+                            // Progress update every 500 articles for better visibility
+                            if (articlesProcessed % 500 === 0) {
+                                const totalPages = articlesProcessed + articlesSkipped;
+                                process.stdout.write(`\r📝 Processing: ${articlesProcessed.toLocaleString()} articles | ${articlesSkipped.toLocaleString()} skipped | ${totalPages.toLocaleString()} pages total`);
                                 
                                 // Periodic garbage collection hint
                                 if (articlesProcessed % 10000 === 0 && global.gc) {
                                     global.gc();
                                 }
                             }
-                            
-                            if (progressCallback) {
-                                progressCallback(articlesProcessed);
-                            }
                         }
                     } else {
                         articlesSkipped++;
+                        
+                        // Show skipped progress too (every 5000 to avoid spam)
+                        if (articlesSkipped % 5000 === 0) {
+                            const totalPages = articlesProcessed + articlesSkipped;
+                            process.stdout.write(`\r📝 Processing: ${articlesProcessed.toLocaleString()} articles | ${articlesSkipped.toLocaleString()} skipped | ${totalPages.toLocaleString()} pages total`);
+                        }
                     }
                     
                     // Clear page data immediately
@@ -385,13 +433,16 @@ class WikipediaDownloader {
                     batch = [];
                 }
                 
-                console.log(`\n📊 Creating full-text search index...`);
-                console.log(`📚 Processed ${articlesProcessed.toLocaleString()} articles`);
-                console.log(`⏭️  Skipped ${articlesSkipped.toLocaleString()} non-article pages`);
+                const totalPages = articlesProcessed + articlesSkipped;
+                console.log(`\n\n📊 Stream processing complete!`);
+                console.log(`📚 Articles saved: ${articlesProcessed.toLocaleString()}`);
+                console.log(`⏭️  Pages skipped: ${articlesSkipped.toLocaleString()}`);
+                console.log(`📄 Total pages processed: ${totalPages.toLocaleString()}`);
+                console.log(`\n📊 Finalizing database...`);
                 
                 db.createSearchIndex(() => {
                     const stats = db.getStatsSync();
-                    console.log(`✅ Processing completed!`);
+                    console.log(`✅ Database ready!`);
                     console.log(`📚 Total articles in database: ${stats.total_articles.toLocaleString()}`);
                     
                     db.close();
@@ -584,41 +635,30 @@ class WikipediaDatabase {
 async function downloadAndProcessWikipedia(datasetName = 'simple', dbPath = './wikipedia.db', dataDir = './wikipedia_data') {
     const downloader = new WikipediaDownloader(dataDir);
     
-    // Progress callback for download
+    // Progress callback for download/processing
     const downloadProgress = (progress, downloaded, total) => {
         const downloadedMB = (downloaded / 1024 / 1024).toFixed(1);
         const totalMB = (total / 1024 / 1024).toFixed(1);
-        process.stdout.write(`\r📥 Download progress: ${progress.toFixed(1)}% (${downloadedMB}MB / ${totalMB}MB)`);
-    };
-    
-    // Progress callback for processing
-    const processProgress = (articlesProcessed) => {
-        // Progress is logged in the processor
+        process.stdout.write(`\r📥 Download & process: ${progress.toFixed(1)}% (${downloadedMB}MB / ${totalMB}MB)`);
     };
     
     try {
-        // Step 1: Download
-        console.log('📥 Step 1/2: Downloading Wikipedia dump...');
-        const compressedFile = await downloader.downloadDataset(datasetName, downloadProgress);
-        
-        // Step 2: Process
-        console.log('\n📝 Step 2/2: Processing Wikipedia articles...');
-        console.log('⏱️  This will take several minutes...');
-        const result = await downloader.extractAndProcess(compressedFile, dbPath, processProgress);
-        
-        // Clean up compressed file to save space
-        console.log('🧹 Cleaning up temporary files...');
-        try {
-            fs.unlinkSync(compressedFile);
-            // Also try to remove the data directory if empty
-            fs.rmdirSync(dataDir);
-        } catch (e) {
-            // Ignore cleanup errors
+        // Get dataset info
+        const dataset = WIKIPEDIA_DATASETS[datasetName];
+        if (!dataset) {
+            throw new Error(`Unknown dataset: ${datasetName}`);
         }
+        
+        console.log(`📥 Downloading from ${dataset.url}`);
+        console.log('📥 Streaming and processing Wikipedia (no disk writes)...');
+        console.log('⏱️  This will take several minutes...');
+        
+        // Stream directly: HTTP → BZ2 → XML → SQLite (no compressed file saved)
+        const result = await downloader.downloadAndStreamProcess(dataset, dbPath, downloadProgress);
         
         return result;
     } catch (error) {
-        console.error(`\n❌ Wikipedia download/processing failed: ${error.message}`);
+        console.error(`\n❌ Download/process failed: ${error.message}`);
         throw error;
     }
 }
