@@ -282,7 +282,7 @@ class DownloadManager {
                 if (await this.fileExists(library.name)) {
                     console.log(`${library.name} already exists, skipping download`);
                     completedLibraries++;
-                    const progress = Math.round((completedLibraries / libraries.length) * 100);
+                    const progress = Math.min(100, Math.round((completedLibraries / libraries.length) * 100));
                     this.updateResource('libraries', 'downloading', progress);
                     continue;
                 }
@@ -291,20 +291,20 @@ class DownloadManager {
                 let downloadUrl = library.url;
                 try {
                     await this.downloadResource(library.name, downloadUrl, (libProgress) => {
-                        const overallProgress = Math.round(((completedLibraries + libProgress / 100) / libraries.length) * 100);
+                        const overallProgress = Math.min(100, Math.round(((completedLibraries + libProgress / 100) / libraries.length) * 100));
                         this.updateResource('libraries', 'downloading', overallProgress);
                     });
                 } catch (primaryError) {
                     console.log(`Primary URL failed for ${library.name}, trying fallback...`);
                     downloadUrl = library.fallbackUrl;
                     await this.downloadResource(library.name, downloadUrl, (libProgress) => {
-                        const overallProgress = Math.round(((completedLibraries + libProgress / 100) / libraries.length) * 100);
+                        const overallProgress = Math.min(100, Math.round(((completedLibraries + libProgress / 100) / libraries.length) * 100));
                         this.updateResource('libraries', 'downloading', overallProgress);
                     });
                 }
                 
                 completedLibraries++;
-                const progress = Math.round((completedLibraries / libraries.length) * 100);
+                const progress = Math.min(100, Math.round((completedLibraries / libraries.length) * 100));
                 this.updateResource('libraries', 'downloading', progress);
                 
             } catch (error) {
@@ -508,11 +508,19 @@ class DownloadManager {
                 
                 if (response.ok) {
                     console.log('[DownloadManager] Server has Wikipedia database, downloading...');
-                    await this.downloadResource(wikiConfig.name, wikiConfig.serverUrl, (progress) => {
+                    const downloadedData = await this.downloadResource(wikiConfig.name, wikiConfig.serverUrl, (progress) => {
                         this.updateResource('wikipedia', 'downloading', progress);
                     });
-                    this.updateResource('wikipedia', 'loaded', 100);
-                    return;
+                    
+                    // Validate downloaded size
+                    if (downloadedData && downloadedData.length >= minSize) {
+                        console.log(`[DownloadManager] Wikipedia download validated: ${this.formatBytes(downloadedData.length)}`);
+                        this.updateResource('wikipedia', 'loaded', 100);
+                        return;
+                    } else {
+                        const actualSize = downloadedData ? this.formatBytes(downloadedData.length) : '0 bytes';
+                        throw new Error(`Downloaded Wikipedia file is corrupted (${actualSize}, expected at least ${this.formatBytes(minSize)})`);
+                    }
                 } else if (response.status === 202) {
                     // Server is downloading Wikipedia - poll for status
                     const statusData = await response.json();
