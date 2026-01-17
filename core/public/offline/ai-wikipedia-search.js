@@ -52,7 +52,12 @@ class AIWikipediaSearch {
         try {
             await this.initializeDatabase();
         } catch (error) {
-            console.error('[AIWikipediaSearch] Database initialization failed:', error);
+            // Check if this is the expected "not downloaded yet" condition
+            if (error.message && error.message.includes('not found in storage')) {
+                console.log('[AIWikipediaSearch] Wikipedia database not yet downloaded - this is normal on first visit');
+            } else {
+                console.error('[AIWikipediaSearch] Database initialization failed:', error);
+            }
             // Don't return false - UI should still work, just without database
         }
 
@@ -179,9 +184,15 @@ class AIWikipediaSearch {
             
             return true;
         } catch (error) {
-            console.error('[AIWikipediaSearch] Database initialization error:', error);
+            // Check if this is the expected "not downloaded yet" condition
+            const isNotDownloaded = error.message && error.message.includes('not found in storage');
+            if (isNotDownloaded) {
+                console.log('[AIWikipediaSearch] Wikipedia database not found - download required');
+            } else {
+                console.error('[AIWikipediaSearch] Database initialization error:', error);
+            }
             this.dbReady = false;
-            // Update status to show error/not ready
+            // Update status to show not ready (not an error for expected conditions)
             this.updateStatusIndicator();
             throw error;
         }
