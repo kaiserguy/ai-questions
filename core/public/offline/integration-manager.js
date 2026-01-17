@@ -467,8 +467,10 @@ class OfflineIntegrationManager {
      * Check for existing installation in IndexedDB
      */
     static async checkExistingInstallation() {
+        console.log('[CheckInstallation] Checking for existing installation...');
         return new Promise((resolve) => {
             if (typeof indexedDB === 'undefined') {
+                console.log('[CheckInstallation] IndexedDB not available');
                 resolve({ installed: false, packageType: 'standard' });
                 return;
             }
@@ -476,14 +478,18 @@ class OfflineIntegrationManager {
             const request = indexedDB.open('OfflineAI', 2);
             
             request.onerror = () => {
+                console.log('[CheckInstallation] Failed to open database');
                 resolve({ installed: false, packageType: 'standard' });
             };
             
             request.onsuccess = (event) => {
                 const db = event.target.result;
+                console.log('[CheckInstallation] Database opened successfully');
+                console.log('[CheckInstallation] Object stores:', Array.from(db.objectStoreNames));
                 
                 // Check if metadata store exists and has installation info
                 if (!db.objectStoreNames.contains('metadata')) {
+                    console.log('[CheckInstallation] No metadata store found');
                     db.close();
                     resolve({ installed: false, packageType: 'standard' });
                     return;
@@ -495,9 +501,11 @@ class OfflineIntegrationManager {
                 
                 getRequest.onsuccess = () => {
                     const data = getRequest.result;
+                    console.log('[CheckInstallation] Installation metadata:', data);
                     db.close();
                     
                     if (data && data.installed) {
+                        console.log(`[CheckInstallation] ✅ Found installation: ${data.packageType} from ${data.installedAt}`);
                         resolve({
                             installed: true,
                             packageType: data.packageType || 'standard',
@@ -505,11 +513,13 @@ class OfflineIntegrationManager {
                             version: data.version
                         });
                     } else {
+                        console.log('[CheckInstallation] No installation marker found');
                         resolve({ installed: false, packageType: 'standard' });
                     }
                 };
                 
                 getRequest.onerror = () => {
+                    console.log('[CheckInstallation] Failed to get installation metadata');
                     db.close();
                     resolve({ installed: false, packageType: 'standard' });
                 };
@@ -517,6 +527,7 @@ class OfflineIntegrationManager {
             
             request.onupgradeneeded = (event) => {
                 // Database doesn't exist yet, so not installed
+                console.log('[CheckInstallation] Database upgrade needed - no installation');
                 event.target.transaction.abort();
             };
         });

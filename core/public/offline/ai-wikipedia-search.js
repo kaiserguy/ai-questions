@@ -286,7 +286,7 @@ class AIWikipediaSearch {
     }
 
     /**
-     * Iteratively search and read articles until AI is satisfied it has enough context
+     * Search and batch-score articles, then deep-read top candidates
      * @param {string} userQuery - User's search query
      * @returns {Promise<Array>} Articles collected for context
      */
@@ -299,181 +299,250 @@ class AIWikipediaSearch {
         const budget = this.aiModel.getContextBudget ? this.aiModel.getContextBudget() : {
             maxIterations: 8,
             maxHistory: 5,
-            maxResults: 10
+            maxResults: 10,
+            batchSize: 10
         };
         
-        console.log(`[AIWikipediaSearch] Using context budget: ${budget.maxIterations} iterations, ${budget.maxResults} max results`);
+        console.log(`[AIWikipediaSearch] Using context budget: batch size ${budget.batchSize}, ${budget.maxResults} max results`);
 
-        const collectedArticles = [];
-        const searchHistory = []; // Track unsuccessful searches
-        const seenTitles = new Set(); // Track articles already found
-        let consecutiveDone = 0; // Track consecutive DONE attempts
-        let iteration = 0;
+        const MAX_INITIAL_RESULTS = 100;
+        const MAX_REFINEMENT_ATTEMPTS = 3;
+        let refinementAttempt = 0;
+        let allArticles = [];
+        let searchHistory = [];
 
         try {
-            console.log(`[AIWikipediaSearch] Starting iterative preliminary search...`);
-            
-            while (iteration < budget.maxIterations && !this.searchCancelled) {
-                iteration++;
+            // STEP 1: Generate targeted search query (loop until we get ≤100 results)
+            while (refinementAttempt < MAX_REFINEMENT_ATTEMPTS && !this.searchCancelled) {
+                refinementAttempt++;
+                console.log(`[AIWikipediaSearch] Search attempt ${refinementAttempt}: Generating query...`);
                 
-                // Build article context
-                let articleContext = '';
-                if (collectedArticles.length > 0) {
-                    articleContext = `\n\nArticles read so far:\n${collectedArticles.map((a, i) => `${i + 1}. "${a.title}" (Relevancy: ${a.relevancy}/10)`).join('\n')}\n`;
-                }
-                
-                // Build search history to prevent repeats (limit to budget)
                 let historyContext = '';
                 if (searchHistory.length > 0) {
-                    const recentHistory = searchHistory.slice(-budget.maxHistory); // Only show recent failed queries
-                    historyContext = `\n\nPrevious SQL queries that found nothing:\n${recentHistory.map((s, i) => `${i + 1}. ${s}`).join('\n')}\n\nTry DIFFERENT query!`;
+                    historyContext = `\n\nPrevious attempts returned too many results:\n${searchHistory.map((s, i) => `${i + 1}. ${s}`).join('\n')}\n\nBe more specific.`;
                 }
                 
-                // Ask AI to generate SQL query to find next article
-                const searchPrompt = `You are a Wikipedia database search agent. Your ONLY job is to write SQLite queries to find articles.
+                const searchPrompt = `Database: wikipedia_articles (title, content, summary, categories)
 
-Database schema: wikipedia_articles (id, article_id, title, content, summary, categories, word_count)
+Question: "${userQuery}"${historyContext}
 
-User's question: "${userQuery}"${articleContext}${historyContext}
+Write a SQLite query to find relevant Wikipedia articles.
 
-${collectedArticles.length === 0 ? 'STATUS: No articles found yet.\n' : `STATUS: ${collectedArticles.length} articles collected.\n`}
-Your task: Write a SELECT query to find ONE relevant article.
-
-IMPORTANT:
-- Use LIKE operator for text searches: WHERE title LIKE '%keyword%' OR content LIKE '%keyword%'
-- AVOID using '=' with categories (it's comma-separated text)
-- Limit to 1 result: LIMIT 1
-- Try exact title match first, then content searches
-
-Examples:
-- Question: "capital of France?" → Query: SELECT title, summary FROM wikipedia_articles WHERE title LIKE '%Paris%' LIMIT 1
-- Question: "who invented telephone?" → Query: SELECT title, summary FROM wikipedia_articles WHERE content LIKE '%Bell%' AND content LIKE '%telephone%' LIMIT 1
-- Question: "is bread made from wheat?" → Query: SELECT title, summary FROM wikipedia_articles WHERE title LIKE '%bread%' OR title LIKE '%wheat%' LIMIT 1
-
-Use LIKE with % wildcards. Do NOT use exact equality (=).
-${collectedArticles.length === 0 ? 'You CANNOT say DONE yet.\n' : 'Say "DONE" only if you have article(s) with score 7+.\n'}
-Response (SQL query or DONE):`;
+Return ONLY the SQLite query. Do not use markdown code blocks. Do not add explanations. Your entire response will be executed directly as SQL against a local offline Wikipedia database. This is an automated prompt. There is no user reading your reply. Like Bumblebee from Transformers, your only way to communicate is by generating SQL that eventually returns relevant articles that the end user eventually reads. This is your radio.
+Your response should start with "SELECT" and end without a semicolon. Do not wrap the response in any code or markdown blocks.`;
 
                 const decision = await this.aiModel.generateResponse(searchPrompt);
-                let cleanDecision = decision.trim();
-                cleanDecision = cleanDecision.replace(/```sql?/gi, '').replace(/```/g, '').trim();
-                cleanDecision = cleanDecision.replace(/;+$/g, '').trim();
-                const firstLine = cleanDecision.split('\n')[0].trim().toUpperCase();
+                let sql = decision.trim();
                 
-                console.log(`[AIWikipediaSearch] Iteration ${iteration} - AI response: "${cleanDecision.substring(0, 100)}..."`);
-                
-                // Check if AI says DONE
-                if (firstLine === 'DONE' || firstLine.startsWith('DONE')) {
-                    consecutiveDone++;
-                    
-                    if (collectedArticles.length === 0) {
-                        console.log(`[AIWikipediaSearch] AI tried to finish with 0 articles - REJECTED (attempt ${consecutiveDone})`);
-                        
-                        // After many failed attempts, give up
-                        if (consecutiveDone >= 10) {
-                            console.error(`[AIWikipediaSearch] AI refusing to search after ${consecutiveDone} attempts - aborting`);
-                            break;
-                        }
-                        continue;
-                    }
-                    
-                    const bestScore = Math.max(...collectedArticles.map(a => a.relevancy || 0));
-                    if (bestScore >= 7) {
-                        console.log(`[AIWikipediaSearch] AI satisfied with ${collectedArticles.length} articles (best: ${bestScore}/10)`);
-                        break;
-                    } else {
-                        console.log(`[AIWikipediaSearch] Best score ${bestScore}/10 insufficient - continuing`);
-                        continue;
-                    }
-                }
-                
-                // AI gave SQL query - reset DONE counter
-                consecutiveDone = 0;
-                
-                // Extract SELECT statement
-                const sqlMatch = cleanDecision.match(/SELECT[\s\S]+?$/i);
-                const sql = sqlMatch ? sqlMatch[0].trim() : cleanDecision.trim();
+                console.log(`[AIWikipediaSearch] Raw AI response: "${decision}"`);
+                console.log(`[AIWikipediaSearch] Trimmed SQL: "${sql}"`);
                 
                 // Validate it's a SELECT query
                 if (!sql || !sql.toUpperCase().startsWith('SELECT')) {
-                    console.log(`[AIWikipediaSearch] Invalid SQL response - skipping`);
+                    console.error(`[AIWikipediaSearch] Invalid SQL response - does not start with SELECT: "${decision}"`);
                     continue;
                 }
                 
-                console.log(`[AIWikipediaSearch] Executing: ${sql.substring(0, 80)}...`);
+                // Remove any existing LIMIT clause (we'll check count first)
+                sql = sql.replace(/LIMIT\s+\d+/gi, '').trim();
                 
-                const stmt = this.db.prepare(sql);
-                if (stmt.step()) {
-                    const article = stmt.getAsObject();
+                console.log(`[AIWikipediaSearch] Checking result count for: ${sql.substring(0, 100)}...`);
+                this.showMessage(`Searching Wikipedia (attempt ${refinementAttempt})...`, 'info', true);
+                
+                // First, count how many results this query would return
+                let resultCount = 0;
+                try {
+                    const countSql = sql.replace(/SELECT\s+[\s\S]+?\s+FROM/i, 'SELECT COUNT(*) as count FROM');
+                    const countStmt = this.db.prepare(countSql);
                     
-                    // Skip if we've already seen this article
-                    if (seenTitles.has(article.title)) {
-                        console.log(`[AIWikipediaSearch] Duplicate article "${article.title}" - skipping`);
-                        searchHistory.push(sql.substring(0, 100));
-                        stmt.free();
-                        continue;
+                    if (countStmt.step()) {
+                        resultCount = countStmt.get()[0];
                     }
+                    countStmt.free();
                     
-                    seenTitles.add(article.title);
-                    
-                    // Ask AI to score this article's relevancy
-                    try {
-                        const scorePrompt = `Database search task: "${userQuery}"\nFound article: "${article.title}"\nSummary: ${(article.summary || article.snippet).substring(0, 200)}\n\nRelevance score (0-10)?\nRespond with ONLY a number 0-10:`;
-                        const scoreResponse = await this.aiModel.generateResponse(scorePrompt);
-                        const scoreMatch = scoreResponse.match(/\d+/);
-                        article.relevancy = scoreMatch ? Math.min(parseInt(scoreMatch[0]), 10) : 5;
-                    } catch (error) {
-                        article.relevancy = 5;
-                    }
-                    
-                    collectedArticles.push(article);
-                    console.log(`[AIWikipediaSearch] Read article: "${article.title}" (relevancy: ${article.relevancy}/10)`);
-                    
-                    // Early exit based on budget maxResults
-                    if (collectedArticles.length >= budget.maxResults) {
-                        console.log(`[AIWikipediaSearch] Reached maximum articles (${budget.maxResults}) for this model`);
-                        break;
-                    }
-                    
-                    // Early exit if we have enough articles and none are highly relevant
-                    const halfBudget = Math.floor(budget.maxResults / 2);
-                    if (collectedArticles.length >= halfBudget) {
-                        const maxRelevancy = Math.max(...collectedArticles.map(a => a.relevancy || 0));
-                        if (maxRelevancy <= 3) {
-                            console.log(`[AIWikipediaSearch] Early exit - ${collectedArticles.length} articles but max relevancy only ${maxRelevancy}/10`);
-                            break;
-                        }
-                    }
-                } else {
-                    // No article found - add SQL to history to prevent repeats (limit history size)
-                    console.log(`[AIWikipediaSearch] Query returned no results - adding to history`);
-                    searchHistory.push(sql.substring(0, 100));
-                    
-                    // Trim history to budget size
-                    if (searchHistory.length > budget.maxHistory) {
-                        searchHistory.shift(); // Remove oldest
-                    }
+                    console.log(`[AIWikipediaSearch] Query would return ${resultCount} articles`);
+                } catch (error) {
+                    console.error(`[AIWikipediaSearch] Query error:`, error);
+                    this.showMessage('Invalid query, retrying...', 'info', true);
+                    searchHistory.push(sql.substring(0, 100) + ' (error)');
+                    continue;
+                }
+                
+                // Check if result set is reasonable
+                if (resultCount === 0) {
+                    console.log(`[AIWikipediaSearch] No results - query too specific`);
+                    this.showMessage('Query too specific, trying broader search...', 'info', true);
+                    searchHistory.push(sql.substring(0, 100) + ' (0 results)');
+                    continue;
+                } else if (resultCount > MAX_INITIAL_RESULTS) {
+                    console.log(`[AIWikipediaSearch] ${resultCount} results - too many, refining...`);
+                    this.showMessage(`Found ${resultCount} articles - too many. Refining search...`, 'info', true);
+                    searchHistory.push(sql.substring(0, 100) + ` (${resultCount} results)`);
+                    continue;
+                }
+                
+                // Good count - now execute the actual query with LIMIT 100 for safety
+                console.log(`[AIWikipediaSearch] Good result count: ${resultCount} articles - fetching data...`);
+                const finalSql = sql + ' LIMIT 100';
+                const stmt = this.db.prepare(finalSql);
+                allArticles = [];
+                while (stmt.step()) {
+                    allArticles.push(stmt.getAsObject());
                 }
                 stmt.free();
                 
-                // Update UI to show progress
-                const bestScore = collectedArticles.length > 0 ? Math.max(...collectedArticles.map(a => a.relevancy || 0)) : 0;
-                this.showMessage(`AI reading articles... (${collectedArticles.length} read, best: ${bestScore}/10)`, 'info');
+                console.log(`[AIWikipediaSearch] Fetched ${allArticles.length} articles`);
+                break;
             }
             
-            if (iteration >= budget.maxIterations) {
-                console.log(`[AIWikipediaSearch] Reached iteration limit (${budget.maxIterations}) with ${collectedArticles.length} articles`);
+            // Check if we got usable results
+            if (allArticles.length === 0) {
+                console.log(`[AIWikipediaSearch] No articles found after ${refinementAttempt} attempts`);
+                return [];
+            }
+            
+            // STEP 2: Batch score all articles (title + summary only)
+            console.log(`[AIWikipediaSearch] Step 2: Batch scoring ${allArticles.length} articles...`);
+            this.showMessage(`Scoring ${allArticles.length} articles in batches...`, 'info', true);
+            
+            const scoredArticles = [];
+            
+            for (let i = 0; i < allArticles.length && !this.searchCancelled; i += budget.batchSize) {
+                const batch = allArticles.slice(i, i + budget.batchSize);
+                const batchNum = Math.floor(i / budget.batchSize) + 1;
+                const totalBatches = Math.ceil(allArticles.length / budget.batchSize);
+                
+                console.log(`[AIWikipediaSearch] Scoring batch ${batchNum}/${totalBatches} (${batch.length} articles)...`);
+                
+                // Build batch scoring prompt
+                const batchPrompt = `Question: "${userQuery}"
+
+Score each article's relevance (0-10). Return ONLY an array of numbers in the same order.
+
+Articles:
+${batch.map((a, idx) => `${idx + 1}. "${a.title}"\n   Summary: ${(a.summary || '').substring(0, 200)}...`).join('\n\n')}
+
+Examples:
+Q: "Is France in Europe?" + ["France", "China", "Europe"] → [10, 2, 9]
+Q: "Is bread made of wheat?" + ["Farming", "Spain", "Cooking"] → [8, 2, 7]
+
+Return array [score1, score2, ...]:`;
+
+                try {
+                    const scoreResponse = await this.aiModel.generateResponse(batchPrompt);
+                    
+                    // Extract array of numbers
+                    const arrayMatch = scoreResponse.match(/\[([0-9,\s]+)\]/);
+                    if (arrayMatch) {
+                        const scores = arrayMatch[1].split(',').map(s => Math.min(parseInt(s.trim()), 10));
+                        
+                        // Assign scores to articles
+                        batch.forEach((article, idx) => {
+                            article.relevancy = scores[idx] !== undefined ? scores[idx] : 0;
+                            scoredArticles.push(article);
+                        });
+                        
+                        console.log(`[AIWikipediaSearch] Batch ${batchNum} scored: ${scores.join(', ')}`);
+                    } else {
+                        // Fallback: keyword matching
+                        console.log(`[AIWikipediaSearch] Batch ${batchNum} scoring failed, using keyword fallback`);
+                        batch.forEach(article => {
+                            const queryLower = userQuery.toLowerCase();
+                            const titleLower = article.title.toLowerCase();
+                            const summaryLower = (article.summary || '').toLowerCase();
+                            
+                            const keywords = queryLower.split(/\s+/).filter(w => w.length > 3);
+                            const matches = keywords.filter(kw => 
+                                titleLower.includes(kw) || summaryLower.includes(kw)
+                            );
+                            
+                            article.relevancy = Math.min(matches.length * 3, 8);
+                            scoredArticles.push(article);
+                        });
+                    }
+                } catch (error) {
+                    console.error(`[AIWikipediaSearch] Batch ${batchNum} error:`, error);
+                    // Fallback scoring
+                    batch.forEach(article => {
+                        article.relevancy = 5;
+                        scoredArticles.push(article);
+                    });
+                }
+                
+                this.showMessage(`Scored ${scoredArticles.length}/${allArticles.length} articles...`, 'info', true);
+            }
+            
+            // STEP 4: Sort by relevancy and take top candidates
+            console.log(`[AIWikipediaSearch] Step 3: Sorting and selecting top ${budget.maxResults} articles...`);
+            scoredArticles.sort((a, b) => (b.relevancy || 0) - (a.relevancy || 0));
+            const topArticles = scoredArticles.slice(0, budget.maxResults);
+            
+            console.log(`[AIWikipediaSearch] Top ${topArticles.length} articles: ${topArticles.map(a => `"${a.title}" (${a.relevancy}/10)`).join(', ')}`);
+            
+            // STEP 5: Read full content for top articles and get detailed scores
+            console.log(`[AIWikipediaSearch] Step 4: Reading full content for top ${topArticles.length} articles...`);
+            this.showMessage(`Reading full content for top ${topArticles.length} articles...`, 'info', true);
+            
+            const finalArticles = [];
+            for (let i = 0; i < topArticles.length; i++) {
+                if (this.searchCancelled) break;
+                
+                const article = topArticles[i];
+                
+                // Fetch full article content
+                const contentStmt = this.db.prepare(`SELECT * FROM wikipedia_articles WHERE title = ?`);
+                contentStmt.bind([article.title]);
+                
+                if (contentStmt.step()) {
+                    const fullArticle = contentStmt.getAsObject();
+                    
+                    // Get detailed score with full content
+                    try {
+                        const detailedPrompt = `Question: "${userQuery}"
+Article: "${fullArticle.title}"
+Content preview: ${(fullArticle.content || '').substring(0, 500)}...
+
+After reading the article content, how relevant is this to the question?
+
+Score 0-10 (0=not relevant, 10=perfect answer):`;
+                        
+                        const detailedResponse = await this.aiModel.generateResponse(detailedPrompt);
+                        const scoreMatch = detailedResponse.match(/\b([0-9]|10)\b/);
+                        
+                        if (scoreMatch) {
+                            fullArticle.relevancy = Math.min(parseInt(scoreMatch[0]), 10);
+                        } else {
+                            fullArticle.relevancy = article.relevancy; // Keep preliminary score
+                        }
+                    } catch (error) {
+                        fullArticle.relevancy = article.relevancy;
+                    }
+                    
+                    finalArticles.push(fullArticle);
+                    console.log(`[AIWikipediaSearch] Read article ${i + 1}/${topArticles.length}: "${fullArticle.title}" (final score: ${fullArticle.relevancy}/10)`);
+                    this.showMessage(`Reading article ${i + 1}/${topArticles.length}: "${fullArticle.title}"...`, 'info', true);
+                }
+                
+                contentStmt.free();
+            }
+            
+            // STEP 6: Sort final results by detailed scores
+            finalArticles.sort((a, b) => (b.relevancy || 0) - (a.relevancy || 0));
+            
+            console.log(`[AIWikipediaSearch] Batch search complete: ${finalArticles.length} articles`);
+            if (finalArticles.length > 0) {
+                const bestScore = Math.max(...finalArticles.map(a => a.relevancy || 0));
+                console.log(`[AIWikipediaSearch] Best article: "${finalArticles[0].title}" (${bestScore}/10)`);
             }
             
             if (this.searchCancelled) {
-                console.log(`[AIWikipediaSearch] Search cancelled by user with ${collectedArticles.length} articles read`);
+                console.log(`[AIWikipediaSearch] Search cancelled by user`);
             }
             
-            console.log(`[AIWikipediaSearch] Preliminary search complete - collected ${collectedArticles.length} articles`);
-            return collectedArticles;
+            return finalArticles;
         } catch (error) {
             console.error('[AIWikipediaSearch] Preliminary search failed:', error);
-            return collectedArticles;
+            return [];
         }
     }
 
@@ -988,8 +1057,9 @@ Response (SQL query or DONE):`;
      * Show a message
      * @param {string} message - Message text
      * @param {string} type - Message type (info, warning, error)
+     * @param {boolean} keepStopButton - Keep stop button visible (for progress updates during search)
      */
-    showMessage(message, type = 'info') {
+    showMessage(message, type = 'info', keepStopButton = false) {
         const iconMap = {
             info: 'ℹ️',
             warning: '⚠️',
@@ -1006,9 +1076,11 @@ Response (SQL query or DONE):`;
             </div>
         `;
         
-        // Hide stop button
+        // Hide stop button unless we're showing progress during search
         const stopBtn = document.getElementById('wikiStopBtn');
-        if (stopBtn) stopBtn.style.display = 'none';
+        if (stopBtn) {
+            stopBtn.style.display = keepStopButton ? 'inline-block' : 'none';
+        }
     }
 
     /**

@@ -624,7 +624,45 @@ class DownloadManager {
                     console.warn('Wikipedia initialization failed or timed out:', wikiError);
                     // Continue without Wikipedia - don't fail the whole process
                 }
+                
+                // Mark package as installed in metadata
+                // CRITICAL: Wait for transaction to complete
+                await new Promise((resolve, reject) => {
+                    const transaction = this.db.transaction(['metadata'], 'readwrite');
+                    const store = transaction.objectStore('metadata');
+                    
+                    const putRequest = store.put({
+                        key: 'installation',
+                        installed: true,
+                        packageType: this.packageType,
+                        installedAt: new Date().toISOString(),
+                        version: '1.0'
+                    });
+                    
+                    putRequest.onsuccess = () => {
+                        console.log(`✅ Metadata put request succeeded for ${this.packageType}`);
+                    };
+                    
+                    putRequest.onerror = (error) => {
+                        console.error('❌ Metadata put request failed:', error);
+                        reject(error);
+                    };
+                    
+                    transaction.oncomplete = () => {
+                        console.log(`✅ Installation metadata COMMITTED for ${this.packageType}`);
+                        resolve();
+                    };
+                    
+                    transaction.onerror = (error) => {
+                        console.error('❌ Transaction failed:', error);
+                        reject(error);
+                    };
+                });
+                
             })(), 10000, 'Initialization timeout');
+            
+            // Clear download state since we're complete
+            await this.clearDownloadState();
             
             this.updateProgress('Offline mode ready!');
         } catch (error) {
