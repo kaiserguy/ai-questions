@@ -166,15 +166,22 @@ class OfflineIntegrationManager {
                 this.wikipediaManager = new AIWikipediaSearch();
             }
             
-            // Don't initialize AI model on page load - it triggers downloads
-            // The model will be initialized during the download process
-            // or lazily when first used for chat
-            console.log('[IntegrationManager] Managers created, skipping AI model auto-load');
+            // Initialize AI model manager if injected (for tests) or if it has an initialize method
+            if (this.aiModelManager && typeof this.aiModelManager.initialize === 'function') {
+                try {
+                    await this.aiModelManager.initialize();
+                } catch (aiError) {
+                    console.error('AI model initialization failed:', aiError);
+                    throw aiError; // Propagate error for tests to catch
+                }
+            }
             
             // Initialize AIWikipediaSearch if it exists
             if (this.wikipediaManager) {
                 try {
-                    await this.wikipediaManager.initialize();
+                    if (typeof this.wikipediaManager.initialize === 'function') {
+                        await this.wikipediaManager.initialize();
+                    }
                     this.wikiManager = this.wikipediaManager; // Keep both references
                 } catch (wikiError) {
                     console.warn('AIWikipediaSearch initialization failed:', wikiError);
