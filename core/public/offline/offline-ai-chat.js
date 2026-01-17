@@ -193,15 +193,7 @@ class OfflineAIChat {
                     responseText = null;
                 }
             }
-            
-            // Fallback to rule-based response synthesis if no model or generation failed
-            if (!responseText) {
-                console.log('Using fallback response synthesis...');
-                const analysis = this.analyzeMessage(message);
-                responseText = await this.synthesizeResponse(message, analysis, onToken);
-                modelUsed = 'fallback-ai';
-            }
-            
+                        
             if (!responseText) {
                 responseText = 'I apologize, but I was unable to generate a response.';
             }
@@ -221,29 +213,6 @@ class OfflineAIChat {
 
         } catch (error) {
             console.error('Error generating response:', error);
-            
-            // Try fallback even on error
-            try {
-                const analysis = this.analyzeMessage(message);
-                const fallbackResponse = await this.synthesizeResponse(message, analysis, onToken);
-                
-                this.conversationHistory.push(
-                    { role: 'user', content: message },
-                    { role: 'assistant', content: fallbackResponse }
-                );
-                
-                return {
-                    success: true,
-                    response: fallbackResponse,
-                    model: 'fallback-ai',
-                    timestamp: new Date().toISOString()
-                };
-            } catch (fallbackError) {
-                return {
-                    success: false,
-                    error: error.message || 'Failed to generate response'
-                };
-            }
         } finally {
             this.isGenerating = false;
         }
@@ -291,57 +260,6 @@ class OfflineAIChat {
         analysis.keywords = words.filter(w => w.length > 3).map(w => w.toLowerCase());
 
         return analysis;
-    }
-
-    /**
-     * Synthesize a response based on message analysis (fallback mode)
-     */
-    async synthesizeResponse(message, analysis, onToken = null) {
-        let response = '';
-
-        if (analysis.isGreeting) {
-            const greetings = [
-                "Hello! I'm your offline AI assistant. I work without internet required! What would you like to know about?",
-                "Hi there! I'm ready to help with any questions you have. What can I assist you with?",
-                "Greetings! I'm here to help. Feel free to ask me anything!"
-            ];
-            response = greetings[Math.floor(Math.random() * greetings.length)];
-        } else if (analysis.isMath) {
-            const mathMatch = message.match(/(\d+)\s*([+\-*/])\s*(\d+)/);
-            if (mathMatch) {
-                const [, num1, op, num2] = mathMatch;
-                const n1 = parseInt(num1);
-                const n2 = parseInt(num2);
-                let result;
-                
-                switch(op) {
-                    case '+': result = n1 + n2; break;
-                    case '-': result = n1 - n2; break;
-                    case '*': result = n1 * n2; break;
-                    case '/': result = (n1 / n2).toFixed(2); break;
-                    default: result = 'unknown';
-                }
-                
-                response = `${num1} ${op} ${num2} equals ${result}`;
-            }
-        } else if (analysis.isQuestion) {
-            const keywords = analysis.keywords.join(' ');
-            response = `I'd be happy to explain '${keywords}'! While I may not have comprehensive details about every topic, I can often provide basic information and context. Could you provide more specific details about what you'd like to know?`;
-        } else {
-            response = `That's an interesting point about '${analysis.keywords.join(' ')}'! I'd like to help, but I may need more context to provide a meaningful response. Could you rephrase your question or provide more details?`;
-        }
-
-        // Stream tokens to UI for responsive feedback
-        if (onToken) {
-            const words = response.split(' ');
-            for (const word of words) {
-                if (this.shouldStop) break;
-                onToken(word + ' ');
-                await new Promise(resolve => setTimeout(resolve, 10));
-            }
-        }
-
-        return response;
     }
 
     /**
