@@ -571,11 +571,20 @@ async function getWikipediaCacheMetadata() {
     try {
         // Check for chunked file first (new format)
         const chunkedMetadata = await db.getChunkedFileMetadata(WIKIPEDIA_CACHE_NAME);
-        if (chunkedMetadata && chunkedMetadata.chunks_present === chunkedMetadata.total_chunks) {
-            return {
-                size: chunkedMetadata.total_size,
-                updated_at: chunkedMetadata.updated_at
-            };
+        
+        if (chunkedMetadata) {
+            console.log(`🔍 Found ${chunkedMetadata.chunks_present} of ${chunkedMetadata.total_chunks} chunks in cache`);
+            
+            if (chunkedMetadata.chunks_present === chunkedMetadata.total_chunks) {
+                return {
+                    size: chunkedMetadata.total_size,
+                    updated_at: chunkedMetadata.updated_at
+                };
+            } else {
+                console.warn(`⚠️  Incomplete cache: ${chunkedMetadata.chunks_present}/${chunkedMetadata.total_chunks} chunks`);
+            }
+        } else {
+            console.log('🔍 No chunked cache found, checking old format...');
         }
         
         // Fall back to old monolithic format
