@@ -332,16 +332,19 @@ Return ONLY the SQLite query. Do not use markdown code blocks. Do not add explan
 Your response should start with "SELECT" and end without a semicolon. Do not wrap the response in any code or markdown blocks.`;
 
                 const decision = await this.aiModel.generateResponse(searchPrompt);
-                let sql = decision.trim();
                 
                 console.log(`[AIWikipediaSearch] Raw AI response: "${decision}"`);
-                console.log(`[AIWikipediaSearch] Trimmed SQL: "${sql}"`);
                 
-                // Validate it's a SELECT query
-                if (!sql || !sql.toUpperCase().startsWith('SELECT')) {
-                    console.error(`[AIWikipediaSearch] Invalid SQL response - does not start with SELECT: "${decision}"`);
+                // Extract SQL using regex - grab everything from SELECT to end, ignoring markdown/explanations
+                const sqlMatch = decision.match(/SELECT\s+[\s\S]*?FROM\s+[\s\S]+?(?:WHERE\s+[\s\S]+?)?(?:ORDER BY\s+[\s\S]+?)?(?:LIMIT\s+\d+)?(?=\n\n|```|$|;)/i);
+                
+                if (!sqlMatch) {
+                    console.error(`[AIWikipediaSearch] No valid SQL found in response: "${decision}"`);
                     continue;
                 }
+                
+                let sql = sqlMatch[0].trim().replace(/;+$/, ''); // Remove trailing semicolons
+                console.log(`[AIWikipediaSearch] Extracted SQL: "${sql}"`);
                 
                 // Remove any existing LIMIT clause (we'll check count first)
                 sql = sql.replace(/LIMIT\s+\d+/gi, '').trim();
