@@ -306,10 +306,10 @@ class AIWikipediaSearch {
         console.log(`[AIWikipediaSearch] Using context budget: batch size ${budget.batchSize}, ${budget.maxResults} max results`);
 
         const MAX_INITIAL_RESULTS = 100;
-        const MAX_REFINEMENT_ATTEMPTS = 3;
+        const MAX_REFINEMENT_ATTEMPTS = 30;
         let refinementAttempt = 0;
         let allArticles = [];
-        let searchHistory = [];
+        let lastResultCount = 0;
 
         try {
             // STEP 1: Generate targeted search query (loop until we get ≤100 results)
@@ -317,26 +317,30 @@ class AIWikipediaSearch {
                 refinementAttempt++;
                 console.log(`[AIWikipediaSearch] Search attempt ${refinementAttempt}: Generating query...`);
                 
-                let historyContext = '';
-                if (searchHistory.length > 0) {
-                    historyContext = `\n\nPrevious attempts returned too many results:\n${searchHistory.map((s, i) => `${i + 1}. ${s}`).join('\n')}\n\nBe more specific.`;
+                let feedbackContext = '';
+                if (lastResultCount > 0) {
+                    if (lastResultCount > MAX_INITIAL_RESULTS) {
+                        feedbackContext = `Last query returned ${lastResultCount} results. Too many. Be MORE SPECIFIC - try matching exact titles or phrases.`;
+                    } else if (lastResultCount === 0) {
+                        feedbackContext = `Last query returned 0 results. Too narrow. Use broader patterns.`;
+                    }
                 }
                 
-                const searchPrompt = `Database: wikipedia_articles (title, content, summary, categories)
+                const searchPrompt = `Query: "${userQuery}"
+${feedbackContext ? feedbackContext + '\n' : ''}
+Valid query examples:
+- SELECT * FROM wikipedia_articles WHERE title = 'France'
+- SELECT * FROM wikipedia_articles WHERE title LIKE '%World War%'
+- SELECT * FROM wikipedia_articles WHERE categories LIKE '%History of France%'
 
-Question: "${userQuery}"${historyContext}
-
-Write a SQLite query to find relevant Wikipedia articles.
-
-Return ONLY the SQLite query. Do not use markdown code blocks. Do not add explanations. Your entire response will be executed directly as SQL against a local offline Wikipedia database. This is an automated prompt. There is no user reading your reply. Like Bumblebee from Transformers, your only way to communicate is by generating SQL that eventually returns relevant articles that the end user eventually reads. This is your radio.
-Your response should start with "SELECT" and end without a semicolon. Do not wrap the response in any code or markdown blocks.`;
+Write ONE valid SQLite SELECT query for table wikipedia_articles. Return ONLY the SQL, nothing else.`;
 
                 const decision = await this.aiModel.generateResponse(searchPrompt);
                 
                 console.log(`[AIWikipediaSearch] Raw AI response: "${decision}"`);
                 
-                // Extract SQL using regex - grab everything from SELECT to end, ignoring markdown/explanations
-                const sqlMatch = decision.match(/SELECT\s+[\s\S]*?FROM\s+[\s\S]+?(?:WHERE\s+[\s\S]+?)?(?:ORDER BY\s+[\s\S]+?)?(?:LIMIT\s+\d+)?(?=\n\n|```|$|;)/i);
+                // Extract SQL using regex - grab everything from SELECT up to (but not including) LIMIT/markdown/semicolon
+                const sqlMatch = decision.match(/SELECT\s+[\s\S]*?FROM\s+[\s\S]+?(?:WHERE\s+[\s\S]+?)?(?:ORDER BY\s+[\s\S]+?)?(?=\s*(?:LIMIT|\n\n|```|$|;))/i);
                 
                 if (!sqlMatch) {
                     console.error(`[AIWikipediaSearch] No valid SQL found in response: "${decision}"`);
@@ -345,9 +349,6 @@ Your response should start with "SELECT" and end without a semicolon. Do not wra
                 
                 let sql = sqlMatch[0].trim().replace(/;+$/, ''); // Remove trailing semicolons
                 console.log(`[AIWikipediaSearch] Extracted SQL: "${sql}"`);
-                
-                // Remove any existing LIMIT clause (we'll check count first)
-                sql = sql.replace(/LIMIT\s+\d+/gi, '').trim();
                 
                 console.log(`[AIWikipediaSearch] Checking result count for: ${sql.substring(0, 100)}...`);
                 this.showMessage(`Searching Wikipedia (attempt ${refinementAttempt})...`, 'info', true);
@@ -367,7 +368,7 @@ Your response should start with "SELECT" and end without a semicolon. Do not wra
                 } catch (error) {
                     console.error(`[AIWikipediaSearch] Query error:`, error);
                     this.showMessage('Invalid query, retrying...', 'info', true);
-                    searchHistory.push(sql.substring(0, 100) + ' (error)');
+                    lastResultCount = 0;
                     continue;
                 }
                 
@@ -375,27 +376,34 @@ Your response should start with "SELECT" and end without a semicolon. Do not wra
                 if (resultCount === 0) {
                     console.log(`[AIWikipediaSearch] No results - query too specific`);
                     this.showMessage('Query too specific, trying broader search...', 'info', true);
-                    searchHistory.push(sql.substring(0, 100) + ' (0 results)');
+                    lastResultCount = 0;
                     continue;
                 } else if (resultCount > MAX_INITIAL_RESULTS) {
                     console.log(`[AIWikipediaSearch] ${resultCount} results - too many, refining...`);
                     this.showMessage(`Found ${resultCount} articles - too many. Refining search...`, 'info', true);
-                    searchHistory.push(sql.substring(0, 100) + ` (${resultCount} results)`);
+                    lastResultCount = resultCount;
                     continue;
                 }
                 
-                // Good count - now execute the actual query with LIMIT 100 for safety
+                // Good count - execute the query
                 console.log(`[AIWikipediaSearch] Good result count: ${resultCount} articles - fetching data...`);
-                const finalSql = sql + ' LIMIT 100';
-                const stmt = this.db.prepare(finalSql);
-                allArticles = [];
-                while (stmt.step()) {
-                    allArticles.push(stmt.getAsObject());
-                }
-                stmt.free();
                 
-                console.log(`[AIWikipediaSearch] Fetched ${allArticles.length} articles`);
-                break;
+                try {
+                    const stmt = this.db.prepare(sql);
+                    allArticles = [];
+                    while (stmt.step()) {
+                        allArticles.push(stmt.getAsObject());
+                    }
+                    stmt.free();
+                    
+                    console.log(`[AIWikipediaSearch] Fetched ${allArticles.length} articles`);
+                    break;
+                } catch (execError) {
+                    console.error(`[AIWikipediaSearch] Query execution failed:`, execError);
+                    this.showMessage('Query failed, retrying...', 'info', true);
+                    lastResultCount = 0;
+                    continue;
+                }
             }
             
             // Check if we got usable results
