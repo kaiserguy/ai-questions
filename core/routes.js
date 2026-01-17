@@ -1360,35 +1360,20 @@ module.exports = (db, ai, wikipedia, config) => {
         
         const packageType = req.query.package || 'minimal';
 
-        if (db && typeof db.getCachedFile === 'function') {
-            try {
-                const cachedFile = await db.getCachedFile(WIKIPEDIA_CACHE_NAME);
-                if (cachedFile && cachedFile.data) {
-                    const sizeInMB = (cachedFile.data.length / 1024 / 1024).toFixed(2);
-                    console.log(`[Wikipedia DB] Found cached database: ${sizeInMB} MB`);
-                    
-                    // Validate database size - should be at least 50MB for minimal
-                    const MIN_VALID_SIZE = 50 * 1024 * 1024; // 50MB
-                    if (cachedFile.data.length < MIN_VALID_SIZE) {
-                        console.error(`[Wikipedia DB] Cached database too small (${sizeInMB} MB) - likely corrupted. Refusing to serve.`);
-                        return res.status(500).json({
-                            status: 'error',
-                            message: `Wikipedia database in cache is corrupted (only ${sizeInMB} MB). Please contact admin to re-upload.`
-                        });
-                    }
-                    
-                    console.log(`[Wikipedia DB] Serving cached database from PostgreSQL (${packageType})`);
-                    res.setHeader('Content-Type', 'application/x-sqlite3');
-                    res.setHeader('Content-Length', cachedFile.data.length);
-                    res.setHeader('Cache-Control', 'max-age=86400'); // Cache for 1 day
-                    return res.send(cachedFile.data);
-                }
-            } catch (error) {
-                console.error(`[Wikipedia DB] Failed to load cached database: ${error.message}`);
-            }
+        // First, check if the Wikipedia database exists on disk (from cache restoration or fresh download)
+        const restoredDbPath = path.join(__dirname, '..', 'wikipedia.db');
+        if (fs.existsSync(restoredDbPath)) {
+            const stat = fs.statSync(restoredDbPath);
+            const sizeInMB = (stat.size / 1024 / 1024).toFixed(2);
+            console.log(`[Wikipedia DB] Serving restored database from disk: ${sizeInMB} MB`);
+            
+            res.setHeader('Content-Type', 'application/x-sqlite3');
+            res.setHeader('Content-Length', stat.size);
+            res.setHeader('Cache-Control', 'max-age=86400'); // Cache for 1 day
+            return res.sendFile(restoredDbPath);
         }
         
-        // Define database paths for different package types
+        // Define database paths for different package types (fallback for local/development)
         const dbPaths = {
             'minimal': [
                 path.join(__dirname, 'public', 'offline', 'wikipedia', 'minimal-wikipedia.sqlite'),
