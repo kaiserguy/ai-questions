@@ -12,3 +12,4 @@ scripts/wikipedia_packages/*
 **.log
 .env
 .env.local
+local/cache*
