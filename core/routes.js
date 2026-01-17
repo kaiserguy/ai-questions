@@ -395,11 +395,15 @@ module.exports = (db, ai, wikipedia, config) => {
         }
     });
 
-    // API to list available AI models
-    router.get("/api/models", ensureAuthenticated, async (req, res) => {
+    // API to list available AI models (public so homepage dropdown works)
+    router.get("/api/models", async (req, res) => {
         try {
             const modelsResponse = await ai.listModels(req.user ? req.user.id : null);
-            res.json(modelsResponse.models);
+            const models = modelsResponse.models || [];
+            const visibleModels = req.user
+                ? models
+                : models.filter(model => !model.requiresAuth);
+            res.json(visibleModels);
         } catch (error) {
             console.error("Error listing models:", error);
             res.status(500).json({ error: "Failed to retrieve models." });
@@ -407,19 +411,23 @@ module.exports = (db, ai, wikipedia, config) => {
     });
 
     // API route for /api/models/all (alias for /api/models)
-    router.get("/api/models/all", ensureAuthenticated, async (req, res) => {
+    router.get("/api/models/all", async (req, res) => {
         try {
             const modelsResponse = await ai.listModels(req.user ? req.user.id : null);
+            const models = modelsResponse.models || [];
+            const visibleModels = req.user
+                ? models
+                : models.filter(model => !model.requiresAuth);
             
             // For local version, structure the response as expected by the frontend
             if (config.isLocal) {
                 res.json({
                     cloud_models: [],
-                    local_models: modelsResponse.models || []
+                    local_models: visibleModels
                 });
             } else {
                 // For hosted version, return the models directly
-                res.json(modelsResponse.models);
+                res.json(visibleModels);
             }
         } catch (error) {
             console.error("Error listing models:", error);
