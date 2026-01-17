@@ -740,10 +740,14 @@ async function cacheWikipediaDatabase(dbPath) {
         
         while (offset < fileSize) {
             const chunkSize = Math.min(CHUNK_SIZE, fileSize - offset);
-            const buffer = Buffer.allocUnsafe(chunkSize);
+            const buffer = Buffer.alloc(chunkSize); // Use alloc() to zero-initialize
             
-            // Read chunk from file
-            await fd.read(buffer, 0, chunkSize, offset);
+            // Read chunk from file and verify bytes read
+            const { bytesRead } = await fd.read(buffer, 0, chunkSize, offset);
+            
+            if (bytesRead !== chunkSize) {
+                throw new Error(`Read failed: expected ${chunkSize} bytes, read ${bytesRead}`);
+            }
             
             // Compress this chunk independently
             const compressed = await gzip(buffer);
