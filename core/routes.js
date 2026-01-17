@@ -1356,6 +1356,19 @@ module.exports = (db, ai, wikipedia, config) => {
             try {
                 const cachedFile = await db.getCachedFile(WIKIPEDIA_CACHE_NAME);
                 if (cachedFile && cachedFile.data) {
+                    const sizeInMB = (cachedFile.data.length / 1024 / 1024).toFixed(2);
+                    console.log(`[Wikipedia DB] Found cached database: ${sizeInMB} MB`);
+                    
+                    // Validate database size - should be at least 50MB for minimal
+                    const MIN_VALID_SIZE = 50 * 1024 * 1024; // 50MB
+                    if (cachedFile.data.length < MIN_VALID_SIZE) {
+                        console.error(`[Wikipedia DB] Cached database too small (${sizeInMB} MB) - likely corrupted. Refusing to serve.`);
+                        return res.status(500).json({
+                            status: 'error',
+                            message: `Wikipedia database in cache is corrupted (only ${sizeInMB} MB). Please contact admin to re-upload.`
+                        });
+                    }
+                    
                     console.log(`[Wikipedia DB] Serving cached database from PostgreSQL (${packageType})`);
                     res.setHeader('Content-Type', 'application/x-sqlite3');
                     res.setHeader('Content-Length', cachedFile.data.length);

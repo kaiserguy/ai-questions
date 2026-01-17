@@ -545,20 +545,22 @@ class WikipediaDatabase {
      * Get database statistics synchronously
      */
     getStatsSync() {
-        let result = { total_articles: 0, total_words: 0 };
-        
         try {
-            // Use a simple count query
-            this.db.get('SELECT COUNT(*) as count FROM wikipedia_articles', (err, row) => {
-                if (!err && row) {
-                    result.total_articles = row.count;
-                }
-            });
+            // Use synchronous prepare/bind/step for actual sync behavior
+            const stmt = this.db.prepare('SELECT COUNT(*) as count FROM wikipedia_articles');
+            let result = { total_articles: 0, total_words: 0 };
+            
+            if (stmt.step()) {
+                const row = stmt.getAsObject();
+                result.total_articles = row.count || 0;
+            }
+            
+            stmt.free();
+            return result;
         } catch (e) {
             console.error('Stats error:', e.message);
+            return { total_articles: 0, total_words: 0 };
         }
-        
-        return result;
     }
     
     /**

@@ -580,9 +580,71 @@ async function cacheWikipediaDatabase(dbPath) {
         return;
     }
 
-    const fileData = await fs.promises.readFile(dbPath);
+    // Validate database before caching
+    const isValid = await validateWikipediaDatabase(dbPath);
+    if (!isValid) {
+        console.error('❌ Refusing to cache invalid Wikipedia database (0 articles or corrupted)');
+        return;
+    }
+
+    // Stream file in chunks to avoid OOM
+    const fileSize = fs.statSync(dbPath).size;
+    console.log(`📤 Uploading database to PostgreSQL (${formatBytes(fileSize)})...`);
+    
+    const chunks = [];
+    const readStream = fs.createReadStream(dbPath, { highWaterMark: 4 * 1024 * 1024 }); // 4MB chunks
+    
+    for await (const chunk of readStream) {
+        chunks.push(chunk);
+        // Show progress
+        const totalRead = chunks.reduce((sum, c) => sum + c.length, 0);
+        const percent = ((totalRead / fileSize) * 100).toFixed(1);
+        process.stdout.write(`\r📤 Reading: ${percent}%`);
+    }
+    
+    console.log('\n📤 Combining chunks...');
+    const fileData = Buffer.concat(chunks);
+    chunks.length = 0; // Free memory
+    
+    console.log('📤 Uploading to PostgreSQL...');
     await db.upsertCachedFile(WIKIPEDIA_CACHE_NAME, fileData);
     console.log(`✅ Wikipedia database cached in PostgreSQL (${formatBytes(fileData.length)})`);
+}
+
+/**
+ * Validate Wikipedia database has articles
+ */
+async function validateWikipediaDatabase(dbPath) {
+    return new Promise((resolve) => {
+        const sqlite3 = require('sqlite3').verbose();
+        const testDb = new sqlite3.Database(dbPath, sqlite3.OPEN_READONLY, (err) => {
+            if (err) {
+                console.error(`❌ Failed to open database for validation: ${err.message}`);
+                resolve(false);
+                return;
+            }
+            
+            testDb.get('SELECT COUNT(*) as count FROM wikipedia_articles', (err, row) => {
+                testDb.close();
+                
+                if (err) {
+                    console.error(`❌ Failed to validate database: ${err.message}`);
+                    resolve(false);
+                    return;
+                }
+                
+                const MIN_VALID_ARTICLES = 10000;
+                if (row.count < MIN_VALID_ARTICLES) {
+                    console.error(`❌ Database has only ${row.count} articles (expected at least ${MIN_VALID_ARTICLES})`);
+                    resolve(false);
+                    return;
+                }
+                
+                console.log(`✅ Database validated: ${row.count.toLocaleString()} articles`);
+                resolve(true);
+            });
+        });
+    });
 }
 
 function formatBytes(bytes) {
