@@ -461,11 +461,11 @@ app.listen(PORT, () => {
 
 /**
  * Initialize Wikipedia cache on server startup
- * Downloads Wikipedia database if not already present
+ * Downloads Wikipedia database if not already present (using Node.js downloader)
  */
 function initializeWikipediaCache() {
-    const { spawn } = require('child_process');
     const dbPath = path.resolve(PUBLIC_CONFIG.wikipedia.dbPath);
+    const dataDir = path.join(path.dirname(dbPath), 'wikipedia_data');
     
     // Check if Wikipedia database already exists
     if (fs.existsSync(dbPath)) {
@@ -481,110 +481,25 @@ function initializeWikipediaCache() {
     console.log('📥 Wikipedia database not found, downloading minimal package...');
     console.log('⏱️  This may take 5-10 minutes on first startup...');
     
-    // Try Python downloader
-    const pythonScript = path.join(__dirname, '..', 'local', 'wikipedia_downloader.py');
+    // Use Node.js Wikipedia downloader (no Python dependency)
+    const { downloadAndProcessWikipedia } = require('../core/wikipedia-downloader');
     
-    // Check if Python script exists
-    if (!fs.existsSync(pythonScript)) {
-        console.log('⚠️  wikipedia_downloader.py not found, skipping auto-download');
-        console.log('💡 You can manually download later from the /offline page');
-        return;
-    }
-    
-    // Check if Python is available (Heroku uses python3)
-    const pythonCmd = 'python3';
-    
-    // Step 1: Download compressed file
-    console.log('📥 Step 1/2: Downloading Wikipedia dump...');
-    const download = spawn(pythonCmd, [
-        pythonScript,
-        '--action', 'download',
-        '--dataset', 'simple',
-        '--db-path', dbPath
-    ], {
-        cwd: path.dirname(pythonScript),
-        stdio: 'pipe',
-        shell: true
-    });
-    
-    download.stdout.on('data', (data) => {
-        console.log(`[Wikipedia] ${data.toString().trim()}`);
-    });
-    
-    download.stderr.on('data', (data) => {
-        console.log(`[Wikipedia] ${data.toString().trim()}`);
-    });
-    
-    download.on('close', (code) => {
-        if (code === 0) {
-            console.log('✅ Download complete, processing into SQLite database...');
-            processWikipediaDump(pythonCmd, pythonScript, dbPath);
-        } else {
-            console.log(`⚠️  Wikipedia download failed with code ${code}`);
-            console.log('💡 Wikipedia will be available for manual download from /offline page');
-        }
-    });
-    
-    download.on('error', (error) => {
-        console.error(`❌ Failed to start Wikipedia download: ${error.message}`);
-        console.log('💡 Wikipedia will be available for manual download from /offline page');
-    });
-}
-
-/**
- * Process downloaded Wikipedia dump into SQLite database
- */
-function processWikipediaDump(pythonCmd, pythonScript, dbPath) {
-    const { spawn } = require('child_process');
-    
-    console.log('📝 Step 2/2: Processing Wikipedia articles...');
-    console.log('⏱️  This will take several minutes...');
-    
-    const processSpawn = spawn(pythonCmd, [
-        pythonScript,
-        '--action', 'process',
-        '--dataset', 'simple',
-        '--db-path', dbPath
-    ], {
-        cwd: path.dirname(pythonScript),
-        stdio: 'pipe',
-        shell: true
-    });
-    
-    processSpawn.stdout.on('data', (data) => {
-        console.log(`[Wikipedia] ${data.toString().trim()}`);
-    });
-    
-    processSpawn.stderr.on('data', (data) => {
-        console.log(`[Wikipedia] ${data.toString().trim()}`);
-    });
-    
-    processSpawn.on('close', (code) => {
-        if (code === 0) {
-            if (fs.existsSync(dbPath)) {
-                const stats = fs.statSync(dbPath);
-                const sizeMB = (stats.size / 1024 / 1024).toFixed(2);
-                console.log(`✅ Wikipedia database ready: ${sizeMB} MB`);
-                console.log(`📍 Database location: ${dbPath}`);
-                
-                // Verify database tables
-                verifyWikipediaTables(dbPath);
-                
-                // Reinitialize Wikipedia integration with the new database
+    downloadAndProcessWikipedia('simple', dbPath, dataDir)
+        .then((resultPath) => {
+            console.log(`✅ Wikipedia database ready at: ${resultPath}`);
+            
+            // Verify database tables
+            verifyWikipediaTables(dbPath);
+            
+            // Reinitialize Wikipedia integration with the new database
+            if (wikipedia && typeof wikipedia.initializeWikipedia === 'function') {
                 wikipedia.initializeWikipedia();
-            } else {
-                console.log('⚠️  Processing completed but database file not found');
             }
-        } else {
-            console.log(`⚠️  Wikipedia processing failed with code ${code}`);
+        })
+        .catch((error) => {
+            console.error(`❌ Wikipedia download/processing failed: ${error.message}`);
             console.log('💡 Wikipedia will be available for manual download from /offline page');
-        }
-    });
-    
-    processSpawn.on('error', (error) => {
-        console.error(`❌ Failed to process Wikipedia dump: ${error.message}`);
-        console.log('💡 Wikipedia will be available for manual download from /offline page');
-    });
+        });
 }
 
 /**

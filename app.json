@@ -3,9 +3,6 @@
   "description": "AI-powered daily questions with offline Wikipedia support",
   "buildpacks": [
     {
-      "url": "heroku/python"
-    },
-    {
       "url": "heroku/nodejs"
     }
   ],

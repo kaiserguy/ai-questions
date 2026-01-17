@@ -48,7 +48,9 @@
     "passport": "^0.7.0",
     "passport-google-oauth20": "^2.0.0",
     "pg": "^8.14.1",
-    "sqlite3": "^5.1.7"
+    "sax": "^1.4.4",
+    "sqlite3": "^5.1.7",
+    "unbzip2-stream": "^1.4.3"
   },
   "optionalDependencies": {
     "puppeteer": "^24.35.0"
