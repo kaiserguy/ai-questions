@@ -617,12 +617,32 @@ async function ensureWikipediaDbOnDisk(dbPath) {
             throw new Error('Incomplete cache');
         }
         
-        console.log(`📥 Fetched ${chunks.length} chunks, streaming decompression...`);
+        console.log(`📥 Fetched ${chunks.length} chunks, decompressing...`);
         
-        // Stream decompress directly from chunks to avoid memory spike
+        // Ensure chunks are in order and concatenate compressed data
+        chunks.sort((a, b) => a.chunk_index - b.chunk_index);
+        
+        const compressedBuffers = chunks.map(c => c.chunk_data);
+        const totalCompressedSize = compressedBuffers.reduce((sum, buf) => sum + buf.length, 0);
+        console.log(`📥 Concatenating ${formatBytes(totalCompressedSize)} compressed data...`);
+        
+        const compressedData = Buffer.concat(compressedBuffers);
+        
+        // Free chunk buffers
+        compressedBuffers.length = 0;
+        
+        // Force GC before decompression
+        if (global.gc) {
+            global.gc();
+        }
+        
+        console.log(`📥 Streaming decompression to disk...`);
+        
+        // Stream decompress to avoid loading full decompressed data in memory
         await fs.promises.mkdir(path.dirname(dbPath), { recursive: true });
         
         return new Promise((resolve, reject) => {
+            const { Readable } = require('stream');
             const writeStream = fs.createWriteStream(dbPath);
             const gunzipStream = zlib.createGunzip();
             
@@ -634,14 +654,8 @@ async function ensureWikipediaDbOnDisk(dbPath) {
                 resolve();
             });
             
-            // Pipe gunzip output to disk
-            gunzipStream.pipe(writeStream);
-            
-            // Write all compressed chunks to gunzip stream in order
-            for (const chunk of chunks) {
-                gunzipStream.write(chunk.chunk_data);
-            }
-            gunzipStream.end();
+            // Create readable stream from compressed buffer and pipe through gunzip to disk
+            Readable.from([compressedData]).pipe(gunzipStream).pipe(writeStream);
         });
     }
     
