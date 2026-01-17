@@ -1,0 +1,18 @@
+{
+  "name": "AI Questions",
+  "description": "AI-powered daily questions with offline Wikipedia support",
+  "buildpacks": [
+    {
+      "url": "heroku/python"
+    },
+    {
+      "url": "heroku/nodejs"
+    }
+  ],
+  "env": {
+    "NODE_ENV": {
+      "description": "Node environment",
+      "value": "production"
+    }
+  }
+}

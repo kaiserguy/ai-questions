@@ -5,15 +5,15 @@
  * To make changes, edit service-worker.template.js instead.
  * 
  * Build Info:
- *   Version: e8cd449-1768527487081
- *   Branch: main
- *   Built: 2026-01-16T01:38:07.084Z
+ *   Version: 3bdb5bd-1768625582726
+ *   Branch: feature/webllm-sql-generation
+ *   Built: 2026-01-17T04:53:02.730Z
  */
 
 // Service Worker for AI Questions Offline Mode
 // Security: This service worker only operates on same-origin requests over HTTPS (or localhost for development)
 
-const CACHE_NAME = 'ai-questions-cache-e8cd449-1768527487081';
+const CACHE_NAME = 'ai-questions-cache-3bdb5bd-1768625582726';
 const OFFLINE_URL = '/offline';
 
 // Security: Enforce HTTPS in production (allow localhost for development)
@@ -41,7 +41,7 @@ const PRECACHE_RESOURCES = [
 
 // Install event - precache resources
 self.addEventListener('install', event => {
-  console.log('Service worker installing... Version: e8cd449-1768527487081');
+  console.log('Service worker installing... Version: 3bdb5bd-1768625582726');
   
   // Force the waiting service worker to become the active service worker
   self.skipWaiting();
@@ -60,7 +60,7 @@ self.addEventListener('install', event => {
 
 // Activate event - clean up old caches
 self.addEventListener('activate', event => {
-  console.log('Service worker activating... Version: e8cd449-1768527487081');
+  console.log('Service worker activating... Version: 3bdb5bd-1768625582726');
   
   event.waitUntil(
     caches.keys().then(cacheNames => {
@@ -276,7 +276,7 @@ self.addEventListener('message', event => {
     // Security: Only send response if MessageChannel port is provided
     if (event.ports && event.ports[0]) {
       event.ports[0].postMessage({ 
-        version: 'e8cd449-1768527487081',
+        version: '3bdb5bd-1768625582726',
         cacheName: CACHE_NAME,
         timestamp: Date.now()
       });
