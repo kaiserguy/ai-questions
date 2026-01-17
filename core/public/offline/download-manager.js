@@ -13,7 +13,7 @@ class DownloadManager {
         }
         
         // Define valid package types
-        const validPackageTypes = ['minimal', 'standard', 'full'];
+        const validPackageTypes = ['mobile', 'minimal', 'standard', 'full'];
         if (!validPackageTypes.includes(packageType)) {
             throw new Error(`Invalid packageType: ${packageType}. Must be one of: ${validPackageTypes.join(', ')}`);
         }
@@ -69,6 +69,18 @@ class DownloadManager {
         
         // Package configurations
         this.packages = {
+            mobile: {
+                name: 'Mobile Package',
+                aiModel: {
+                    name: 'Qwen2.5-0.5B',
+                    size: '~300MB'
+                },
+                wikipedia: {
+                    name: 'Simple Wikipedia',
+                    size: '~210MB'
+                },
+                totalSize: '~510MB'
+            },
             minimal: {
                 name: 'Minimal Package',
                 aiModel: {
@@ -350,6 +362,11 @@ class DownloadManager {
             // TODO: Consider using pre-converted ONNX format models to reduce size and ensure compatibility
             // Current formats (pytorch_model.bin, model.safetensors) may need conversion for ONNX Runtime Web
             const modelUrls = {
+                'mobile': {
+                    name: 'Qwen2.5-0.5B',
+                    url: 'https://huggingface.co/Qwen/Qwen2.5-0.5B-Instruct/resolve/main/model.safetensors',
+                    fallbackUrl: '/offline-resources/models/qwen2.5-0.5b.bin'
+                },
                 'minimal': {
                     name: 'TinyBERT',
                     url: 'https://huggingface.co/prajjwal1/bert-tiny/resolve/main/pytorch_model.bin',
@@ -413,6 +430,11 @@ class DownloadManager {
         try {
             // Wikipedia database URLs - try server first, then public sources
             const wikiUrls = {
+                'mobile': {
+                    name: 'Simple-Wikipedia-210MB',
+                    serverUrl: `/api/wikipedia-database?package=mobile`,
+                    dataset: 'mobile'
+                },
                 'minimal': {
                     name: 'Simple-Wikipedia-210MB',
                     serverUrl: `/api/wikipedia-database?package=minimal`,

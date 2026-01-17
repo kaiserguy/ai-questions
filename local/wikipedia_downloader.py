@@ -302,21 +302,8 @@ class WikipediaDatabase:
             self.conn.commit()
     
     def create_search_index(self):
-        """Create full-text search index"""
-        logger.info("Creating full-text search index...")
-        
-        self.conn.executescript('''
-            CREATE VIRTUAL TABLE IF NOT EXISTS wikipedia_fts USING fts5(
-                title, content, summary,
-                content='wikipedia_articles',
-                content_rowid='id'
-            );
-            
-            INSERT INTO wikipedia_fts(wikipedia_fts) VALUES('rebuild');
-        ''')
-        
-        self.conn.commit()
-        logger.info("Search index created successfully")
+        """Skip FTS index creation - using direct table queries"""
+        logger.info("Database ready (no FTS index - using direct queries)")
     
     def get_stats(self):
         """Get database statistics"""

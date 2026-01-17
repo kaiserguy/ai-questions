@@ -537,26 +537,8 @@ class WikipediaDatabase {
      * Create full-text search index
      */
     createSearchIndex(callback) {
-        console.log('Creating full-text search index...');
-        
-        this.db.serialize(() => {
-            this.db.run(`
-                CREATE VIRTUAL TABLE IF NOT EXISTS wikipedia_fts USING fts5(
-                    title, summary,
-                    content='wikipedia_articles',
-                    content_rowid='id'
-                )
-            `);
-            
-            this.db.run(`INSERT INTO wikipedia_fts(wikipedia_fts) VALUES('rebuild')`, (err) => {
-                if (err) {
-                    console.error('FTS index error:', err.message);
-                } else {
-                    console.log('✅ Search index created successfully');
-                }
-                if (callback) callback();
-            });
-        });
+        console.log('✅ Database ready (no FTS index - using direct queries)');
+        if (callback) callback();
     }
     
     /**

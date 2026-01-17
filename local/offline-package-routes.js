@@ -11,6 +11,24 @@ const router = express.Router();
 
 // Package configurations
 const PACKAGES = {
+    mobile: {
+        name: 'Mobile Package',
+        size: '510MB',
+        description: 'Optimized for phones and tablets with limited storage',
+        libraries: [
+            { name: 'transformers.js', size: '2.5 MB', url: '/offline/libs/transformers.js' },
+            { name: 'sql-wasm.js', size: '1.2 MB', url: '/offline/libs/sql-wasm.js' },
+            { name: 'tokenizers.js', size: '819.2 KB', url: '/offline/libs/tokenizers.js' }
+        ],
+        models: [
+            { name: 'Qwen2.5-0.5B Model', size: '300 MB', url: '/offline/models/qwen2.5-0.5b.bin' }
+        ],
+        wikipedia: {
+            name: 'Simple Wikipedia',
+            size: '210 MB',
+            url: '/offline/wikipedia/simple-wikipedia.db'
+        }
+    },
     minimal: {
         name: 'Minimal Package',
         size: '200MB',

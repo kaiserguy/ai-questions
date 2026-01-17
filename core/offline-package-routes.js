@@ -29,7 +29,27 @@ function addOfflinePackageRoutes(app) {
                 }
             }
             
-            // Standard and Full packages are always available as direct downloads
+            // Mobile, Standard and Full packages are always available as direct downloads
+            packages.mobile = {
+                id: 'mobile',
+                name: 'Mobile Package',
+                description: 'Optimized for phones and tablets with limited storage',
+                total_size: '~510MB',
+                features: [
+                    'Lightweight AI (Qwen2.5-0.5B)',
+                    'Simple Wikipedia (210MB)',
+                    'Optimized for mobile devices',
+                    'Best for limited storage'
+                ],
+                requirements: {
+                    ram: '2GB',
+                    storage: '600MB'
+                },
+                available: true,
+                cached: false,
+                directDownload: true
+            };
+            
             packages.standard = {
                 id: 'standard',
                 name: 'Standard Package',
