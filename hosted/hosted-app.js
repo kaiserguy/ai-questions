@@ -605,25 +605,44 @@ async function cacheWikipediaDatabase(dbPath) {
         return;
     }
 
-    // Compress before uploading to reduce memory usage
+    // Stream compress to avoid loading entire file into memory
     const fileSize = fs.statSync(dbPath).size;
-    console.log(`📤 Compressing database (${formatBytes(fileSize)})...`);
+    console.log(`📤 Compressing database with streaming (${formatBytes(fileSize)})...`);
     
-    // Force garbage collection before reading large file
+    // Force garbage collection before compression
     if (global.gc) {
         global.gc();
     }
     
-    const fileData = await fs.promises.readFile(dbPath);
-    console.log('📤 Compressing with gzip...');
-    const compressed = await gzip(fileData, { level: 6 }); // Level 6 = balanced compression
-    
-    const compressionRatio = ((1 - compressed.length / fileSize) * 100).toFixed(1);
-    console.log(`✅ Compressed: ${formatBytes(fileSize)} → ${formatBytes(compressed.length)} (${compressionRatio}% reduction)`);
-    
-    console.log('📤 Uploading to PostgreSQL...');
-    await db.upsertCachedFile(WIKIPEDIA_CACHE_NAME, compressed);
-    console.log(`✅ Wikipedia database cached in PostgreSQL (${formatBytes(compressed.length)})...`);
+    return new Promise((resolve, reject) => {
+        const chunks = [];
+        const readStream = fs.createReadStream(dbPath);
+        const gzipStream = zlib.createGzip({ level: 6 });
+        
+        gzipStream.on('data', (chunk) => {
+            chunks.push(chunk);
+        });
+        
+        gzipStream.on('end', async () => {
+            const compressed = Buffer.concat(chunks);
+            const compressionRatio = ((1 - compressed.length / fileSize) * 100).toFixed(1);
+            console.log(`✅ Compressed: ${formatBytes(fileSize)} → ${formatBytes(compressed.length)} (${compressionRatio}% reduction)`);
+            
+            console.log('📤 Uploading to PostgreSQL...');
+            try {
+                await db.upsertCachedFile(WIKIPEDIA_CACHE_NAME, compressed);
+                console.log(`✅ Wikipedia database cached in PostgreSQL (${formatBytes(compressed.length)})`);
+                resolve();
+            } catch (error) {
+                reject(error);
+            }
+        });
+        
+        gzipStream.on('error', reject);
+        readStream.on('error', reject);
+        
+        readStream.pipe(gzipStream);
+    });
 }
 
 /**
