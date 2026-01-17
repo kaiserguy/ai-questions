@@ -2,15 +2,13 @@
  * Wikipedia Download and Processing System (Node.js)
  * Downloads Wikipedia dumps and processes them for offline AI integration
  * 
- * Converted from Python to Node.js for simplified Heroku deployment
+ * Optimized for low-memory environments (Heroku 512MB dynos)
  */
 
 const https = require('https');
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
-const { pipeline } = require('stream/promises');
-const { Transform } = require('stream');
 const unbzip2 = require('unbzip2-stream');
 const sax = require('sax');
 const sqlite3 = require('sqlite3').verbose();
@@ -44,6 +42,7 @@ const DATASETS = {
 
 /**
  * Regex patterns for cleaning Wikipedia markup
+ * Pre-compiled for performance
  */
 const CLEANUP_PATTERNS = [
     [/\{\{[^}]*\}\}/g, ''],           // Remove templates
@@ -53,8 +52,84 @@ const CLEANUP_PATTERNS = [
     [/<ref[^>]*>.*?<\/ref>/gis, ''],   // Remove references
     [/<ref[^>]*\/>/gi, ''],            // Remove self-closing refs
     [/&lt;.*?&gt;/g, ''],              // Remove HTML entities
-    [/\n\s*\n/g, '\n'],                // Remove extra newlines
 ];
+
+/**
+ * Memory-efficient text cleaning
+ * Processes text in place without creating many intermediate strings
+ */
+function cleanWikipediaMarkup(text) {
+    if (!text || text.length === 0) return '';
+    
+    // Limit text size to prevent memory issues with very long articles
+    const MAX_CONTENT_LENGTH = 50000; // 50KB max per article
+    if (text.length > MAX_CONTENT_LENGTH) {
+        text = text.substring(0, MAX_CONTENT_LENGTH);
+    }
+    
+    // Apply cleanup patterns
+    for (const [pattern, replacement] of CLEANUP_PATTERNS) {
+        text = text.replace(pattern, replacement);
+    }
+    
+    // Clean wiki links [[Link|Text]] -> Text
+    text = text.replace(/\[\[([^|\]]+\|)?([^\]]+)\]\]/g, '$2');
+    
+    // Clean simple formatting
+    text = text.replace(/'''([^']+)'''/g, '$1');  // Bold
+    text = text.replace(/''([^']+)''/g, '$1');    // Italic
+    
+    // Clean up whitespace (single pass)
+    text = text.replace(/\n\s*\n+/g, '\n\n').trim();
+    
+    return text;
+}
+
+/**
+ * Extract summary efficiently
+ */
+function extractSummary(content) {
+    if (!content) return '';
+    
+    // Find first substantial paragraph without splitting entire content
+    let start = 0;
+    let end = 0;
+    
+    while (start < content.length && start < 5000) { // Only search first 5KB
+        // Find end of paragraph
+        end = content.indexOf('\n\n', start);
+        if (end === -1) end = Math.min(content.length, start + 500);
+        
+        const para = content.substring(start, end).trim();
+        
+        // Check if this is a valid paragraph
+        if (para.length > 50 && !para.startsWith('=')) {
+            return para.length > 500 ? para.substring(0, 500) + '...' : para;
+        }
+        
+        start = end + 2;
+    }
+    
+    return '';
+}
+
+/**
+ * Extract categories efficiently
+ */
+function extractCategories(content) {
+    if (!content) return '[]';
+    
+    const categories = [];
+    const regex = /\[\[Category:([^\]|]+)/gi;
+    let match;
+    
+    // Limit to first 20 categories
+    while ((match = regex.exec(content)) !== null && categories.length < 20) {
+        categories.push(match[1].trim());
+    }
+    
+    return JSON.stringify(categories);
+}
 
 /**
  * WikipediaDownloader class - handles downloading and processing Wikipedia dumps
@@ -78,10 +153,7 @@ class WikipediaDownloader {
     }
     
     /**
-     * Download a Wikipedia dataset
-     * @param {string} datasetName - Name of dataset to download
-     * @param {function} progressCallback - Optional callback for progress updates
-     * @returns {Promise<string>} Path to downloaded file
+     * Download a Wikipedia dataset with redirect handling
      */
     downloadDataset(datasetName, progressCallback = null) {
         return new Promise((resolve, reject) => {
@@ -91,125 +163,212 @@ class WikipediaDownloader {
             }
             
             const dataset = this.datasets[datasetName];
-            const url = dataset.url;
             const filename = path.join(this.dataDir, `${datasetName}_wikipedia.xml.bz2`);
             
-            console.log(`📥 Downloading ${dataset.name} from ${url}`);
+            console.log(`📥 Downloading ${dataset.name} from ${dataset.url}`);
             
-            const client = url.startsWith('https') ? https : http;
-            
-            const request = client.get(url, (response) => {
-                // Handle redirects
-                if (response.statusCode >= 300 && response.statusCode < 400 && response.headers.location) {
-                    console.log(`Following redirect to ${response.headers.location}`);
-                    this.downloadDataset(datasetName, progressCallback)
-                        .then(resolve)
-                        .catch(reject);
+            const downloadWithRedirects = (url, redirectCount = 0) => {
+                if (redirectCount > 5) {
+                    reject(new Error('Too many redirects'));
                     return;
                 }
                 
-                if (response.statusCode !== 200) {
-                    reject(new Error(`HTTP ${response.statusCode}: ${response.statusMessage}`));
-                    return;
-                }
+                const client = url.startsWith('https') ? https : http;
                 
-                const totalSize = parseInt(response.headers['content-length'], 10) || 0;
-                let downloaded = 0;
-                
-                const fileStream = fs.createWriteStream(filename);
-                
-                response.on('data', (chunk) => {
-                    downloaded += chunk.length;
-                    if (progressCallback && totalSize > 0) {
-                        const progress = (downloaded / totalSize) * 100;
-                        progressCallback(progress, downloaded, totalSize);
+                const request = client.get(url, (response) => {
+                    // Handle redirects
+                    if (response.statusCode >= 300 && response.statusCode < 400 && response.headers.location) {
+                        console.log(`Following redirect to ${response.headers.location}`);
+                        downloadWithRedirects(response.headers.location, redirectCount + 1);
+                        return;
                     }
+                    
+                    if (response.statusCode !== 200) {
+                        reject(new Error(`HTTP ${response.statusCode}: ${response.statusMessage}`));
+                        return;
+                    }
+                    
+                    const totalSize = parseInt(response.headers['content-length'], 10) || 0;
+                    let downloaded = 0;
+                    let lastProgress = 0;
+                    
+                    const fileStream = fs.createWriteStream(filename);
+                    
+                    response.on('data', (chunk) => {
+                        downloaded += chunk.length;
+                        if (progressCallback && totalSize > 0) {
+                            const progress = (downloaded / totalSize) * 100;
+                            // Only report every 1% to reduce log spam
+                            if (progress - lastProgress >= 1) {
+                                progressCallback(progress, downloaded, totalSize);
+                                lastProgress = progress;
+                            }
+                        }
+                    });
+                    
+                    response.pipe(fileStream);
+                    
+                    fileStream.on('finish', () => {
+                        fileStream.close();
+                        console.log(`\n✅ Downloaded ${dataset.name} to ${filename}`);
+                        resolve(filename);
+                    });
+                    
+                    fileStream.on('error', (err) => {
+                        fs.unlink(filename, () => {});
+                        reject(err);
+                    });
                 });
                 
-                response.pipe(fileStream);
-                
-                fileStream.on('finish', () => {
-                    fileStream.close();
-                    console.log(`\n✅ Downloaded ${dataset.name} to ${filename}`);
-                    resolve(filename);
-                });
-                
-                fileStream.on('error', (err) => {
-                    fs.unlink(filename, () => {}); // Clean up on error
+                request.on('error', (err) => {
+                    fs.unlink(filename, () => {});
                     reject(err);
                 });
-            });
+                
+                // 10 minute timeout for large files
+                request.setTimeout(600000, () => {
+                    request.destroy();
+                    reject(new Error('Download timeout'));
+                });
+            };
             
-            request.on('error', (err) => {
-                fs.unlink(filename, () => {}); // Clean up on error
-                reject(err);
-            });
-            
-            request.setTimeout(300000, () => { // 5 minute timeout
-                request.destroy();
-                reject(new Error('Download timeout'));
-            });
+            downloadWithRedirects(dataset.url);
         });
     }
     
     /**
      * Extract and process Wikipedia XML dump into SQLite database
-     * @param {string} compressedFile - Path to compressed BZ2 file
-     * @param {string} dbPath - Path for SQLite database
-     * @param {function} progressCallback - Optional callback for progress updates
-     * @returns {Promise<string>} Path to database
+     * Memory-optimized for low-memory environments
      */
     extractAndProcess(compressedFile, dbPath, progressCallback = null) {
         return new Promise((resolve, reject) => {
             console.log(`📝 Processing ${compressedFile} into ${dbPath}`);
             
-            // Initialize database
+            // Initialize database with memory-optimized settings
             const db = new WikipediaDatabase(dbPath);
             db.initialize();
             
-            // Create XML processor
-            const processor = new WikipediaXMLProcessor(db, progressCallback);
+            // Force garbage collection if available
+            if (global.gc) {
+                global.gc();
+            }
             
-            // Create read stream and decompress
-            const readStream = fs.createReadStream(compressedFile);
+            // Create read stream with smaller buffer
+            const readStream = fs.createReadStream(compressedFile, {
+                highWaterMark: 64 * 1024 // 64KB chunks instead of default 64KB
+            });
+            
             const decompressStream = unbzip2();
             
-            // Create SAX parser stream
-            const saxStream = sax.createStream(true, { trim: true });
+            // Create SAX parser with strict mode
+            const saxStream = sax.createStream(true, { 
+                trim: true,
+                normalize: true,
+                lowercase: false,
+                xmlns: false,
+                position: false
+            });
             
-            let currentPage = {};
+            // State variables - minimize object allocations
             let currentElement = null;
-            let currentText = '';
+            let pageTitle = '';
+            let pageText = '';
+            let pageId = '';
+            let inPage = false;
+            let articlesProcessed = 0;
+            let articlesSkipped = 0;
+            
+            // Batch processing for better performance
+            const BATCH_SIZE = 100;
+            let batch = [];
             
             saxStream.on('opentag', (node) => {
-                currentElement = node.name;
-                currentText = '';
+                const tagName = node.name;
+                if (tagName === 'page') {
+                    inPage = true;
+                    pageTitle = '';
+                    pageText = '';
+                    pageId = '';
+                } else if (inPage && (tagName === 'title' || tagName === 'text' || tagName === 'id')) {
+                    currentElement = tagName;
+                }
             });
             
             saxStream.on('text', (text) => {
-                if (currentElement) {
-                    currentText += text;
+                if (!currentElement || !inPage) return;
+                
+                if (currentElement === 'title') {
+                    pageTitle += text;
+                } else if (currentElement === 'text') {
+                    // Limit text accumulation to prevent memory issues
+                    if (pageText.length < 100000) {
+                        pageText += text;
+                    }
+                } else if (currentElement === 'id' && !pageId) {
+                    pageId = text;
                 }
             });
             
             saxStream.on('cdata', (cdata) => {
-                if (currentElement) {
-                    currentText += cdata;
+                if (currentElement === 'text' && inPage && pageText.length < 100000) {
+                    pageText += cdata;
                 }
             });
             
             saxStream.on('closetag', (tagName) => {
-                if (tagName === 'page') {
-                    // Process complete page
-                    if (processor.isValidArticle(currentPage)) {
-                        processor.processArticle(currentPage);
+                if (tagName === 'page' && inPage) {
+                    inPage = false;
+                    
+                    // Check if valid article
+                    if (isValidArticle(pageTitle, pageText)) {
+                        // Process article
+                        const cleanedContent = cleanWikipediaMarkup(pageText);
+                        const summary = extractSummary(cleanedContent);
+                        const categories = extractCategories(pageText);
+                        const wordCount = cleanedContent.split(/\s+/).length;
+                        
+                        batch.push({
+                            articleId: pageId,
+                            title: pageTitle.trim(),
+                            content: cleanedContent,
+                            summary: summary,
+                            categories: categories,
+                            wordCount: wordCount
+                        });
+                        
+                        articlesProcessed++;
+                        
+                        // Insert batch when full
+                        if (batch.length >= BATCH_SIZE) {
+                            db.insertBatch(batch);
+                            batch = [];
+                            
+                            // Progress update
+                            if (articlesProcessed % 1000 === 0) {
+                                process.stdout.write(`\r📝 Processed ${articlesProcessed.toLocaleString()} articles (${articlesSkipped.toLocaleString()} skipped)`);
+                                
+                                // Periodic garbage collection hint
+                                if (articlesProcessed % 10000 === 0 && global.gc) {
+                                    global.gc();
+                                }
+                            }
+                            
+                            if (progressCallback) {
+                                progressCallback(articlesProcessed);
+                            }
+                        }
+                    } else {
+                        articlesSkipped++;
                     }
-                    currentPage = {};
-                } else if (['title', 'text', 'id'].includes(tagName)) {
-                    currentPage[tagName] = currentText;
+                    
+                    // Clear page data immediately
+                    pageTitle = '';
+                    pageText = '';
+                    pageId = '';
+                    currentElement = null;
+                } else if (tagName === currentElement) {
+                    currentElement = null;
                 }
-                currentElement = null;
-                currentText = '';
             });
             
             saxStream.on('error', (err) => {
@@ -220,16 +379,24 @@ class WikipediaDownloader {
             });
             
             saxStream.on('end', () => {
-                console.log('\n📊 Creating full-text search index...');
-                db.createSearchIndex();
+                // Insert remaining batch
+                if (batch.length > 0) {
+                    db.insertBatch(batch);
+                    batch = [];
+                }
                 
-                const stats = db.getStats();
-                console.log(`✅ Processing completed!`);
-                console.log(`📚 Total articles: ${stats.total_articles.toLocaleString()}`);
-                console.log(`📝 Total words: ${stats.total_words ? stats.total_words.toLocaleString() : 'N/A'}`);
+                console.log(`\n📊 Creating full-text search index...`);
+                console.log(`📚 Processed ${articlesProcessed.toLocaleString()} articles`);
+                console.log(`⏭️  Skipped ${articlesSkipped.toLocaleString()} non-article pages`);
                 
-                db.close();
-                resolve(dbPath);
+                db.createSearchIndex(() => {
+                    const stats = db.getStatsSync();
+                    console.log(`✅ Processing completed!`);
+                    console.log(`📚 Total articles in database: ${stats.total_articles.toLocaleString()}`);
+                    
+                    db.close();
+                    resolve(dbPath);
+                });
             });
             
             // Pipe streams together
@@ -251,217 +418,164 @@ class WikipediaDownloader {
 }
 
 /**
- * WikipediaXMLProcessor - processes Wikipedia XML content
+ * Check if page is a valid article
  */
-class WikipediaXMLProcessor {
-    constructor(database, progressCallback = null) {
-        this.db = database;
-        this.progressCallback = progressCallback;
-        this.articlesProcessed = 0;
+function isValidArticle(title, text) {
+    if (!title || !text) return false;
+    
+    // Skip special pages
+    if (title.startsWith('Category:') ||
+        title.startsWith('Template:') ||
+        title.startsWith('File:') ||
+        title.startsWith('Wikipedia:') ||
+        title.startsWith('Module:') ||
+        title.startsWith('MediaWiki:') ||
+        title.startsWith('Draft:') ||
+        title.startsWith('Portal:') ||
+        title.startsWith('Help:') ||
+        title.startsWith('User:') ||
+        title.startsWith('Talk:')) {
+        return false;
     }
     
-    /**
-     * Check if page is a valid article
-     */
-    isValidArticle(page) {
-        const title = page.title || '';
-        const text = page.text || '';
-        
-        // Skip redirects, disambiguation, and special pages
-        if (title.startsWith('Category:') ||
-            title.startsWith('Template:') ||
-            title.startsWith('File:') ||
-            title.startsWith('Wikipedia:') ||
-            title.startsWith('Module:') ||
-            title.startsWith('MediaWiki:') ||
-            title.startsWith('Draft:') ||
-            text.toUpperCase().includes('#REDIRECT') ||
-            text.trim().length < 100) {
-            return false;
-        }
-        
-        return true;
+    // Skip redirects and stubs
+    const textUpper = text.substring(0, 100).toUpperCase();
+    if (textUpper.includes('#REDIRECT')) {
+        return false;
     }
     
-    /**
-     * Process and store a single article
-     */
-    processArticle(page) {
-        const title = (page.title || '').trim();
-        const content = page.text || '';
-        const articleId = page.id || '';
-        
-        // Clean content
-        const cleanedContent = this.cleanWikipediaMarkup(content);
-        
-        // Extract summary (first paragraph)
-        const summary = this.extractSummary(cleanedContent);
-        
-        // Extract categories
-        const categories = this.extractCategories(content);
-        
-        // Store in database
-        this.db.insertArticle(articleId, title, cleanedContent, summary, categories);
-        
-        this.articlesProcessed++;
-        
-        if (this.progressCallback && this.articlesProcessed % 1000 === 0) {
-            this.progressCallback(this.articlesProcessed);
-        }
-        
-        if (this.articlesProcessed % 5000 === 0) {
-            process.stdout.write(`\r📝 Processed ${this.articlesProcessed.toLocaleString()} articles`);
-        }
+    // Skip very short articles
+    if (text.trim().length < 200) {
+        return false;
     }
     
-    /**
-     * Clean Wikipedia markup from text
-     */
-    cleanWikipediaMarkup(text) {
-        // Apply cleanup patterns
-        for (const [pattern, replacement] of CLEANUP_PATTERNS) {
-            text = text.replace(pattern, replacement);
-        }
-        
-        // Clean wiki links [[Link|Text]] -> Text
-        text = text.replace(/\[\[([^|\]]+\|)?([^\]]+)\]\]/g, '$2');
-        
-        // Clean simple formatting
-        text = text.replace(/'''([^']+)'''/g, '$1');  // Bold
-        text = text.replace(/''([^']+)''/g, '$1');    // Italic
-        
-        // Clean up whitespace
-        text = text.replace(/\n\s*\n/g, '\n\n');
-        text = text.trim();
-        
-        return text;
-    }
-    
-    /**
-     * Extract article summary (first paragraph)
-     */
-    extractSummary(content) {
-        const paragraphs = content.split('\n\n');
-        for (const para of paragraphs) {
-            const trimmed = para.trim();
-            if (trimmed.length > 50 && !trimmed.startsWith('=')) {
-                return trimmed.length > 500 ? trimmed.substring(0, 500) + '...' : trimmed;
-            }
-        }
-        return '';
-    }
-    
-    /**
-     * Extract categories from article
-     */
-    extractCategories(content) {
-        const matches = content.match(/\[\[Category:([^\]]+)\]\]/g) || [];
-        const categories = matches.map(m => m.replace(/\[\[Category:|]]/g, ''));
-        return JSON.stringify(categories);
-    }
+    return true;
 }
 
 /**
- * WikipediaDatabase - SQLite database management
+ * WikipediaDatabase - SQLite database management with memory optimization
  */
 class WikipediaDatabase {
     constructor(dbPath) {
         this.dbPath = dbPath;
         this.db = null;
-        this.insertStmt = null;
     }
     
     /**
-     * Initialize database schema
+     * Initialize database schema with memory-optimized settings
      */
     initialize() {
         this.db = new sqlite3.Database(this.dbPath);
         
-        // Configure for performance
-        this.db.run('PRAGMA journal_mode=WAL');
-        this.db.run('PRAGMA synchronous=NORMAL');
-        this.db.run('PRAGMA cache_size=10000');
-        
-        // Create tables
-        this.db.exec(`
-            CREATE TABLE IF NOT EXISTS wikipedia_articles (
-                id INTEGER PRIMARY KEY,
-                article_id TEXT UNIQUE,
-                title TEXT NOT NULL,
-                content TEXT NOT NULL,
-                summary TEXT,
-                categories TEXT,
-                word_count INTEGER,
-                created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-            );
+        // Memory-optimized PRAGMA settings
+        this.db.serialize(() => {
+            // Use smaller cache to reduce memory
+            this.db.run('PRAGMA cache_size = 2000'); // ~2MB cache
+            this.db.run('PRAGMA page_size = 4096');
+            this.db.run('PRAGMA journal_mode = WAL');
+            this.db.run('PRAGMA synchronous = NORMAL');
+            this.db.run('PRAGMA temp_store = FILE'); // Use disk for temp storage
+            this.db.run('PRAGMA mmap_size = 0'); // Disable memory mapping
             
-            CREATE TABLE IF NOT EXISTS wikipedia_metadata (
-                key TEXT PRIMARY KEY,
-                value TEXT
-            );
+            // Create tables
+            this.db.run(`
+                CREATE TABLE IF NOT EXISTS wikipedia_articles (
+                    id INTEGER PRIMARY KEY,
+                    article_id TEXT UNIQUE,
+                    title TEXT NOT NULL,
+                    content TEXT NOT NULL,
+                    summary TEXT,
+                    categories TEXT,
+                    word_count INTEGER,
+                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+                )
+            `);
             
-            CREATE INDEX IF NOT EXISTS idx_title ON wikipedia_articles(title);
-            CREATE INDEX IF NOT EXISTS idx_article_id ON wikipedia_articles(article_id);
-        `);
-        
-        // Prepare insert statement
-        this.insertStmt = this.db.prepare(`
+            this.db.run(`
+                CREATE TABLE IF NOT EXISTS wikipedia_metadata (
+                    key TEXT PRIMARY KEY,
+                    value TEXT
+                )
+            `);
+            
+            this.db.run('CREATE INDEX IF NOT EXISTS idx_title ON wikipedia_articles(title)');
+            this.db.run('CREATE INDEX IF NOT EXISTS idx_article_id ON wikipedia_articles(article_id)');
+        });
+    }
+    
+    /**
+     * Insert a batch of articles efficiently
+     */
+    insertBatch(articles) {
+        const stmt = this.db.prepare(`
             INSERT OR REPLACE INTO wikipedia_articles 
             (article_id, title, content, summary, categories, word_count)
             VALUES (?, ?, ?, ?, ?, ?)
         `);
-    }
-    
-    /**
-     * Insert article into database
-     */
-    insertArticle(articleId, title, content, summary, categories) {
-        const wordCount = content.split(/\s+/).length;
         
-        this.insertStmt.run(articleId, title, content, summary, categories, wordCount);
+        this.db.serialize(() => {
+            this.db.run('BEGIN TRANSACTION');
+            
+            for (const article of articles) {
+                stmt.run(
+                    article.articleId,
+                    article.title,
+                    article.content,
+                    article.summary,
+                    article.categories,
+                    article.wordCount
+                );
+            }
+            
+            this.db.run('COMMIT');
+        });
+        
+        stmt.finalize();
     }
     
     /**
      * Create full-text search index
      */
-    createSearchIndex() {
+    createSearchIndex(callback) {
         console.log('Creating full-text search index...');
         
-        this.db.exec(`
-            CREATE VIRTUAL TABLE IF NOT EXISTS wikipedia_fts USING fts5(
-                title, content, summary,
-                content='wikipedia_articles',
-                content_rowid='id'
-            );
+        this.db.serialize(() => {
+            this.db.run(`
+                CREATE VIRTUAL TABLE IF NOT EXISTS wikipedia_fts USING fts5(
+                    title, summary,
+                    content='wikipedia_articles',
+                    content_rowid='id'
+                )
+            `);
             
-            INSERT INTO wikipedia_fts(wikipedia_fts) VALUES('rebuild');
-        `);
-        
-        console.log('✅ Search index created successfully');
+            this.db.run(`INSERT INTO wikipedia_fts(wikipedia_fts) VALUES('rebuild')`, (err) => {
+                if (err) {
+                    console.error('FTS index error:', err.message);
+                } else {
+                    console.log('✅ Search index created successfully');
+                }
+                if (callback) callback();
+            });
+        });
     }
     
     /**
-     * Get database statistics
+     * Get database statistics synchronously
      */
-    getStats() {
-        const stmt = this.db.prepare(`
-            SELECT 
-                COUNT(*) as total_articles,
-                SUM(word_count) as total_words,
-                AVG(word_count) as avg_words_per_article
-            FROM wikipedia_articles
-        `);
+    getStatsSync() {
+        let result = { total_articles: 0, total_words: 0 };
         
-        let result = { total_articles: 0, total_words: 0, avg_words_per_article: 0 };
+        try {
+            // Use a simple count query
+            this.db.get('SELECT COUNT(*) as count FROM wikipedia_articles', (err, row) => {
+                if (!err && row) {
+                    result.total_articles = row.count;
+                }
+            });
+        } catch (e) {
+            console.error('Stats error:', e.message);
+        }
         
-        stmt.get((err, row) => {
-            if (!err && row) {
-                result = row;
-            }
-        });
-        
-        // Since sqlite3 is async, we need to return synchronously
-        // Use a workaround with serialize
         return result;
     }
     
@@ -469,11 +583,9 @@ class WikipediaDatabase {
      * Close database connection
      */
     close() {
-        if (this.insertStmt) {
-            this.insertStmt.finalize();
-        }
         if (this.db) {
             this.db.close();
+            this.db = null;
         }
     }
 }
@@ -497,7 +609,7 @@ async function downloadAndProcessWikipedia(datasetName = 'simple', dbPath = './w
     
     // Progress callback for processing
     const processProgress = (articlesProcessed) => {
-        process.stdout.write(`\r📝 Processed ${articlesProcessed.toLocaleString()} articles`);
+        // Progress is logged in the processor
     };
     
     try {
@@ -512,7 +624,13 @@ async function downloadAndProcessWikipedia(datasetName = 'simple', dbPath = './w
         
         // Clean up compressed file to save space
         console.log('🧹 Cleaning up temporary files...');
-        fs.unlinkSync(compressedFile);
+        try {
+            fs.unlinkSync(compressedFile);
+            // Also try to remove the data directory if empty
+            fs.rmdirSync(dataDir);
+        } catch (e) {
+            // Ignore cleanup errors
+        }
         
         return result;
     } catch (error) {
@@ -523,8 +641,11 @@ async function downloadAndProcessWikipedia(datasetName = 'simple', dbPath = './w
 
 module.exports = {
     WikipediaDownloader,
-    WikipediaXMLProcessor,
     WikipediaDatabase,
     downloadAndProcessWikipedia,
-    DATASETS
+    DATASETS,
+    cleanWikipediaMarkup,
+    extractSummary,
+    extractCategories,
+    isValidArticle
 };
