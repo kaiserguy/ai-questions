@@ -794,7 +794,9 @@ class DownloadManager {
      */
     async downloadResource(name, url, progressCallback = null, retryCount = 0) {
         const MAX_RETRIES = 3;
-        const TIMEOUT_MS = 30000; // 30 second timeout
+        // Use much longer timeout for large files like Wikipedia (10 minutes)
+        // Server can take 16+ seconds to send 687 MB, plus client needs time to process
+        const TIMEOUT_MS = 600000; // 10 minute timeout for large files
         
         return new Promise(async (resolve, reject) => {
             if (this.aborted) {
