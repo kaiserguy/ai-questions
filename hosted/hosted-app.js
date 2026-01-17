@@ -454,6 +454,95 @@ app.listen(PORT, () => {
     } else {
         console.log(`Visit http://localhost:${PORT} to access the application`);
     }
+    
+    // Auto-download Wikipedia database if not present
+    initializeWikipediaCache();
 });
+
+/**
+ * Initialize Wikipedia cache on server startup
+ * Downloads Wikipedia database if not already present (using Node.js downloader)
+ */
+function initializeWikipediaCache() {
+    const dbPath = path.resolve(PUBLIC_CONFIG.wikipedia.dbPath);
+    const dataDir = path.join(path.dirname(dbPath), 'wikipedia_data');
+    
+    // Check if Wikipedia database already exists
+    if (fs.existsSync(dbPath)) {
+        const stats = fs.statSync(dbPath);
+        const sizeMB = (stats.size / 1024 / 1024).toFixed(2);
+        console.log(`✅ Wikipedia database ready: ${sizeMB} MB`);
+        
+        // Verify database tables
+        verifyWikipediaTables(dbPath);
+        return;
+    }
+    
+    console.log('📥 Wikipedia database not found, downloading minimal package...');
+    console.log('⏱️  This may take 5-10 minutes on first startup...');
+    
+    // Use Node.js Wikipedia downloader (no Python dependency)
+    const { downloadAndProcessWikipedia } = require('../core/wikipedia-downloader');
+    
+    downloadAndProcessWikipedia('simple', dbPath, dataDir)
+        .then((resultPath) => {
+            console.log(`✅ Wikipedia database ready at: ${resultPath}`);
+            
+            // Verify database tables
+            verifyWikipediaTables(dbPath);
+            
+            // Reinitialize Wikipedia integration with the new database
+            if (wikipedia && typeof wikipedia.initializeWikipedia === 'function') {
+                wikipedia.initializeWikipedia();
+            }
+        })
+        .catch((error) => {
+            console.error(`❌ Wikipedia download/processing failed: ${error.message}`);
+            console.log('💡 Wikipedia will be available for manual download from /offline page');
+        });
+}
+
+/**
+ * Verify Wikipedia database has required tables
+ */
+function verifyWikipediaTables(dbPath) {
+    const sqlite3 = require('sqlite3').verbose();
+    const db = new sqlite3.Database(dbPath, sqlite3.OPEN_READONLY, (err) => {
+        if (err) {
+            console.error(`❌ Failed to open database for verification: ${err.message}`);
+            return;
+        }
+        
+        // Check for required tables
+        db.all(`SELECT name FROM sqlite_master WHERE type='table' ORDER BY name`, (err, tables) => {
+            if (err) {
+                console.error(`❌ Failed to query tables: ${err.message}`);
+                db.close();
+                return;
+            }
+            
+            const tableNames = tables.map(t => t.name);
+            console.log(`📊 Database tables: ${tableNames.join(', ')}`);
+            
+            // Check for FTS table
+            const hasFTS = tableNames.some(name => name.includes('fts'));
+            if (hasFTS) {
+                console.log('✅ Full-text search (FTS) table found');
+            } else {
+                console.log('⚠️  Warning: No FTS table found - search performance will be limited');
+            }
+            
+            // Get article count
+            db.get('SELECT COUNT(*) as count FROM wikipedia_articles', (err, row) => {
+                if (err) {
+                    console.error(`❌ Failed to count articles: ${err.message}`);
+                } else {
+                    console.log(`📚 Total articles: ${row.count.toLocaleString()}`);
+                }
+                db.close();
+            });
+        });
+    });
+}
 
 
