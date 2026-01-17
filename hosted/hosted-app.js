@@ -497,9 +497,31 @@ async function initializeWikipediaCache() {
 
     if (cacheIsFresh) {
         console.log(`✅ Wikipedia database cache found in PostgreSQL (${formatBytes(cacheMetadata.size)})`);
-        await ensureWikipediaDbOnDisk(dbPath);
-        verifyWikipediaTables(dbPath);
-        return;
+        try {
+            await ensureWikipediaDbOnDisk(dbPath);
+            
+            // Verify the restored database is valid
+            const isValid = await validateWikipediaDatabase(dbPath);
+            if (!isValid) {
+                console.warn('⚠️  Restored database is corrupted, invalidating cache and re-downloading...');
+                await db.deleteFileChunks(WIKIPEDIA_CACHE_NAME);
+                fs.unlinkSync(dbPath);
+            } else {
+                verifyWikipediaTables(dbPath);
+                return;
+            }
+        } catch (error) {
+            console.error(`❌ Failed to restore from cache: ${error.message}`);
+            console.log('🔄 Invalidating cache and re-downloading...');
+            try {
+                await db.deleteFileChunks(WIKIPEDIA_CACHE_NAME);
+                if (fs.existsSync(dbPath)) {
+                    fs.unlinkSync(dbPath);
+                }
+            } catch (cleanupError) {
+                console.error(`⚠️  Cache cleanup failed: ${cleanupError.message}`);
+            }
+        }
     }
     
     console.log('📥 Wikipedia database cache missing or stale, downloading minimal package...');
