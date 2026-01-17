@@ -513,11 +513,21 @@ async function initializeWikipediaCache() {
         console.log(`✅ Wikipedia database ready at: ${resultPath}`);
         
         const fileSize = fs.statSync(resultPath).size;
-        console.log(`📁 Database will be served directly from ephemeral disk (${formatBytes(fileSize)})`);
-        console.log('💡 File persists until dyno restart, then will be regenerated');
         
-        // Don't delete the file - we need to serve it to clients
-        // Ephemeral filesystem resets on restart anyway
+        // Upload to PostgreSQL in chunks for future restarts
+        console.log('📤 Caching to PostgreSQL for faster future restarts...');
+        try {
+            await cacheWikipediaDatabase(resultPath);
+            
+            // Delete ephemeral disk file after successful cache
+            console.log('🧹 Removing ephemeral database file (will restore from PostgreSQL on next restart)...');
+            fs.unlinkSync(resultPath);
+            console.log(`✅ Freed ${formatBytes(fileSize)} from ephemeral disk`);
+        } catch (cacheError) {
+            console.error(`⚠️  Failed to cache to PostgreSQL: ${cacheError.message}`);
+            console.log(`📁 Database will be served from ephemeral disk (${formatBytes(fileSize)})`);
+            console.log('💡 File persists until dyno restart, then will be regenerated');
+        }
         
         // Force garbage collection
         if (global.gc) {
@@ -557,11 +567,21 @@ function getWikipediaFileInfo(dbPath) {
 }
 
 async function getWikipediaCacheMetadata() {
-    if (!db || typeof db.getCachedFileMetadata !== 'function') {
+    if (!db || typeof db.getChunkedFileMetadata !== 'function') {
         return null;
     }
 
     try {
+        // Check for chunked file first (new format)
+        const chunkedMetadata = await db.getChunkedFileMetadata(WIKIPEDIA_CACHE_NAME);
+        if (chunkedMetadata && chunkedMetadata.chunks_present === chunkedMetadata.total_chunks) {
+            return {
+                size: chunkedMetadata.total_size,
+                updated_at: chunkedMetadata.updated_at
+            };
+        }
+        
+        // Fall back to old monolithic format
         return await db.getCachedFileMetadata(WIKIPEDIA_CACHE_NAME);
     } catch (error) {
         console.warn(`⚠️ Failed to load Wikipedia cache metadata: ${error.message}`);
@@ -573,6 +593,61 @@ async function ensureWikipediaDbOnDisk(dbPath) {
     if (fs.existsSync(dbPath)) {
         return;
     }
+
+    console.log('📥 Restoring Wikipedia database from PostgreSQL chunks...');
+    
+    // Try chunked format first (new format)
+    const chunks = await db.getFileChunks(WIKIPEDIA_CACHE_NAME);
+    
+    if (chunks && chunks.length > 0) {
+        const totalChunks = chunks[0].total_chunks;
+        
+        if (chunks.length !== totalChunks) {
+            console.error(`❌ Incomplete chunked cache: ${chunks.length}/${totalChunks} chunks`);
+            throw new Error('Incomplete cache');
+        }
+        
+        console.log(`📥 Fetched ${chunks.length} chunks, decompressing...`);
+        
+        // Decompress chunks and write to disk
+        await fs.promises.mkdir(path.dirname(dbPath), { recursive: true });
+        const writeStream = fs.createWriteStream(dbPath);
+        const gunzipStream = zlib.createGunzip();
+        
+        return new Promise((resolve, reject) => {
+            gunzipStream.pipe(writeStream);
+            
+            writeStream.on('finish', () => {
+                const fileSize = fs.statSync(dbPath).size;
+                console.log(`✅ Restored Wikipedia database (${formatBytes(fileSize)})`);
+                resolve();
+            });
+            
+            writeStream.on('error', reject);
+            gunzipStream.on('error', reject);
+            
+            // Write all compressed chunks to gunzip stream
+            for (const chunk of chunks) {
+                gunzipStream.write(chunk.chunk_data);
+            }
+            gunzipStream.end();
+        });
+    }
+    
+    // Fall back to old monolithic format if no chunks
+    const cachedFile = await db.getCachedFile(WIKIPEDIA_CACHE_NAME);
+    if (!cachedFile) {
+        throw new Error('No Wikipedia database found in cache');
+    }
+
+    await fs.promises.mkdir(path.dirname(dbPath), { recursive: true });
+    
+    console.log(`📥 Decompressing database (${formatBytes(cachedFile.data.length)})...`);
+    const decompressed = await gunzip(cachedFile.data);
+    
+    await fs.promises.writeFile(dbPath, decompressed);
+    console.log(`✅ Restored Wikipedia database from PostgreSQL cache (${formatBytes(decompressed.length)})`);
+}
 
     if (!db || typeof db.getCachedFile !== 'function') {
         return;
@@ -593,7 +668,7 @@ async function ensureWikipediaDbOnDisk(dbPath) {
 }
 
 async function cacheWikipediaDatabase(dbPath) {
-    if (!db || typeof db.upsertCachedFile !== 'function') {
+    if (!db || typeof db.insertFileChunk !== 'function') {
         return;
     }
 
@@ -604,33 +679,86 @@ async function cacheWikipediaDatabase(dbPath) {
         return;
     }
 
-    // Stream compress to avoid loading entire file into memory
+    // Compress and upload in chunks to avoid memory spikes
     const fileSize = fs.statSync(dbPath).size;
-    console.log(`📤 Compressing database with streaming (${formatBytes(fileSize)})...`);
+    const CHUNK_SIZE = 10 * 1024 * 1024; // 10MB chunks
+    console.log(`📤 Compressing and uploading database in chunks (${formatBytes(fileSize)})...`);
     
-    // Force garbage collection before compression
+    // Force garbage collection before starting
     if (global.gc) {
         global.gc();
     }
     
     return new Promise((resolve, reject) => {
-        const chunks = [];
         const readStream = fs.createReadStream(dbPath);
         const gzipStream = zlib.createGzip({ level: 6 });
         
-        gzipStream.on('data', (chunk) => {
-            chunks.push(chunk);
+        let compressedChunks = [];
+        let currentChunkSize = 0;
+        let chunkIndex = 0;
+        let totalCompressedSize = 0;
+        const uploadedChunks = [];
+        
+        gzipStream.on('data', async (chunk) => {
+            compressedChunks.push(chunk);
+            currentChunkSize += chunk.length;
+            
+            // When we have enough data for a chunk, upload it
+            if (currentChunkSize >= CHUNK_SIZE) {
+                const chunkBuffer = Buffer.concat(compressedChunks);
+                compressedChunks = [];
+                currentChunkSize = 0;
+                
+                // Pause stream while uploading
+                gzipStream.pause();
+                
+                try {
+                    // Note: total_chunks will be updated when we finish
+                    await db.insertFileChunk(WIKIPEDIA_CACHE_NAME, chunkIndex, chunkBuffer, -1);
+                    uploadedChunks.push(chunkIndex);
+                    totalCompressedSize += chunkBuffer.length;
+                    
+                    const progress = ((chunkIndex + 1) * CHUNK_SIZE / fileSize * 100).toFixed(1);
+                    console.log(`📤 Uploaded chunk ${chunkIndex + 1} (${formatBytes(chunkBuffer.length)}) - ~${progress}%`);
+                    
+                    chunkIndex++;
+                    gzipStream.resume();
+                } catch (error) {
+                    reject(error);
+                }
+            }
         });
         
         gzipStream.on('end', async () => {
-            const compressed = Buffer.concat(chunks);
-            const compressionRatio = ((1 - compressed.length / fileSize) * 100).toFixed(1);
-            console.log(`✅ Compressed: ${formatBytes(fileSize)} → ${formatBytes(compressed.length)} (${compressionRatio}% reduction)`);
-            
-            console.log('📤 Uploading to PostgreSQL...');
             try {
-                await db.upsertCachedFile(WIKIPEDIA_CACHE_NAME, compressed);
-                console.log(`✅ Wikipedia database cached in PostgreSQL (${formatBytes(compressed.length)})`);
+                // Upload final chunk if any data remains
+                if (compressedChunks.length > 0) {
+                    const chunkBuffer = Buffer.concat(compressedChunks);
+                    await db.insertFileChunk(WIKIPEDIA_CACHE_NAME, chunkIndex, chunkBuffer, -1);
+                    uploadedChunks.push(chunkIndex);
+                    totalCompressedSize += chunkBuffer.length;
+                    console.log(`📤 Uploaded final chunk ${chunkIndex + 1} (${formatBytes(chunkBuffer.length)})`);
+                    chunkIndex++;
+                }
+                
+                const totalChunks = chunkIndex;
+                
+                // Update all chunks with correct total_chunks count
+                console.log(`📤 Finalizing ${totalChunks} chunks...`);
+                for (const idx of uploadedChunks) {
+                    const chunk = await db.pool.query(
+                        'SELECT chunk_data FROM cached_file_chunks WHERE name = $1 AND chunk_index = $2',
+                        [WIKIPEDIA_CACHE_NAME, idx]
+                    );
+                    if (chunk.rows[0]) {
+                        await db.insertFileChunk(WIKIPEDIA_CACHE_NAME, idx, chunk.rows[0].chunk_data, totalChunks);
+                    }
+                }
+                
+                const compressionRatio = ((1 - totalCompressedSize / fileSize) * 100).toFixed(1);
+                console.log(`✅ Compressed: ${formatBytes(fileSize)} → ${formatBytes(totalCompressedSize)} (${compressionRatio}% reduction)`);
+                console.log(`✅ Wikipedia database cached in PostgreSQL (${totalChunks} chunks, ${formatBytes(totalCompressedSize)})`);
+                
                 resolve();
             } catch (error) {
                 reject(error);

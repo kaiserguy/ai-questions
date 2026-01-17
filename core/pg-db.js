@@ -103,6 +103,24 @@ class PgDatabase extends DatabaseInterface {
             `);
             console.log("Cached files table created/verified");
 
+            // Create chunked file storage for memory-efficient large file caching
+            await this.pool.query(`
+                CREATE TABLE IF NOT EXISTS cached_file_chunks (
+                    name TEXT NOT NULL,
+                    chunk_index INTEGER NOT NULL,
+                    chunk_data BYTEA NOT NULL,
+                    total_chunks INTEGER NOT NULL,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    PRIMARY KEY (name, chunk_index)
+                )
+            `);
+            
+            await this.pool.query(`
+                CREATE INDEX IF NOT EXISTS idx_cached_file_chunks_name 
+                ON cached_file_chunks(name, chunk_index)
+            `);
+            console.log("Cached file chunks table created/verified");
+
             console.log("Database initialization completed successfully");
         } catch (err) {
             console.error("Error during database initialization:", err);
@@ -474,6 +492,61 @@ class PgDatabase extends DatabaseInterface {
             [name, data]
         );
         return result.rows[0];
+    }
+
+    // ===== Chunked File Storage Methods =====
+    
+    /**
+     * Insert a single chunk of a file
+     */
+    async insertFileChunk(name, chunkIndex, chunkData, totalChunks) {
+        await this.pool.query(
+            `INSERT INTO cached_file_chunks (name, chunk_index, chunk_data, total_chunks)
+             VALUES ($1, $2, $3, $4)
+             ON CONFLICT (name, chunk_index)
+             DO UPDATE SET chunk_data = EXCLUDED.chunk_data, total_chunks = EXCLUDED.total_chunks`,
+            [name, chunkIndex, chunkData, totalChunks]
+        );
+    }
+
+    /**
+     * Get metadata about chunked file
+     */
+    async getChunkedFileMetadata(name) {
+        const result = await this.pool.query(
+            `SELECT name, total_chunks, COUNT(*) as chunks_present, 
+                    MAX(created_at) as updated_at,
+                    SUM(OCTET_LENGTH(chunk_data)) as total_size
+             FROM cached_file_chunks
+             WHERE name = $1
+             GROUP BY name, total_chunks`,
+            [name]
+        );
+        return result.rows[0] || null;
+    }
+
+    /**
+     * Get all chunks for a file in order
+     */
+    async getFileChunks(name) {
+        const result = await this.pool.query(
+            `SELECT chunk_index, chunk_data, total_chunks
+             FROM cached_file_chunks
+             WHERE name = $1
+             ORDER BY chunk_index ASC`,
+            [name]
+        );
+        return result.rows;
+    }
+
+    /**
+     * Delete all chunks for a file
+     */
+    async deleteFileChunks(name) {
+        await this.pool.query(
+            `DELETE FROM cached_file_chunks WHERE name = $1`,
+            [name]
+        );
     }
 }
 
