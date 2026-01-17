@@ -1359,9 +1359,13 @@ module.exports = (db, ai, wikipedia, config) => {
         const path = require('path');
         
         const packageType = req.query.package || 'minimal';
+        console.log(`[Wikipedia DB] Request received for package: ${packageType}`);
 
         // First, check if the Wikipedia database exists on disk (from cache restoration or fresh download)
         const restoredDbPath = path.join(__dirname, '..', 'wikipedia.db');
+        console.log(`[Wikipedia DB] Checking restored database at: ${restoredDbPath}`);
+        console.log(`[Wikipedia DB] File exists: ${fs.existsSync(restoredDbPath)}`);
+        
         if (fs.existsSync(restoredDbPath)) {
             const stat = fs.statSync(restoredDbPath);
             const sizeInMB = (stat.size / 1024 / 1024).toFixed(2);
