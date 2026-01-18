@@ -14,6 +14,8 @@ class AIWikipediaSearch {
         this.searchCancelled = false;
         this.db = null;
         this.dbReady = false;
+        this.dbSource = null;
+        this.sql = null;
         this.aiModel = null;
         this.initialized = false;
         this.dataProvider = null; // WikipediaClientProvider instance
@@ -130,7 +132,8 @@ class AIWikipediaSearch {
             console.log('[AIWikipediaSearch] Setting status to READY (green)');
             statusEl.style.display = 'block';
             statusEl.style.background = '#d1fae5';
-            statusText.textContent = '✅ Local Wikipedia database loaded and ready';
+            const sourceLabel = this.dbSource === 'file' ? 'from file' : 'from cache';
+            statusText.textContent = `✅ Local Wikipedia database loaded ${sourceLabel}`;
         } else {
             console.log('[AIWikipediaSearch] Setting status to NOT READY (yellow warning)');
             statusEl.style.display = 'block';
@@ -153,9 +156,7 @@ class AIWikipediaSearch {
         }
 
         try {
-            const SQL = await initSqlJs({
-                locateFile: file => `/offline/libs/${file}`
-            });
+            const SQL = await this.getSqlInstance();
 
             // Retrieve the Wikipedia database from IndexedDB
             console.log('[AIWikipediaSearch] Retrieving Wikipedia database from IndexedDB...');
@@ -165,14 +166,7 @@ class AIWikipediaSearch {
                 throw new Error('Wikipedia database not found in storage. Please download it first.');
             }
 
-            this.db = new SQL.Database(dbData);
-            this.dbReady = true;
-            
-            // Create data provider for enhanced features
-            if (typeof WikipediaClientProvider !== 'undefined') {
-                this.dataProvider = new WikipediaClientProvider(this.db);
-                console.log('[AIWikipediaSearch] Data provider initialized');
-            }
+            this.setDatabase(new SQL.Database(dbData), 'cache');
             
             // Get article count
             const result = this.db.exec('SELECT COUNT(*) FROM wikipedia_articles');
@@ -196,6 +190,71 @@ class AIWikipediaSearch {
             this.updateStatusIndicator();
             throw error;
         }
+    }
+
+    /**
+     * Load SQL.js instance
+     * @returns {Promise<Object>} SQL.js instance
+     */
+    async getSqlInstance() {
+        if (this.sql) {
+            return this.sql;
+        }
+
+        if (typeof initSqlJs === 'undefined') {
+            throw new Error('SQL.js not available');
+        }
+
+        this.sql = await initSqlJs({
+            locateFile: file => `/offline/libs/${file}`
+        });
+        return this.sql;
+    }
+
+    /**
+     * Set the active database and data provider
+     * @param {Object} database - SQL.js database instance
+     * @param {string} source - Source label (cache|file)
+     */
+    setDatabase(database, source) {
+        this.db = database;
+        this.dbReady = true;
+        this.dbSource = source;
+
+        if (typeof WikipediaClientProvider !== 'undefined') {
+            this.dataProvider = new WikipediaClientProvider(this.db);
+            console.log('[AIWikipediaSearch] Data provider initialized');
+        }
+
+        this.updateStatusIndicator();
+    }
+
+    /**
+     * Load a Wikipedia database from a user-selected file (session-only)
+     * @param {File} file - SQLite database file
+     * @returns {Promise<number>} Article count
+     */
+    async loadDatabaseFromFile(file) {
+        if (!file) {
+            throw new Error('No file provided');
+        }
+
+        const SQL = await this.getSqlInstance();
+        const arrayBuffer = await file.arrayBuffer();
+        const uint8Array = new Uint8Array(arrayBuffer);
+        const database = new SQL.Database(uint8Array);
+
+        const tables = database.exec("SELECT name FROM sqlite_master WHERE type='table'");
+        if (!tables || tables.length === 0) {
+            throw new Error('Database appears to be empty or corrupted');
+        }
+
+        this.setDatabase(database, 'file');
+
+        const result = this.db.exec('SELECT COUNT(*) FROM wikipedia_articles');
+        const count = result[0]?.values[0]?.[0] || 0;
+        this.showMessage(`Loaded ${count.toLocaleString()} articles from ${file.name}`, 'success');
+        return count;
     }
 
     /**

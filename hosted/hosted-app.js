@@ -16,7 +16,6 @@ const passport = require("passport");
 const GoogleStrategy = require("passport-google-oauth20").Strategy;
 const path = require("path");
 const fs = require("fs");
-const archiver = require("archiver");
 const cron = require("node-cron");
 
 // Import core components
@@ -28,6 +27,7 @@ const commonRoutes = require("../core/routes");
 
 const WIKIPEDIA_CACHE_NAME = "wikipedia-db";
 const WIKIPEDIA_CACHE_MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000;
+const ARCHIVER_MISSING_MESSAGE = "Archiver dependency not available. Run `npm install` to enable offline package downloads.";
 
 // Public configuration
 const PUBLIC_CONFIG = {
@@ -84,6 +84,15 @@ const wikipedia = new WikipediaIntegration(PUBLIC_CONFIG.wikipedia.dbPath);
 
 // Create Express app with core setup
 const app = createApp(PUBLIC_CONFIG);
+
+async function getArchiver() {
+    return import("archiver")
+        .then((mod) => mod.default || mod)
+        .catch((error) => {
+            console.error("Archiver module is not available:", error.message);
+            return null;
+        });
+}
 
 app.use(session({
     secret: PUBLIC_CONFIG.session.secret,
@@ -198,6 +207,15 @@ app.get("/offline", (req, res) => {
 
 // Generate and serve local package
 app.get("/generate-local-package", async (req, res) => {
+    const archiver = await getArchiver();
+    if (!archiver) {
+        res.status(500).json({
+            success: false,
+            message: ARCHIVER_MISSING_MESSAGE
+        });
+        return;
+    }
+
     const packageDir = path.join(__dirname, "local-package");
     const outputPath = path.join(__dirname, "local-package.zip");
     
@@ -269,8 +287,12 @@ app.get("/generate-local-package", async (req, res) => {
 
 // Download offline version route (generates and downloads package)
 app.get("/download/offline", async (req, res) => {
-    const archiver = require('archiver');
-    
+    const archiver = await getArchiver();
+    if (!archiver) {
+        res.status(500).json({ error: ARCHIVER_MISSING_MESSAGE });
+        return;
+    }
+
     try {
         // Set response headers for download
         res.setHeader('Content-Type', 'application/zip');
@@ -505,8 +527,7 @@ async function initializeWikipediaCache() {
             const isValid = await validateWikipediaDatabase(dbPath);
             if (!isValid) {
                 console.warn('⚠️  Restored database is corrupted, invalidating cache and re-downloading...');
-                await db.deleteFileChunks(WIKIPEDIA_CACHE_NAME);
-                fs.unlinkSync(dbPath);
+                await invalidateWikipediaCache(dbPath);
             } else {
                 verifyWikipediaTables(dbPath);
                 return;
@@ -515,10 +536,7 @@ async function initializeWikipediaCache() {
             console.error(`❌ Failed to restore from cache: ${error.message}`);
             console.log('🔄 Invalidating cache and re-downloading...');
             try {
-                await db.deleteFileChunks(WIKIPEDIA_CACHE_NAME);
-                if (fs.existsSync(dbPath)) {
-                    fs.unlinkSync(dbPath);
-                }
+                await invalidateWikipediaCache(dbPath);
             } catch (cleanupError) {
                 console.error(`⚠️  Cache cleanup failed: ${cleanupError.message}`);
             }
@@ -573,6 +591,49 @@ async function initializeWikipediaCache() {
     }
 }
 
+async function invalidateWikipediaCache(dbPath) {
+    const errors = [];
+
+    if (db && typeof db.deleteFileChunks === 'function') {
+        try {
+            await db.deleteFileChunks(WIKIPEDIA_CACHE_NAME);
+        } catch (error) {
+            errors.push(`chunked cache cleanup failed: ${error.message}`);
+        }
+    }
+
+    if (db && db.pool && typeof db.pool.query === 'function') {
+        try {
+            await db.pool.query('DELETE FROM cached_files WHERE name = $1', [WIKIPEDIA_CACHE_NAME]);
+        } catch (error) {
+            errors.push(`monolithic cache cleanup failed: ${error.message}`);
+        }
+    }
+
+    if (fs.existsSync(dbPath)) {
+        try {
+            await fs.promises.unlink(dbPath);
+        } catch (error) {
+            errors.push(`disk cleanup failed: ${error.message}`);
+        }
+    }
+
+    if (errors.length > 0) {
+        console.warn(`⚠️  Cache cleanup issues: ${errors.join(' | ')}`);
+    }
+}
+
+async function writeAll(fd, buffer) {
+    let offset = 0;
+    while (offset < buffer.length) {
+        const { bytesWritten } = await fd.write(buffer, offset, buffer.length - offset);
+        if (bytesWritten <= 0) {
+            throw new Error('Failed to write database chunk to disk');
+        }
+        offset += bytesWritten;
+    }
+}
+
 function getWikipediaFileInfo(dbPath) {
     if (!fs.existsSync(dbPath)) {
         return null;
@@ -610,16 +671,11 @@ async function getWikipediaCacheMetadata() {
             } else {
                 console.warn(`⚠️  Incomplete cache: ${chunksPresent}/${totalChunks} chunks`);
             }
-        } else {
-            console.log('🔍 No chunked cache found, checking old format...');
         }
-        
-        // Fall back to old monolithic format
-        return await db.getCachedFileMetadata(WIKIPEDIA_CACHE_NAME);
     } catch (error) {
         console.warn(`⚠️ Failed to load Wikipedia cache metadata: ${error.message}`);
-        return null;
     }
+    return null;
 }
 
 async function ensureWikipediaDbOnDisk(dbPath) {
@@ -634,93 +690,80 @@ async function ensureWikipediaDbOnDisk(dbPath) {
         const chunks = await db.getFileChunks(WIKIPEDIA_CACHE_NAME);
         
         if (chunks && chunks.length > 0) {
-        const totalChunks = chunks[0].total_chunks;
-        
-        if (chunks.length !== totalChunks) {
-            console.error(`❌ Incomplete chunked cache: ${chunks.length}/${totalChunks} chunks`);
-            throw new Error('Incomplete cache');
-        }
-        
-        console.log(`📥 Fetched ${chunks.length} chunks, decompressing independently...`);
-        
-        // Ensure chunks are in order
-        chunks.sort((a, b) => a.chunk_index - b.chunk_index);
-        
-        await fs.promises.mkdir(path.dirname(dbPath), { recursive: true });
-        
-        // Write to temporary file first, then rename atomically
-        // CRITICAL: Use writeFile or sequential write() WITHOUT offsets to avoid SQLite corruption
-        console.log(`📝 Writing ${chunks.length} chunks to temporary file...`);
-        const tempPath = dbPath + '.tmp';
-        const BATCH_SIZE = 10;
-        const fd = await fs.promises.open(tempPath, 'w');
-        let totalSize = 0;
-        
-        try {
-            for (let batchStart = 0; batchStart < chunks.length; batchStart += BATCH_SIZE) {
-                const batchEnd = Math.min(batchStart + BATCH_SIZE, chunks.length);
-                const batchChunks = chunks.slice(batchStart, batchEnd);
-                
-                // Decompress batch
-                const decompressedBatch = [];
-                for (const chunk of batchChunks) {
-                    const decompressed = await gunzip(chunk.chunk_data);
-                    decompressedBatch.push(decompressed);
-                    totalSize += decompressed.length;
+            const totalChunks = chunks[0].total_chunks;
+            
+            if (chunks.length !== totalChunks) {
+                console.error(`❌ Incomplete chunked cache: ${chunks.length}/${totalChunks} chunks`);
+                throw new Error('Incomplete cache');
+            }
+            
+            console.log(`📥 Fetched ${chunks.length} chunks, decompressing independently...`);
+            
+            // Ensure chunks are in order
+            chunks.sort((a, b) => a.chunk_index - b.chunk_index);
+            
+            await fs.promises.mkdir(path.dirname(dbPath), { recursive: true });
+            
+            // Write to temporary file first, then rename atomically
+            // CRITICAL: Use writeFile or sequential write() WITHOUT offsets to avoid SQLite corruption
+            console.log(`📝 Writing ${chunks.length} chunks to temporary file...`);
+            const tempPath = dbPath + '.tmp';
+            const BATCH_SIZE = 10;
+            const fd = await fs.promises.open(tempPath, 'w');
+            let totalSize = 0;
+            
+            try {
+                for (let batchStart = 0; batchStart < chunks.length; batchStart += BATCH_SIZE) {
+                    const batchEnd = Math.min(batchStart + BATCH_SIZE, chunks.length);
+                    const batchChunks = chunks.slice(batchStart, batchEnd);
+                    
+                    // Decompress batch
+                    const decompressedBatch = [];
+                    for (const chunk of batchChunks) {
+                        const decompressed = await gunzip(chunk.chunk_data);
+                        decompressedBatch.push(decompressed);
+                        totalSize += decompressed.length;
+                    }
+                    
+                    // Concatenate batch and write WITHOUT explicit offset
+                    // Let Node.js track file position automatically
+                    const batchBuffer = Buffer.concat(decompressedBatch);
+                    await writeAll(fd, batchBuffer);
+                    
+                    // Clear batch from memory
+                    decompressedBatch.length = 0;
+                    if (global.gc) global.gc();
+                    
+                    const progress = ((batchEnd) / chunks.length * 100).toFixed(1);
+                    console.log(`📝 Written ${batchEnd}/${chunks.length} chunks (${formatBytes(totalSize)}) - ${progress}%`);
                 }
                 
-                // Concatenate batch and write WITHOUT explicit offset
-                // Let Node.js track file position automatically
-                const batchBuffer = Buffer.concat(decompressedBatch);
-                await fd.write(batchBuffer);  // No offset parameter!
+                await fd.sync();
+                await fd.close();
                 
-                // Clear batch from memory
-                decompressedBatch.length = 0;
-                if (global.gc) global.gc();
+                // Rename temporary file to final path atomically
+                await fs.promises.rename(tempPath, dbPath);
+                console.log(`✅ Restored Wikipedia database (${formatBytes(totalSize)})`);
                 
-                const progress = ((batchEnd) / chunks.length * 100).toFixed(1);
-                console.log(`📝 Written ${batchEnd}/${chunks.length} chunks (${formatBytes(totalSize)}) - ${progress}%`);
+                // Validate the restored database
+                const isValid = await validateWikipediaDatabase(dbPath);
+                if (!isValid) {
+                    console.error('❌ Restored database is corrupted, invalidating cache...');
+                    await invalidateWikipediaCache(dbPath);
+                    throw new Error('Database validation failed');
+                }
+            } catch (error) {
+                await fd.close().catch(() => {});
+                await fs.promises.unlink(tempPath).catch(() => {});
+                throw error;
             }
             
-            await fd.sync();
-            await fd.close();
-            
-            // Rename temporary file to final path atomically
-            await fs.promises.rename(tempPath, dbPath);
-            console.log(`✅ Restored Wikipedia database (${formatBytes(totalSize)})`);
-            
-            // Validate the restored database
-            const isValid = await validateWikipediaDatabase(dbPath);
-            if (!isValid) {
-                console.error('❌ Restored database is corrupted, invalidating cache...');
-                await fs.promises.unlink(dbPath).catch(() => {});
-                await db.pool.query('DELETE FROM cached_file_chunks WHERE name = $1', [WIKIPEDIA_CACHE_NAME]);
-                throw new Error('Database validation failed');
-            }
-        } catch (error) {
-            await fd.close().catch(() => {});
-            await fs.promises.unlink(tempPath).catch(() => {});
-            throw error;
+            return;
         }
-        
-        return;
-    }
-    
-    // Fall back to old monolithic format if no chunks
-    const cachedFile = await db.getCachedFile(WIKIPEDIA_CACHE_NAME);
-    if (!cachedFile) {
-        throw new Error('No Wikipedia database found in cache');
-    }
 
-    await fs.promises.mkdir(path.dirname(dbPath), { recursive: true });
-    
-    console.log(`📥 Decompressing database (${formatBytes(cachedFile.data.length)})...`);
-    const decompressed = await gunzip(cachedFile.data);
-    
-    await fs.promises.writeFile(dbPath, decompressed);
-    console.log(`✅ Restored Wikipedia database from PostgreSQL cache (${formatBytes(decompressed.length)})`);
+        throw new Error('No chunked cache found');
     } catch (error) {
-        console.error('❌ Failed to restore from cache:', error.message);
+        await invalidateWikipediaCache(dbPath);
         throw error;
     }
 }

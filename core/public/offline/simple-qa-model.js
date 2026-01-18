@@ -67,6 +67,19 @@ class SimpleQAModel {
     }
 
     /**
+     * Load a custom knowledge base (session-only)
+     * @param {Object} knowledgeBase - Knowledge base data
+     */
+    loadKnowledgeBase(knowledgeBase) {
+        if (!knowledgeBase || typeof knowledgeBase !== 'object' || Array.isArray(knowledgeBase)) {
+            throw new Error('Knowledge base must be a JSON object');
+        }
+
+        this.knowledgeBase = knowledgeBase;
+        return true;
+    }
+
+    /**
      * Calculate TF-IDF score for a query against a document
      */
     calculateTFIDF(query, document) {
