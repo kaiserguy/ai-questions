@@ -505,8 +505,7 @@ async function initializeWikipediaCache() {
             const isValid = await validateWikipediaDatabase(dbPath);
             if (!isValid) {
                 console.warn('⚠️  Restored database is corrupted, invalidating cache and re-downloading...');
-                await db.deleteFileChunks(WIKIPEDIA_CACHE_NAME);
-                fs.unlinkSync(dbPath);
+                await invalidateWikipediaCache(dbPath);
             } else {
                 verifyWikipediaTables(dbPath);
                 return;
@@ -515,10 +514,7 @@ async function initializeWikipediaCache() {
             console.error(`❌ Failed to restore from cache: ${error.message}`);
             console.log('🔄 Invalidating cache and re-downloading...');
             try {
-                await db.deleteFileChunks(WIKIPEDIA_CACHE_NAME);
-                if (fs.existsSync(dbPath)) {
-                    fs.unlinkSync(dbPath);
-                }
+                await invalidateWikipediaCache(dbPath);
             } catch (cleanupError) {
                 console.error(`⚠️  Cache cleanup failed: ${cleanupError.message}`);
             }
@@ -570,6 +566,49 @@ async function initializeWikipediaCache() {
         }
 
         console.log('💡 Wikipedia will be available for manual download from /offline page');
+    }
+}
+
+async function invalidateWikipediaCache(dbPath) {
+    const errors = [];
+
+    if (db && typeof db.deleteFileChunks === 'function') {
+        try {
+            await db.deleteFileChunks(WIKIPEDIA_CACHE_NAME);
+        } catch (error) {
+            errors.push(`chunked cache cleanup failed: ${error.message}`);
+        }
+    }
+
+    if (db && db.pool && typeof db.pool.query === 'function') {
+        try {
+            await db.pool.query('DELETE FROM cached_files WHERE name = $1', [WIKIPEDIA_CACHE_NAME]);
+        } catch (error) {
+            errors.push(`monolithic cache cleanup failed: ${error.message}`);
+        }
+    }
+
+    if (fs.existsSync(dbPath)) {
+        try {
+            await fs.promises.unlink(dbPath);
+        } catch (error) {
+            errors.push(`disk cleanup failed: ${error.message}`);
+        }
+    }
+
+    if (errors.length > 0) {
+        console.warn(`⚠️  Cache cleanup issues: ${errors.join(' | ')}`);
+    }
+}
+
+async function writeAll(fd, buffer) {
+    let offset = 0;
+    while (offset < buffer.length) {
+        const { bytesWritten } = await fd.write(buffer, offset, buffer.length - offset);
+        if (bytesWritten <= 0) {
+            throw new Error('Failed to write database chunk to disk');
+        }
+        offset += bytesWritten;
     }
 }
 
@@ -672,7 +711,7 @@ async function ensureWikipediaDbOnDisk(dbPath) {
                 // Concatenate batch and write WITHOUT explicit offset
                 // Let Node.js track file position automatically
                 const batchBuffer = Buffer.concat(decompressedBatch);
-                await fd.write(batchBuffer);  // No offset parameter!
+                await writeAll(fd, batchBuffer);
                 
                 // Clear batch from memory
                 decompressedBatch.length = 0;
@@ -693,8 +732,7 @@ async function ensureWikipediaDbOnDisk(dbPath) {
             const isValid = await validateWikipediaDatabase(dbPath);
             if (!isValid) {
                 console.error('❌ Restored database is corrupted, invalidating cache...');
-                await fs.promises.unlink(dbPath).catch(() => {});
-                await db.pool.query('DELETE FROM cached_file_chunks WHERE name = $1', [WIKIPEDIA_CACHE_NAME]);
+                await invalidateWikipediaCache(dbPath);
                 throw new Error('Database validation failed');
             }
         } catch (error) {
@@ -720,7 +758,6 @@ async function ensureWikipediaDbOnDisk(dbPath) {
     await fs.promises.writeFile(dbPath, decompressed);
     console.log(`✅ Restored Wikipedia database from PostgreSQL cache (${formatBytes(decompressed.length)})`);
     } catch (error) {
-        console.error('❌ Failed to restore from cache:', error.message);
         throw error;
     }
 }
