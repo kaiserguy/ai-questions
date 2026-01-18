@@ -648,8 +648,9 @@ async function ensureWikipediaDbOnDisk(dbPath) {
         
         await fs.promises.mkdir(path.dirname(dbPath), { recursive: true });
         
-        // Decompress all chunks first to avoid file descriptor issues
-        const decompressedChunks = [];
+        // Stream chunks to disk to avoid memory overflow (Heroku 512 MB limit)
+        console.log(`📝 Writing ${chunks.length} chunks to disk using streaming...`);
+        const writeStream = fs.createWriteStream(dbPath);
         let totalSize = 0;
         
         for (let i = 0; i < chunks.length; i++) {
@@ -657,39 +658,53 @@ async function ensureWikipediaDbOnDisk(dbPath) {
             
             // Decompress this chunk
             const decompressed = await gunzip(chunk.chunk_data);
-            decompressedChunks.push(decompressed);
             totalSize += decompressed.length;
+            
+            // Write chunk immediately to minimize memory usage
+            await new Promise((resolve, reject) => {
+                const canContinue = writeStream.write(decompressed);
+                if (canContinue) {
+                    resolve();
+                } else {
+                    writeStream.once('drain', resolve);
+                }
+                writeStream.once('error', reject);
+            });
             
             if ((i + 1) % 10 === 0 || i === chunks.length - 1) {
                 const progress = ((i + 1) / chunks.length * 100).toFixed(1);
-                console.log(`📥 Decompressed ${i + 1}/${chunks.length} chunks (${formatBytes(totalSize)}) - ${progress}%`);
+                console.log(`📝 Written ${i + 1}/${chunks.length} chunks (${formatBytes(totalSize)}) - ${progress}%`);
             }
             
-            // Force GC periodically
+            // Force GC periodically to keep memory low
             if (i % 5 === 0 && global.gc) {
                 global.gc();
             }
         }
         
-        // Concatenate all chunks into a single buffer
-        console.log(`📦 Concatenating ${chunks.length} chunks into single buffer...`);
-        const fullBuffer = Buffer.concat(decompressedChunks);
-        
-        // Clear intermediate buffers to free memory
-        decompressedChunks.length = 0;
-        if (global.gc) global.gc();
-        
-        // Write entire database in one operation to avoid corruption
-        console.log(`💾 Writing complete database to disk (${formatBytes(fullBuffer.length)})...`);
-        await fs.promises.writeFile(dbPath, fullBuffer);
+        // Close the write stream and wait for finish
+        await new Promise((resolve, reject) => {
+            writeStream.end(() => resolve());
+            writeStream.once('error', reject);
+        });
         
         // Verify the file size matches
         const fileSize = fs.statSync(dbPath).size;
-        if (fileSize !== fullBuffer.length) {
-            throw new Error(`File size mismatch: expected ${fullBuffer.length}, got ${fileSize}`);
+        if (fileSize !== totalSize) {
+            throw new Error(`File size mismatch: expected ${totalSize}, got ${fileSize}`);
         }
         
         console.log(`✅ Restored Wikipedia database (${formatBytes(fileSize)})`);
+        
+        // Validate the restored database
+        const isValid = await validateDatabase(dbPath);
+        if (!isValid) {
+            console.error('❌ Restored database is corrupted, invalidating cache...');
+            await fs.promises.unlink(dbPath).catch(() => {});
+            await db.query('DELETE FROM cached_files WHERE file_key = $1', ['wikipedia-database']);
+            throw new Error('Database validation failed');
+        }
+        
         return;
     }
     
