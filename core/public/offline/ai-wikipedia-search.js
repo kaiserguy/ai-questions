@@ -534,7 +534,11 @@ Score 0-100 (0=not relevant, 100=perfect answer):`;
                         fullArticle.relevancy = article.relevancy;
                     }
                     
-                    console.log(`[AIWikipediaSearch] Read article ${index + 1}/${topArticles.length}: "${fullArticle.title}" (final score: ${fullArticle.relevancy}/100)`);
+                    if (fullArticle) {
+                        console.log(`[AIWikipediaSearch] Read article ${index + 1}/${topArticles.length}: "${fullArticle.title}" (final score: ${fullArticle.relevancy}/100)`);
+                    } else {
+                        console.warn(`[AIWikipediaSearch] Failed to read article ${index + 1}/${topArticles.length} (pageid: ${article && article.pageid ? article.pageid : 'unknown'})`);
+                    }
                 }
                 
                 contentStmt.free();
