@@ -97,9 +97,9 @@ const dbInitialization = db.initialize().catch(err => {
     console.log("App will continue running with limited database functionality");
 });
 
-// Initialize Wikipedia integration
-const WikipediaIntegration = require("../core/wikipedia-integration");
-const wikipedia = new WikipediaIntegration(PUBLIC_CONFIG.wikipedia.dbPath);
+// Wikipedia integration DISABLED - clients download and process locally
+console.log('⚠️  Server-side Wikipedia disabled - clients handle downloads');
+const wikipedia = null;
 
 // Create Express app with core setup
 const app = createApp(PUBLIC_CONFIG);
@@ -502,102 +502,12 @@ app.listen(PORT, () => {
 
 /**
  * Initialize Wikipedia cache on server startup
- * Downloads Wikipedia database if not already present (using Node.js downloader)
+ * DISABLED - clients download and process Wikipedia locally
  */
 async function initializeWikipediaCache() {
-    await dbInitialization;
-    const dbPath = path.resolve(PUBLIC_CONFIG.wikipedia.dbPath);
-    const dataDir = path.join(path.dirname(dbPath), 'wikipedia_data');
-    const cacheMetadata = await getWikipediaCacheMetadata();
-    const cacheAgeMs = cacheMetadata
-        ? Date.now() - new Date(cacheMetadata.updated_at).getTime()
-        : null;
-    const cacheIsFresh = cacheMetadata && cacheAgeMs <= WIKIPEDIA_CACHE_MAX_AGE_MS;
-    const localFileInfo = getWikipediaFileInfo(dbPath);
-    const localFileIsFresh = localFileInfo && localFileInfo.ageMs <= WIKIPEDIA_CACHE_MAX_AGE_MS;
-
-    if (localFileIsFresh) {
-        console.log(`✅ Wikipedia database ready on disk (${localFileInfo.sizeMB} MB)`);
-
-        if (!cacheIsFresh) {
-            await cacheWikipediaDatabase(dbPath);
-        }
-
-        verifyWikipediaTables(dbPath);
-        return;
-    }
-
-    if (cacheIsFresh) {
-        console.log(`✅ Wikipedia database cache found in PostgreSQL (${formatBytes(cacheMetadata.size)})`);
-        try {
-            await ensureWikipediaDbOnDisk(dbPath);
-            
-            // Verify the restored database is valid
-            const isValid = await validateWikipediaDatabase(dbPath);
-            if (!isValid) {
-                console.warn('⚠️  Restored database is corrupted, invalidating cache and re-downloading...');
-                await invalidateWikipediaCache(dbPath);
-            } else {
-                verifyWikipediaTables(dbPath);
-                return;
-            }
-        } catch (error) {
-            console.error(`❌ Failed to restore from cache: ${error.message}`);
-            console.log('🔄 Invalidating cache and re-downloading...');
-            try {
-                await invalidateWikipediaCache(dbPath);
-            } catch (cleanupError) {
-                console.error(`⚠️  Cache cleanup failed: ${cleanupError.message}`);
-            }
-        }
-    }
-    
-    console.log('📥 Wikipedia database cache missing or stale, downloading minimal package...');
-    console.log('⏱️  This may take 5-10 minutes on first startup...');
-    
-    // Use Node.js Wikipedia downloader (no Python dependency)
-    const { downloadAndProcessWikipedia } = require('../core/wikipedia-downloader');
-
-    try {
-        const resultPath = await downloadAndProcessWikipedia('simple', dbPath, dataDir);
-        console.log(`✅ Wikipedia database ready at: ${resultPath}`);
-        
-        const fileSize = fs.statSync(resultPath).size;
-        
-        // Upload to PostgreSQL in chunks for future restarts
-        console.log('📤 Caching to PostgreSQL for faster future restarts...');
-        try {
-            await cacheWikipediaDatabase(resultPath);
-            console.log('✅ Database cached successfully - will restore from PostgreSQL on next restart');
-            console.log(`📁 Keeping file on ephemeral disk for current session (${formatBytes(fileSize)})`);
-        } catch (cacheError) {
-            console.error(`⚠️  Failed to cache to PostgreSQL: ${cacheError.message}`);
-            console.log(`📁 Database will be served from ephemeral disk (${formatBytes(fileSize)})`);
-            console.log('💡 File persists until dyno restart, then will be regenerated');
-        }
-        
-        // Force garbage collection
-        if (global.gc) {
-            console.log('🗑️  Running garbage collection...');
-            global.gc();
-        }
-        
-        // Reinitialize Wikipedia integration
-        if (wikipedia && typeof wikipedia.initializeWikipedia === 'function') {
-            wikipedia.initializeWikipedia();
-        }
-    } catch (error) {
-        console.error(`❌ Wikipedia download/processing failed: ${error.message}`);
-
-        if (cacheMetadata) {
-            console.log('♻️ Falling back to cached Wikipedia database from PostgreSQL');
-            await ensureWikipediaDbOnDisk(dbPath);
-            verifyWikipediaTables(dbPath);
-            return;
-        }
-
-        console.log('💡 Wikipedia will be available for manual download from /offline page');
-    }
+    console.log('⚠️  Server-side Wikipedia caching disabled');
+    console.log('💡 Clients download Wikipedia directly from dumps.wikimedia.org');
+    return;
 }
 
 // TODO: Add test coverage for invalidateWikipediaCache (see PR #239 comment)
