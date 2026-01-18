@@ -497,6 +497,27 @@ class DownloadManager {
                 }
             } else if (existingFile && existingFile.data) {
                 console.warn(`${wikiConfig.name} exists but corrupted (${this.formatBytes(existingFile.data.length)} < ${this.formatBytes(minSize)}), will re-download`);
+                
+                // Delete corrupted file from IndexedDB before re-downloading
+                console.log(`Deleting corrupted ${wikiConfig.name} from IndexedDB...`);
+                try {
+                    const deleteTransaction = this.db.transaction(['wikipedia'], 'readwrite');
+                    const deleteStore = deleteTransaction.objectStore('wikipedia');
+                    await new Promise((resolve, reject) => {
+                        const deleteRequest = deleteStore.delete(wikiConfig.name);
+                        deleteRequest.onsuccess = () => {
+                            console.log(`Successfully deleted corrupted ${wikiConfig.name}`);
+                            resolve();
+                        };
+                        deleteRequest.onerror = () => {
+                            console.error(`Failed to delete corrupted ${wikiConfig.name}`);
+                            reject(deleteRequest.error);
+                        };
+                    });
+                } catch (deleteError) {
+                    console.error(`Error deleting corrupted file:`, deleteError);
+                    // Continue with download even if delete fails
+                }
             }
             
             console.log(`[DownloadManager] Attempting Wikipedia download...`);
