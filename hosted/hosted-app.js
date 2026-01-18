@@ -570,16 +570,34 @@ async function initializeWikipediaCache() {
 }
 
 async function invalidateWikipediaCache(dbPath) {
+    const errors = [];
+
     if (db && typeof db.deleteFileChunks === 'function') {
-        await db.deleteFileChunks(WIKIPEDIA_CACHE_NAME);
+        try {
+            await db.deleteFileChunks(WIKIPEDIA_CACHE_NAME);
+        } catch (error) {
+            errors.push(`chunked cache cleanup failed: ${error.message}`);
+        }
     }
 
-    if (db && typeof db.pool?.query === 'function') {
-        await db.pool.query('DELETE FROM cached_files WHERE name = $1', [WIKIPEDIA_CACHE_NAME]);
+    if (db && db.pool && typeof db.pool.query === 'function') {
+        try {
+            await db.pool.query('DELETE FROM cached_files WHERE name = $1', [WIKIPEDIA_CACHE_NAME]);
+        } catch (error) {
+            errors.push(`monolithic cache cleanup failed: ${error.message}`);
+        }
     }
 
     if (fs.existsSync(dbPath)) {
-        await fs.promises.unlink(dbPath);
+        try {
+            await fs.promises.unlink(dbPath);
+        } catch (error) {
+            errors.push(`disk cleanup failed: ${error.message}`);
+        }
+    }
+
+    if (errors.length > 0) {
+        console.warn(`⚠️  Cache cleanup issues: ${errors.join(' | ')}`);
     }
 }
 
