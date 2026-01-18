@@ -648,29 +648,21 @@ async function ensureWikipediaDbOnDisk(dbPath) {
         
         await fs.promises.mkdir(path.dirname(dbPath), { recursive: true });
         
-        // Each chunk was compressed independently, so decompress and write each one
-        const fd = await fs.promises.open(dbPath, 'w');
-        let offset = 0;
+        // Decompress all chunks first to avoid file descriptor issues
+        const decompressedChunks = [];
+        let totalSize = 0;
         
         for (let i = 0; i < chunks.length; i++) {
             const chunk = chunks[i];
             
             // Decompress this chunk
             const decompressed = await gunzip(chunk.chunk_data);
-            
-            // Write to file at correct offset
-            const { bytesWritten } = await fd.write(decompressed, 0, decompressed.length, offset);
-            
-            // Verify write succeeded
-            if (bytesWritten !== decompressed.length) {
-                throw new Error(`Write failed: expected ${decompressed.length} bytes, wrote ${bytesWritten}`);
-            }
-            
-            offset += decompressed.length;
+            decompressedChunks.push(decompressed);
+            totalSize += decompressed.length;
             
             if ((i + 1) % 10 === 0 || i === chunks.length - 1) {
                 const progress = ((i + 1) / chunks.length * 100).toFixed(1);
-                console.log(`📥 Decompressed ${i + 1}/${chunks.length} chunks (${formatBytes(offset)}) - ${progress}%`);
+                console.log(`📥 Decompressed ${i + 1}/${chunks.length} chunks (${formatBytes(totalSize)}) - ${progress}%`);
             }
             
             // Force GC periodically
@@ -679,11 +671,24 @@ async function ensureWikipediaDbOnDisk(dbPath) {
             }
         }
         
-        // Sync to ensure all writes are flushed to disk
-        await fd.sync();
-        await fd.close();
+        // Concatenate all chunks into a single buffer
+        console.log(`📦 Concatenating ${chunks.length} chunks into single buffer...`);
+        const fullBuffer = Buffer.concat(decompressedChunks);
         
+        // Clear intermediate buffers to free memory
+        decompressedChunks.length = 0;
+        if (global.gc) global.gc();
+        
+        // Write entire database in one operation to avoid corruption
+        console.log(`💾 Writing complete database to disk (${formatBytes(fullBuffer.length)})...`);
+        await fs.promises.writeFile(dbPath, fullBuffer);
+        
+        // Verify the file size matches
         const fileSize = fs.statSync(dbPath).size;
+        if (fileSize !== fullBuffer.length) {
+            throw new Error(`File size mismatch: expected ${fullBuffer.length}, got ${fileSize}`);
+        }
+        
         console.log(`✅ Restored Wikipedia database (${formatBytes(fileSize)})`);
         return;
     }
