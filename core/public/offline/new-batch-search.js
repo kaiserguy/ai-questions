@@ -90,7 +90,7 @@ Return SQL query:`;
         console.log(`[AIWikipediaSearch] Step 2: Batch scoring ${allArticles.length} articles...`);
         this.showMessage(`Scoring ${allArticles.length} articles in batches...`, 'info');
         
-        const scoredArticles = [];
+        let scoredArticles = [];
         const batches = [];
         const totalBatches = Math.ceil(allArticles.length / budget.batchSize);
         
@@ -104,7 +104,7 @@ Return SQL query:`;
         
         let scoredCount = 0;
         
-        await Promise.all(batches.map(async ({ batch, batchNum, totalBatches: total }) => {
+        const batchResults = await Promise.all(batches.map(async ({ batch, batchNum, totalBatches: total }) => {
             if (this.searchCancelled) return;
             
             console.log(`[AIWikipediaSearch] Scoring batch ${batchNum}/${total} (${batch.length} articles)...`);
@@ -134,7 +134,6 @@ Return array [score1, score2, ...]:`;
                     // Assign scores to articles
                     batch.forEach((article, idx) => {
                         article.relevancy = scores[idx] !== undefined ? scores[idx] : 0;
-                        scoredArticles.push(article);
                     });
                     
                     console.log(`[AIWikipediaSearch] Batch ${batchNum} scored: ${scores.join(', ')}`);
@@ -152,7 +151,6 @@ Return array [score1, score2, ...]:`;
                         );
                         
                         article.relevancy = Math.min(matches.length * 3, 8);
-                        scoredArticles.push(article);
                     });
                 }
             } catch (error) {
@@ -160,13 +158,16 @@ Return array [score1, score2, ...]:`;
                 // Fallback scoring
                 batch.forEach(article => {
                     article.relevancy = 5;
-                    scoredArticles.push(article);
                 });
             }
             
             scoredCount += batch.length;
             this.showMessage(`Scored ${Math.min(scoredCount, allArticles.length)}/${allArticles.length} articles...`, 'info');
+
+            return batch;
         }));
+
+        scoredArticles = batchResults.filter(Boolean).flat();
         
         // STEP 4: Sort by relevancy and take top candidates
         console.log(`[AIWikipediaSearch] Step 3: Sorting and selecting top ${budget.maxResults} articles...`);

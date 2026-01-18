@@ -425,7 +425,7 @@ Write ONE SQLite SELECT query. Return ONLY the SQL.`;
             console.log(`[AIWikipediaSearch] Step 2: Batch scoring ${allArticles.length} articles...`);
             this.showMessage(`Scoring ${allArticles.length} articles in batches...`, 'info', true);
             
-            const scoredArticles = [];
+            let scoredArticles = [];
             const batches = [];
             const totalBatches = Math.ceil(allArticles.length / budget.batchSize);
             
@@ -440,7 +440,7 @@ Write ONE SQLite SELECT query. Return ONLY the SQL.`;
             let scoredCount = 0;
             
             try {
-                await Promise.all(batches.map(async ({ batch, batchNum, totalBatches: total }) => {
+                const batchResults = await Promise.all(batches.map(async ({ batch, batchNum, totalBatches: total }) => {
                     if (this.searchCancelled) return;
                     
                     console.log(`[AIWikipediaSearch] Scoring batch ${batchNum}/${total} (${batch.length} articles)...`);
@@ -469,7 +469,6 @@ Return array [score1, score2, ...]:`;
                         // Assign scores to articles
                         batch.forEach((article, idx) => {
                             article.relevancy = scores[idx] !== undefined ? scores[idx] : 0;
-                            scoredArticles.push(article);
                         });
                         
                         console.log(`[AIWikipediaSearch] Batch ${batchNum} scored: ${scores.join(', ')}`);
@@ -479,7 +478,11 @@ Return array [score1, score2, ...]:`;
                     
                     scoredCount += batch.length;
                     this.showMessage(`Scored ${Math.min(scoredCount, allArticles.length)}/${allArticles.length} articles...`, 'info', true);
+
+                    return batch;
                 }));
+
+                scoredArticles = batchResults.filter(Boolean).flat();
             } catch (error) {
                 console.error('[AIWikipediaSearch] Batch scoring error:', error);
                 // Fail search entirely if scoring fails
