@@ -648,11 +648,12 @@ async function ensureWikipediaDbOnDisk(dbPath) {
         
         await fs.promises.mkdir(path.dirname(dbPath), { recursive: true });
         
-        // Process chunks in batches to stay under memory limit while maintaining SQLite integrity
-        // Batch size: 10 chunks = ~100 MB per batch (well under 512 MB limit)
-        console.log(`📝 Writing ${chunks.length} chunks in batches to maintain SQLite integrity...`);
+        // Write to temporary file first, then rename atomically
+        // This ensures SQLite integrity while managing memory usage
+        console.log(`📝 Writing ${chunks.length} chunks to temporary file...`);
+        const tempPath = dbPath + '.tmp';
         const BATCH_SIZE = 10;
-        const fd = await fs.promises.open(dbPath, 'w');
+        const fd = await fs.promises.open(tempPath, 'w');
         let totalSize = 0;
         let offset = 0;
         
@@ -669,7 +670,7 @@ async function ensureWikipediaDbOnDisk(dbPath) {
                     totalSize += decompressed.length;
                 }
                 
-                // Concatenate batch and write atomically
+                // Concatenate batch and write
                 const batchBuffer = Buffer.concat(decompressedBatch);
                 await fd.write(batchBuffer, 0, batchBuffer.length, offset);
                 offset += batchBuffer.length;
@@ -685,6 +686,8 @@ async function ensureWikipediaDbOnDisk(dbPath) {
             await fd.sync();
             await fd.close();
             
+            // Rename temporary file to final path atomically
+            await fs.promises.rename(tempPath, dbPath);
             console.log(`✅ Restored Wikipedia database (${formatBytes(totalSize)})`);
             
             // Validate the restored database
@@ -692,11 +695,12 @@ async function ensureWikipediaDbOnDisk(dbPath) {
             if (!isValid) {
                 console.error('❌ Restored database is corrupted, invalidating cache...');
                 await fs.promises.unlink(dbPath).catch(() => {});
-                await db.pool.query('DELETE FROM cached_files WHERE file_key = $1', ['wikipedia-database']);
+                await db.pool.query('DELETE FROM cached_file_chunks WHERE name = $1', [WIKIPEDIA_CACHE_NAME]);
                 throw new Error('Database validation failed');
             }
         } catch (error) {
             await fd.close().catch(() => {});
+            await fs.promises.unlink(tempPath).catch(() => {});
             throw error;
         }
         
