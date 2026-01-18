@@ -437,11 +437,9 @@ Write ONE SQLite SELECT query. Return ONLY the SQL.`;
                 });
             }
             
-            let scoredCount = 0;
-            
             try {
                 const batchResults = await Promise.all(batches.map(async ({ batch, batchNum, totalBatches: total }) => {
-                    if (this.searchCancelled) return;
+                    if (this.searchCancelled) return null;
                     
                     console.log(`[AIWikipediaSearch] Scoring batch ${batchNum}/${total} (${batch.length} articles)...`);
                     
@@ -464,7 +462,7 @@ Return array [score1, score2, ...]:`;
                     // Extract array of numbers
                     const arrayMatch = scoreResponse.match(/\[([0-9,\s]+)\]/);
                     if (arrayMatch) {
-                        const scores = arrayMatch[1].split(',').map(s => Math.min(parseInt(s.trim()), 10));
+                        const scores = arrayMatch[1].split(',').map(s => Math.min(parseInt(s.trim()), 100));
                         
                         // Assign scores to articles
                         batch.forEach((article, idx) => {
@@ -475,14 +473,13 @@ Return array [score1, score2, ...]:`;
                     } else {
                         throw new Error('No valid score array found');
                     }
-                    
-                    scoredCount += batch.length;
-                    this.showMessage(`Scored ${Math.min(scoredCount, allArticles.length)}/${allArticles.length} articles...`, 'info', true);
 
                     return batch;
                 }));
 
+                // Aggregate results and report progress sequentially to avoid race conditions
                 scoredArticles = batchResults.filter(Boolean).flat();
+                this.showMessage(`Scored ${scoredArticles.length}/${allArticles.length} articles...`, 'info', true);
             } catch (error) {
                 console.error('[AIWikipediaSearch] Batch scoring error:', error);
                 // Fail search entirely if scoring fails
@@ -502,9 +499,8 @@ Return array [score1, score2, ...]:`;
             this.showMessage(`Reading full content for top ${topArticles.length} articles...`, 'info', true);
             
             const finalArticles = [];
-            let readCount = 0;
             
-            const readResults = await Promise.all(topArticles.map(async (article) => {
+            const readResults = await Promise.all(topArticles.map(async (article, index) => {
                 if (this.searchCancelled) return null;
                 
                 // Fetch full article content
@@ -537,24 +533,28 @@ Score 0-100 (0=not relevant, 100=perfect answer):`;
                     } catch (error) {
                         fullArticle.relevancy = article.relevancy;
                     }
+                    
+                    if (fullArticle) {
+                        console.log(`[AIWikipediaSearch] Read article ${index + 1}/${topArticles.length}: "${fullArticle.title}" (final score: ${fullArticle.relevancy}/100)`);
+                        this.showMessage(`Reading article ${index + 1}/${topArticles.length}: "${fullArticle.title}"...`, 'info', true);
+                    } else {
+                        console.warn(`[AIWikipediaSearch] Failed to read article ${index + 1}/${topArticles.length} (pageid: ${article && article.pageid ? article.pageid : 'unknown'})`);
+                    }
                 }
                 
                 contentStmt.free();
                 
-                if (fullArticle) {
-                    readCount += 1;
-                    console.log(`[AIWikipediaSearch] Read article ${readCount}/${topArticles.length}: "${fullArticle.title}" (final score: ${fullArticle.relevancy}/100)`);
-                    this.showMessage(`Reading article ${readCount}/${topArticles.length}: "${fullArticle.title}"...`, 'info', true);
-                }
-                
                 return fullArticle;
             }));
             
+            // Aggregate results and report progress sequentially to avoid race conditions
             readResults.forEach(article => {
                 if (article) {
                     finalArticles.push(article);
                 }
             });
+            
+            this.showMessage(`Completed reading ${finalArticles.length}/${topArticles.length} articles`, 'info', true);
             
             // STEP 6: Sort final results by detailed scores
             finalArticles.sort((a, b) => (b.relevancy || 0) - (a.relevancy || 0));

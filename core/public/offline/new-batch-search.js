@@ -102,24 +102,22 @@ Return SQL query:`;
             });
         }
         
-        let scoredCount = 0;
-        
         const batchResults = await Promise.all(batches.map(async ({ batch, batchNum, totalBatches: total }) => {
-            if (this.searchCancelled) return;
+            if (this.searchCancelled) return null;
             
             console.log(`[AIWikipediaSearch] Scoring batch ${batchNum}/${total} (${batch.length} articles)...`);
             
             // Build batch scoring prompt
             const batchPrompt = `Question: "${userQuery}"
 
-Score each article's relevance (0-10). Return ONLY an array of numbers in the same order.
+Score each article's relevance (0-100). Return ONLY an array of numbers in the same order.
 
 Articles:
 ${batch.map((a, idx) => `${idx + 1}. "${a.title}"\n   Summary: ${(a.summary || '').substring(0, 200)}...`).join('\n\n')}
 
 Examples:
-Q: "Is France in Europe?" + ["France", "China", "Europe"] → [10, 2, 9]
-Q: "Is bread made of wheat?" + ["Farming", "Spain", "Cooking"] → [8, 2, 7]
+Q: "Is France in Europe?" + ["France", "China", "Europe"] → [100, 21, 95]
+Q: "Is bread made of wheat?" + ["Farming", "Spain", "Cooking"] → [82, 24, 71]
 
 Return array [score1, score2, ...]:`;
 
@@ -129,7 +127,7 @@ Return array [score1, score2, ...]:`;
                 // Extract array of numbers
                 const arrayMatch = scoreResponse.match(/\[([0-9,\s]+)\]/);
                 if (arrayMatch) {
-                    const scores = arrayMatch[1].split(',').map(s => Math.min(parseInt(s.trim()), 10));
+                    const scores = arrayMatch[1].split(',').map(s => Math.min(parseInt(s.trim()), 100));
                     
                     // Assign scores to articles
                     batch.forEach((article, idx) => {
@@ -150,40 +148,38 @@ Return array [score1, score2, ...]:`;
                             titleLower.includes(kw) || summaryLower.includes(kw)
                         );
                         
-                        article.relevancy = Math.min(matches.length * 3, 8);
+                        article.relevancy = Math.min(matches.length * 30, 80);
                     });
                 }
             } catch (error) {
                 console.error(`[AIWikipediaSearch] Batch ${batchNum} error:`, error);
                 // Fallback scoring
                 batch.forEach(article => {
-                    article.relevancy = 5;
+                    article.relevancy = 50;
                 });
             }
-            
-            scoredCount += batch.length;
-            this.showMessage(`Scored ${Math.min(scoredCount, allArticles.length)}/${allArticles.length} articles...`, 'info');
 
             return batch;
         }));
 
+        // Aggregate results and report progress sequentially to avoid race conditions
         scoredArticles = batchResults.filter(Boolean).flat();
+        this.showMessage(`Scored ${scoredArticles.length}/${allArticles.length} articles...`, 'info');
         
         // STEP 4: Sort by relevancy and take top candidates
         console.log(`[AIWikipediaSearch] Step 3: Sorting and selecting top ${budget.maxResults} articles...`);
         scoredArticles.sort((a, b) => (b.relevancy || 0) - (a.relevancy || 0));
         const topArticles = scoredArticles.slice(0, budget.maxResults);
         
-        console.log(`[AIWikipediaSearch] Top ${topArticles.length} articles: ${topArticles.map(a => `"${a.title}" (${a.relevancy}/10)`).join(', ')}`);
+        console.log(`[AIWikipediaSearch] Top ${topArticles.length} articles: ${topArticles.map(a => `"${a.title}" (${a.relevancy}/100)`).join(', ')}`);
         
         // STEP 5: Read full content for top articles and get detailed scores
         console.log(`[AIWikipediaSearch] Step 4: Reading full content for top ${topArticles.length} articles...`);
         this.showMessage(`Reading full content for top ${topArticles.length} articles...`, 'info');
         
         const finalArticles = [];
-        let readCount = 0;
         
-        const readResults = await Promise.all(topArticles.map(async (article) => {
+        const readResults = await Promise.all(topArticles.map(async (article, index) => {
             if (this.searchCancelled) return null;
             
             // Fetch full article content
@@ -203,37 +199,37 @@ Content preview: ${(fullArticle.content || '').substring(0, 500)}...
 
 After reading the article content, how relevant is this to the question?
 
-Score 0-10 (0=not relevant, 10=perfect answer):`;
+Score 0-100 (0=not relevant, 100=perfect answer):`;
                     
                     const detailedResponse = await this.aiModel.generateResponse(detailedPrompt);
-                    const scoreMatch = detailedResponse.match(/\b([0-9]|10)\b/);
+                    const scoreMatch = detailedResponse.match(/\b([0-9]{1,3})\b/);
                     
                     if (scoreMatch) {
-                        fullArticle.relevancy = Math.min(parseInt(scoreMatch[0]), 10);
+                        fullArticle.relevancy = Math.min(parseInt(scoreMatch[0]), 100);
                     } else {
                         fullArticle.relevancy = article.relevancy; // Keep preliminary score
                     }
                 } catch (error) {
                     fullArticle.relevancy = article.relevancy;
                 }
+                
+                console.log(`[AIWikipediaSearch] Read article ${index + 1}/${topArticles.length}: "${fullArticle.title}" (final score: ${fullArticle.relevancy}/100)`);
+                this.showMessage(`Reading article ${index + 1}/${topArticles.length}: "${fullArticle.title}"...`, 'info');
             }
             
             contentStmt.free();
             
-            if (fullArticle) {
-                readCount += 1;
-                console.log(`[AIWikipediaSearch] Read article ${readCount}/${topArticles.length}: "${fullArticle.title}" (final score: ${fullArticle.relevancy}/10)`);
-                this.showMessage(`Reading article ${readCount}/${topArticles.length}: "${fullArticle.title}"...`, 'info');
-            }
-            
             return fullArticle;
         }));
         
+        // Aggregate results and report progress sequentially to avoid race conditions
         readResults.forEach(article => {
             if (article) {
                 finalArticles.push(article);
             }
         });
+        
+        this.showMessage(`Completed reading ${finalArticles.length}/${topArticles.length} articles`, 'info');
         
         // STEP 6: Sort final results by detailed scores
         finalArticles.sort((a, b) => (b.relevancy || 0) - (a.relevancy || 0));
@@ -241,7 +237,7 @@ Score 0-10 (0=not relevant, 10=perfect answer):`;
         console.log(`[AIWikipediaSearch] Batch search complete: ${finalArticles.length} articles`);
         if (finalArticles.length > 0) {
             const bestScore = Math.max(...finalArticles.map(a => a.relevancy || 0));
-            console.log(`[AIWikipediaSearch] Best article: "${finalArticles[0].title}" (${bestScore}/10)`);
+            console.log(`[AIWikipediaSearch] Best article: "${finalArticles[0].title}" (${bestScore}/100)`);
         }
         
         return finalArticles;
