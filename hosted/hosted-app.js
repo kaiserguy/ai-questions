@@ -697,7 +697,7 @@ async function ensureWikipediaDbOnDisk(dbPath) {
         console.log(`✅ Restored Wikipedia database (${formatBytes(fileSize)})`);
         
         // Validate the restored database
-        const isValid = await validateDatabase(dbPath);
+        const isValid = await validateWikipediaDatabase(dbPath);
         if (!isValid) {
             console.error('❌ Restored database is corrupted, invalidating cache...');
             await fs.promises.unlink(dbPath).catch(() => {});
