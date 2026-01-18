@@ -640,14 +640,9 @@ async function invalidateWikipediaCache(dbPath, options = {}) {
 }
 
 async function writeAll(fd, buffer) {
-    let offset = 0;
-    while (offset < buffer.length) {
-        const { bytesWritten } = await fd.write(buffer, offset, buffer.length - offset);
-        if (bytesWritten <= 0) {
-            throw new Error(`Failed to write database chunk to disk (offset: ${offset}, buffer.length: ${buffer.length})`);
-        }
-        offset += bytesWritten;
-    }
+    // Write buffer using the simpler write() API that auto-tracks position
+    // This avoids potential offset/position confusion
+    await fd.write(buffer);
 }
 
 function getWikipediaFileInfo(dbPath) {
