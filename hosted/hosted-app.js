@@ -762,12 +762,6 @@ async function ensureWikipediaDbOnDisk(dbPath) {
     
     await fs.promises.writeFile(dbPath, decompressed);
     console.log(`✅ Restored Wikipedia database from PostgreSQL cache (${formatBytes(decompressed.length)})`);
-<<<<<<< HEAD
-    } catch (error) {
-        throw error;
-    }
-=======
->>>>>>> codex/fix-corrupted-database-restoration-48ij6f
 }
 
 async function cacheWikipediaDatabase(dbPath) {
