@@ -300,16 +300,16 @@
     <script src="/offline/simple-qa-model.js"></script>
     
     <!-- Storage Layer -->
-    <script src="/offline/storage/indexeddb-manager.js?v=3"></script>
-    <script src="/offline/storage/model-storage.js?v=3"></script>
-    <script src="/offline/storage/wikipedia-storage.js?v=3"></script>
+    <script src="/offline/storage/indexeddb-manager.js?v=<%= cacheBuster || '3' %>"></script>
+    <script src="/offline/storage/model-storage.js?v=<%= cacheBuster || '3' %>"></script>
+    <script src="/offline/storage/wikipedia-storage.js?v=<%= cacheBuster || '3' %>"></script>
     
     <!-- Search Layer -->
-    <script src="/offline/search/lunr-search.js?v=3"></script>
+    <script src="/offline/search/lunr-search.js?v=<%= cacheBuster || '3' %>"></script>
     
     <!-- Download Layer -->
-    <script src="/offline/download-manager.js?v=19"></script>
-    <script src="/offline/download/download-manager-v2.js?v=3"></script>
+    <script src="/offline/download-manager.js?v=<%= cacheBuster || '19' %>"></script>
+    <script src="/offline/download/download-manager-v2.js?v=<%= cacheBuster || '3' %>"></script>
     
     <!-- Inference Layer -->
     <script src="/offline/inference/phi3-tokenizer.js"></script>
@@ -317,16 +317,16 @@
     <script src="/offline/inference/phi3-inference.js"></script>
     
     <!-- Core Logic -->
-    <script src="/offline/transformers-ai-model.js?v=5"></script>
-    <script src="/offline/local-ai-model.js?v=5"></script>
-    <script src="/offline/ai-model-manager.js?v=9"></script>
-    <script src="/offline/offline-ai-chat.js?v=8"></script>
-    <script src="/offline/wikipedia-manager.js?v=5"></script>
+    <script src="/offline/transformers-ai-model.js?v=<%= cacheBuster || '5' %>"></script>
+    <script src="/offline/local-ai-model.js?v=<%= cacheBuster || '5' %>"></script>
+    <script src="/offline/ai-model-manager.js?v=<%= cacheBuster || '9' %>"></script>
+    <script src="/offline/offline-ai-chat.js?v=<%= cacheBuster || '8' %>"></script>
+    <script src="/offline/wikipedia-manager.js?v=<%= cacheBuster || '5' %>"></script>
     <script src="/offline/libs/sql-wasm.js"></script>
     <script src="/offline/wikipedia-data-provider.js"></script>
-    <script src="/offline/ai-wikipedia-search.js?v=30"></script>
-    <script src="/offline/integration-manager.js?v=13"></script>
-    <script src="/offline/ui-manager.js?v=7"></script>
+    <script src="/offline/ai-wikipedia-search.js?v=<%= cacheBuster || '30' %>"></script>
+    <script src="/offline/integration-manager.js?v=<%= cacheBuster || '13' %>"></script>
+    <script src="/offline/ui-manager.js?v=<%= cacheBuster || '7' %>"></script>
     
     <!-- Initialization -->
     <script>
@@ -615,6 +615,6 @@
     </script>
 
     <!-- Offline Mode Initialization -->
-    <script src="/offline/offline-init.js?v=1.0.6"></script>
+    <script src="/offline/offline-init.js?v=<%= cacheBuster || '1.0.6' %>"></script>
 </body>
 </html>

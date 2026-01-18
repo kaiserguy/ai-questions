@@ -191,7 +191,8 @@ app.get("/offline", (req, res) => {
     res.render("offline", { 
         title: "AI Questions - Offline Mode",
         isLocal: false,
-        user: req.user
+        user: req.user,
+        cacheBuster: Date.now() // Force cache invalidation on every load
     });
 });
 
