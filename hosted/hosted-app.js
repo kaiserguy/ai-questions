@@ -649,13 +649,12 @@ async function ensureWikipediaDbOnDisk(dbPath) {
         await fs.promises.mkdir(path.dirname(dbPath), { recursive: true });
         
         // Write to temporary file first, then rename atomically
-        // This ensures SQLite integrity while managing memory usage
+        // CRITICAL: Use writeFile or sequential write() WITHOUT offsets to avoid SQLite corruption
         console.log(`📝 Writing ${chunks.length} chunks to temporary file...`);
         const tempPath = dbPath + '.tmp';
         const BATCH_SIZE = 10;
         const fd = await fs.promises.open(tempPath, 'w');
         let totalSize = 0;
-        let offset = 0;
         
         try {
             for (let batchStart = 0; batchStart < chunks.length; batchStart += BATCH_SIZE) {
@@ -670,10 +669,10 @@ async function ensureWikipediaDbOnDisk(dbPath) {
                     totalSize += decompressed.length;
                 }
                 
-                // Concatenate batch and write
+                // Concatenate batch and write WITHOUT explicit offset
+                // Let Node.js track file position automatically
                 const batchBuffer = Buffer.concat(decompressedBatch);
-                await fd.write(batchBuffer, 0, batchBuffer.length, offset);
-                offset += batchBuffer.length;
+                await fd.write(batchBuffer);  // No offset parameter!
                 
                 // Clear batch from memory
                 decompressedBatch.length = 0;
