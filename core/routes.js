@@ -1354,118 +1354,28 @@ module.exports = (db, ai, wikipedia, config) => {
     });
 
     // Download and serve Wikipedia SQLite database
+    // Server-side Wikipedia database download DISABLED
+    // Clients should download Wikipedia directly from dumps.wikimedia.org
     router.get('/api/wikipedia-database', async (req, res) => {
-        const fs = require('fs');
-        const path = require('path');
-        
-        const packageType = req.query.package || 'minimal';
-        console.log(`[Wikipedia DB] Request received for package: ${packageType}`);
-
-        // First, check if the Wikipedia database exists on disk (from cache restoration or fresh download)
-        const restoredDbPath = path.join(__dirname, '..', 'wikipedia.db');
-        console.log(`[Wikipedia DB] Checking restored database at: ${restoredDbPath}`);
-        console.log(`[Wikipedia DB] File exists: ${fs.existsSync(restoredDbPath)}`);
-        
-        if (fs.existsSync(restoredDbPath)) {
-            const stat = fs.statSync(restoredDbPath);
-            const sizeInMB = (stat.size / 1024 / 1024).toFixed(2);
-            console.log(`[Wikipedia DB] Serving restored database from disk: ${sizeInMB} MB`);
-            
-            res.setHeader('Content-Type', 'application/x-sqlite3');
-            res.setHeader('Content-Length', stat.size);
-            res.setHeader('Cache-Control', 'max-age=86400'); // Cache for 1 day
-            return res.sendFile(restoredDbPath);
-        }
-        
-        // Define database paths for different package types (fallback for local/development)
-        const dbPaths = {
-            'minimal': [
-                path.join(__dirname, 'public', 'offline', 'wikipedia', 'minimal-wikipedia.sqlite'),
-                path.join(__dirname, '..', 'offline-resources', 'wikipedia', 'minimal-wikipedia.sqlite'),
-                path.join(__dirname, '..', 'local', 'wikipedia.db')
-            ],
-            'standard': [
-                path.join(__dirname, '..', 'offline-resources', 'wikipedia', 'simple-wikipedia-50mb.db'),
-                path.join(__dirname, '..', 'local', 'wikipedia.db')
-            ],
-            'full': [
-                path.join(__dirname, '..', 'offline-resources', 'wikipedia', 'extended-wikipedia.db'),
-                path.join(__dirname, '..', 'local', 'wikipedia.db')
+        res.status(410).json({
+            status: 'gone',
+            message: 'Server-side Wikipedia database hosting has been disabled.',
+            reason: 'To improve reliability and reduce server memory usage',
+            alternative: 'Download Wikipedia dumps directly from https://dumps.wikimedia.org/simplewiki/latest/',
+            instructions: [
+                '1. Download simplewiki-latest-pages-articles.xml.bz2 from dumps.wikimedia.org',
+                '2. Use the file input on the offline page to select the downloaded .bz2 file',
+                '3. The browser will process and store the Wikipedia database locally using IndexedDB'
             ]
-        };
-        
-        const pathsToCheck = dbPaths[packageType] || dbPaths['minimal'];
-        
-        // Try each path in order
-        for (const dbPath of pathsToCheck) {
-            if (fs.existsSync(dbPath)) {
-                console.log(`[Wikipedia DB] Serving database: ${dbPath}`);
-                const stat = fs.statSync(dbPath);
-                console.log(`[Wikipedia DB] Database size: ${(stat.size / 1024 / 1024).toFixed(2)} MB`);
-                
-                res.setHeader('Content-Type', 'application/x-sqlite3');
-                res.setHeader('Content-Length', stat.size);
-                res.setHeader('Cache-Control', 'max-age=86400'); // Cache for 1 day
-                return res.sendFile(dbPath);
-            }
-        }
-        
-        console.log(`[Wikipedia DB] No database found for package type: ${packageType}`);
-        console.log(`[Wikipedia DB] Checked paths: ${pathsToCheck.join(', ')}`);
-        
-        // Return 404 if no database is found
-        res.status(404).json({ 
-            status: 'not_found',
-            message: `Wikipedia database for package '${packageType}' not found on server.`,
-            checkedPaths: pathsToCheck.map(p => path.basename(p))
         });
     });
     
-    // Check Wikipedia download status
+    // Check Wikipedia download status - DISABLED
     router.get('/api/wikipedia-database/status', async (req, res) => {
-        const fs = require('fs');
-        const path = require('path');
-
-        if (db && typeof db.getCachedFileMetadata === 'function') {
-            try {
-                const cachedMetadata = await db.getCachedFileMetadata(WIKIPEDIA_CACHE_NAME);
-                if (cachedMetadata) {
-                    return res.json({
-                        status: 'ready',
-                        size: cachedMetadata.size,
-                        sizeMB: (cachedMetadata.size / 1024 / 1024).toFixed(2),
-                        downloadUrl: '/api/wikipedia-database',
-                        path: `${WIKIPEDIA_CACHE_NAME}.db`
-                    });
-                }
-            } catch (error) {
-                console.error(`[Wikipedia DB] Failed to load cached metadata: ${error.message}`);
-            }
-        }
-
-        // Check all possible database locations
-        const dbPaths = [
-            path.join(__dirname, 'public', 'offline', 'wikipedia', 'minimal-wikipedia.sqlite'),
-            path.join(__dirname, '..', 'offline-resources', 'wikipedia', 'minimal-wikipedia.sqlite'),
-            path.join(__dirname, '..', 'local', 'wikipedia.db')
-        ];
-        
-        for (const dbPath of dbPaths) {
-            if (fs.existsSync(dbPath)) {
-                const stat = fs.statSync(dbPath);
-                return res.json({
-                    status: 'ready',
-                    size: stat.size,
-                    sizeMB: (stat.size / 1024 / 1024).toFixed(2),
-                    downloadUrl: '/api/wikipedia-database',
-                    path: path.basename(dbPath)
-                });
-            }
-        }
-        
-        res.json({
-            status: 'not_ready',
-            message: 'Wikipedia database not yet available'
+        res.status(410).json({
+            status: 'gone',
+            message: 'Server-side Wikipedia database hosting has been disabled.',
+            alternative: 'Download Wikipedia directly from https://dumps.wikimedia.org/simplewiki/latest/'
         });
     });
 
