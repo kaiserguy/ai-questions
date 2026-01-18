@@ -214,6 +214,7 @@ Score 0-10 (0=not relevant, 10=perfect answer):`;
                 }
                 
                 console.log(`[AIWikipediaSearch] Read article ${index + 1}/${topArticles.length}: "${fullArticle.title}" (final score: ${fullArticle.relevancy}/10)`);
+                this.showMessage(`Reading article ${index + 1}/${topArticles.length}: "${fullArticle.title}"...`, 'info');
             }
             
             contentStmt.free();
@@ -228,7 +229,7 @@ Score 0-10 (0=not relevant, 10=perfect answer):`;
             }
         });
         
-        this.showMessage(`Read ${finalArticles.length}/${topArticles.length} articles...`, 'info');
+        this.showMessage(`Completed reading ${finalArticles.length}/${topArticles.length} articles`, 'info');
         
         // STEP 6: Sort final results by detailed scores
         finalArticles.sort((a, b) => (b.relevancy || 0) - (a.relevancy || 0));

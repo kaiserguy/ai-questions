@@ -536,6 +536,7 @@ Score 0-100 (0=not relevant, 100=perfect answer):`;
                     
                     if (fullArticle) {
                         console.log(`[AIWikipediaSearch] Read article ${index + 1}/${topArticles.length}: "${fullArticle.title}" (final score: ${fullArticle.relevancy}/100)`);
+                        this.showMessage(`Reading article ${index + 1}/${topArticles.length}: "${fullArticle.title}"...`, 'info', true);
                     } else {
                         console.warn(`[AIWikipediaSearch] Failed to read article ${index + 1}/${topArticles.length} (pageid: ${article && article.pageid ? article.pageid : 'unknown'})`);
                     }
@@ -553,7 +554,7 @@ Score 0-100 (0=not relevant, 100=perfect answer):`;
                 }
             });
             
-            this.showMessage(`Read ${finalArticles.length}/${topArticles.length} articles...`, 'info', true);
+            this.showMessage(`Completed reading ${finalArticles.length}/${topArticles.length} articles`, 'info', true);
             
             // STEP 6: Sort final results by detailed scores
             finalArticles.sort((a, b) => (b.relevancy || 0) - (a.relevancy || 0));
