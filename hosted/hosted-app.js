@@ -505,8 +505,7 @@ async function initializeWikipediaCache() {
             const isValid = await validateWikipediaDatabase(dbPath);
             if (!isValid) {
                 console.warn('⚠️  Restored database is corrupted, invalidating cache and re-downloading...');
-                await db.deleteFileChunks(WIKIPEDIA_CACHE_NAME);
-                fs.unlinkSync(dbPath);
+                await invalidateWikipediaCache(dbPath);
             } else {
                 verifyWikipediaTables(dbPath);
                 return;
@@ -515,10 +514,7 @@ async function initializeWikipediaCache() {
             console.error(`❌ Failed to restore from cache: ${error.message}`);
             console.log('🔄 Invalidating cache and re-downloading...');
             try {
-                await db.deleteFileChunks(WIKIPEDIA_CACHE_NAME);
-                if (fs.existsSync(dbPath)) {
-                    fs.unlinkSync(dbPath);
-                }
+                await invalidateWikipediaCache(dbPath);
             } catch (cleanupError) {
                 console.error(`⚠️  Cache cleanup failed: ${cleanupError.message}`);
             }
@@ -570,6 +566,20 @@ async function initializeWikipediaCache() {
         }
 
         console.log('💡 Wikipedia will be available for manual download from /offline page');
+    }
+}
+
+async function invalidateWikipediaCache(dbPath) {
+    if (db && typeof db.deleteFileChunks === 'function') {
+        await db.deleteFileChunks(WIKIPEDIA_CACHE_NAME);
+    }
+
+    if (db && typeof db.pool?.query === 'function') {
+        await db.pool.query('DELETE FROM cached_files WHERE name = $1', [WIKIPEDIA_CACHE_NAME]);
+    }
+
+    if (fs.existsSync(dbPath)) {
+        await fs.promises.unlink(dbPath);
     }
 }
 
@@ -693,8 +703,7 @@ async function ensureWikipediaDbOnDisk(dbPath) {
             const isValid = await validateWikipediaDatabase(dbPath);
             if (!isValid) {
                 console.error('❌ Restored database is corrupted, invalidating cache...');
-                await fs.promises.unlink(dbPath).catch(() => {});
-                await db.pool.query('DELETE FROM cached_file_chunks WHERE name = $1', [WIKIPEDIA_CACHE_NAME]);
+                await invalidateWikipediaCache(dbPath);
                 throw new Error('Database validation failed');
             }
         } catch (error) {
@@ -720,7 +729,6 @@ async function ensureWikipediaDbOnDisk(dbPath) {
     await fs.promises.writeFile(dbPath, decompressed);
     console.log(`✅ Restored Wikipedia database from PostgreSQL cache (${formatBytes(decompressed.length)})`);
     } catch (error) {
-        console.error('❌ Failed to restore from cache:', error.message);
         throw error;
     }
 }
