@@ -569,10 +569,17 @@ async function initializeWikipediaCache() {
     }
 }
 
-async function invalidateWikipediaCache(dbPath) {
+// TODO: Add test coverage for invalidateWikipediaCache (see PR #239 comment)
+// Should cover: successful cleanup, partial failures, missing files
+async function invalidateWikipediaCache(dbPath, options = {}) {
+    const {
+        removeChunked = true,
+        removeMonolithic = true,
+        removeDisk = true
+    } = options;
     const errors = [];
 
-    if (db && typeof db.deleteFileChunks === 'function') {
+    if (removeChunked && db && typeof db.deleteFileChunks === 'function') {
         try {
             await db.deleteFileChunks(WIKIPEDIA_CACHE_NAME);
         } catch (error) {
@@ -580,7 +587,7 @@ async function invalidateWikipediaCache(dbPath) {
         }
     }
 
-    if (db && db.pool && typeof db.pool.query === 'function') {
+    if (removeMonolithic && db && db.pool && typeof db.pool.query === 'function') {
         try {
             await db.pool.query('DELETE FROM cached_files WHERE name = $1', [WIKIPEDIA_CACHE_NAME]);
         } catch (error) {
@@ -588,7 +595,7 @@ async function invalidateWikipediaCache(dbPath) {
         }
     }
 
-    if (fs.existsSync(dbPath)) {
+    if (removeDisk && fs.existsSync(dbPath)) {
         try {
             await fs.promises.unlink(dbPath);
         } catch (error) {
@@ -600,7 +607,6 @@ async function invalidateWikipediaCache(dbPath) {
         console.warn(`⚠️  Cache cleanup issues: ${errors.join(' | ')}`);
     }
 }
-
 function getWikipediaFileInfo(dbPath) {
     if (!fs.existsSync(dbPath)) {
         return null;
@@ -657,85 +663,95 @@ async function ensureWikipediaDbOnDisk(dbPath) {
 
     console.log('📥 Restoring Wikipedia database from PostgreSQL chunks...');
     
+    let chunkedRestoreError = null;
     try {
         // Try chunked format first (new format)
         const chunks = await db.getFileChunks(WIKIPEDIA_CACHE_NAME);
         
         if (chunks && chunks.length > 0) {
-        const totalChunks = chunks[0].total_chunks;
-        
-        if (chunks.length !== totalChunks) {
-            console.error(`❌ Incomplete chunked cache: ${chunks.length}/${totalChunks} chunks`);
-            throw new Error('Incomplete cache');
-        }
-        
-        console.log(`📥 Fetched ${chunks.length} chunks, decompressing independently...`);
-        
-        // Ensure chunks are in order
-        chunks.sort((a, b) => a.chunk_index - b.chunk_index);
-        
-        await fs.promises.mkdir(path.dirname(dbPath), { recursive: true });
-        
-        // Write to temporary file first, then rename atomically
-        // CRITICAL: Use writeFile or sequential write() WITHOUT offsets to avoid SQLite corruption
-        console.log(`📝 Writing ${chunks.length} chunks to temporary file...`);
-        const tempPath = dbPath + '.tmp';
-        const BATCH_SIZE = 10;
-        const fd = await fs.promises.open(tempPath, 'w');
-        let totalSize = 0;
-        
-        try {
-            for (let batchStart = 0; batchStart < chunks.length; batchStart += BATCH_SIZE) {
-                const batchEnd = Math.min(batchStart + BATCH_SIZE, chunks.length);
-                const batchChunks = chunks.slice(batchStart, batchEnd);
-                
-                // Decompress batch
-                const decompressedBatch = [];
-                for (const chunk of batchChunks) {
-                    const decompressed = await gunzip(chunk.chunk_data);
-                    decompressedBatch.push(decompressed);
-                    totalSize += decompressed.length;
+            const totalChunks = chunks[0].total_chunks;
+            
+            if (chunks.length !== totalChunks) {
+                console.error(`❌ Incomplete chunked cache: ${chunks.length}/${totalChunks} chunks`);
+                throw new Error('Incomplete cache');
+            }
+            
+            console.log(`📥 Fetched ${chunks.length} chunks, decompressing independently...`);
+            
+            // Ensure chunks are in order
+            chunks.sort((a, b) => a.chunk_index - b.chunk_index);
+            
+            await fs.promises.mkdir(path.dirname(dbPath), { recursive: true });
+            
+            // Write to temporary file first, then rename atomically
+            // CRITICAL: Use writeFile or sequential write() WITHOUT offsets to avoid SQLite corruption
+            console.log(`📝 Writing ${chunks.length} chunks to temporary file...`);
+            const tempPath = dbPath + '.tmp';
+            const BATCH_SIZE = 10;
+            const fd = await fs.promises.open(tempPath, 'w');
+            let totalSize = 0;
+            
+            try {
+                for (let batchStart = 0; batchStart < chunks.length; batchStart += BATCH_SIZE) {
+                    const batchEnd = Math.min(batchStart + BATCH_SIZE, chunks.length);
+                    const batchChunks = chunks.slice(batchStart, batchEnd);
+                    
+                    // Decompress batch
+                    const decompressedBatch = [];
+                    for (const chunk of batchChunks) {
+                        const decompressed = await gunzip(chunk.chunk_data);
+                        decompressedBatch.push(decompressed);
+                        totalSize += decompressed.length;
+                    }
+                    
+                    // Concatenate batch and write sequentially
+                    // Let Node.js track file position automatically (no explicit offset)
+                    const batchBuffer = Buffer.concat(decompressedBatch);
+                    await fd.write(batchBuffer);  // Simpler than writeAll() helper
+                    
+                    // Clear batch from memory
+                    decompressedBatch.length = 0;
+                    if (global.gc) global.gc();
+                    
+                    const progress = ((batchEnd) / chunks.length * 100).toFixed(1);
+                    console.log(`📝 Written ${batchEnd}/${chunks.length} chunks (${formatBytes(totalSize)}) - ${progress}%`);
                 }
                 
-                // Concatenate batch and write WITHOUT explicit offset
-                // Let Node.js track file position automatically
-                const batchBuffer = Buffer.concat(decompressedBatch);
-                await fd.write(batchBuffer);  // No offset parameter!
+                await fd.sync();
+                await fd.close();
                 
-                // Clear batch from memory
-                decompressedBatch.length = 0;
-                if (global.gc) global.gc();
+                // Rename temporary file to final path atomically
+                await fs.promises.rename(tempPath, dbPath);
+                console.log(`✅ Restored Wikipedia database (${formatBytes(totalSize)})`);
                 
-                const progress = ((batchEnd) / chunks.length * 100).toFixed(1);
-                console.log(`📝 Written ${batchEnd}/${chunks.length} chunks (${formatBytes(totalSize)}) - ${progress}%`);
+                // Validate the restored database
+                const isValid = await validateWikipediaDatabase(dbPath);
+                if (!isValid) {
+                    console.error('❌ Restored database is corrupted, invalidating cache...');
+                    await invalidateWikipediaCache(dbPath, { removeMonolithic: false });
+                    throw new Error('Database validation failed');
+                }
+            } catch (error) {
+                await fd.close().catch(() => {});
+                await fs.promises.unlink(tempPath).catch(() => {});
+                throw error;
             }
             
-            await fd.sync();
-            await fd.close();
-            
-            // Rename temporary file to final path atomically
-            await fs.promises.rename(tempPath, dbPath);
-            console.log(`✅ Restored Wikipedia database (${formatBytes(totalSize)})`);
-            
-            // Validate the restored database
-            const isValid = await validateWikipediaDatabase(dbPath);
-            if (!isValid) {
-                console.error('❌ Restored database is corrupted, invalidating cache...');
-                await invalidateWikipediaCache(dbPath);
-                throw new Error('Database validation failed');
-            }
-        } catch (error) {
-            await fd.close().catch(() => {});
-            await fs.promises.unlink(tempPath).catch(() => {});
-            throw error;
+            return;
         }
         
-        return;
+        chunkedRestoreError = new Error('No chunked cache found');
+    } catch (error) {
+        chunkedRestoreError = error;
+        await invalidateWikipediaCache(dbPath, { removeMonolithic: false });
     }
-    
-    // Fall back to old monolithic format if no chunks
+
+    // Fall back to old monolithic format if chunked cache is missing or invalid
     const cachedFile = await db.getCachedFile(WIKIPEDIA_CACHE_NAME);
     if (!cachedFile) {
+        if (chunkedRestoreError) {
+            throw chunkedRestoreError;
+        }
         throw new Error('No Wikipedia database found in cache');
     }
 
@@ -746,9 +762,12 @@ async function ensureWikipediaDbOnDisk(dbPath) {
     
     await fs.promises.writeFile(dbPath, decompressed);
     console.log(`✅ Restored Wikipedia database from PostgreSQL cache (${formatBytes(decompressed.length)})`);
+<<<<<<< HEAD
     } catch (error) {
         throw error;
     }
+=======
+>>>>>>> codex/fix-corrupted-database-restoration-48ij6f
 }
 
 async function cacheWikipediaDatabase(dbPath) {
