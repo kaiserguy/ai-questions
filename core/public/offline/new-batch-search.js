@@ -102,10 +102,8 @@ Return SQL query:`;
             });
         }
         
-        let scoredCount = 0;
-        
         const batchResults = await Promise.all(batches.map(async ({ batch, batchNum, totalBatches: total }) => {
-            if (this.searchCancelled) return;
+            if (this.searchCancelled) return null;
             
             console.log(`[AIWikipediaSearch] Scoring batch ${batchNum}/${total} (${batch.length} articles)...`);
             
@@ -160,14 +158,13 @@ Return array [score1, score2, ...]:`;
                     article.relevancy = 5;
                 });
             }
-            
-            scoredCount += batch.length;
-            this.showMessage(`Scored ${Math.min(scoredCount, allArticles.length)}/${allArticles.length} articles...`, 'info');
 
             return batch;
         }));
 
+        // Aggregate results and report progress sequentially to avoid race conditions
         scoredArticles = batchResults.filter(Boolean).flat();
+        this.showMessage(`Scored ${scoredArticles.length}/${allArticles.length} articles...`, 'info');
         
         // STEP 4: Sort by relevancy and take top candidates
         console.log(`[AIWikipediaSearch] Step 3: Sorting and selecting top ${budget.maxResults} articles...`);
@@ -181,9 +178,8 @@ Return array [score1, score2, ...]:`;
         this.showMessage(`Reading full content for top ${topArticles.length} articles...`, 'info');
         
         const finalArticles = [];
-        let readCount = 0;
         
-        const readResults = await Promise.all(topArticles.map(async (article) => {
+        const readResults = await Promise.all(topArticles.map(async (article, index) => {
             if (this.searchCancelled) return null;
             
             // Fetch full article content
@@ -216,24 +212,23 @@ Score 0-10 (0=not relevant, 10=perfect answer):`;
                 } catch (error) {
                     fullArticle.relevancy = article.relevancy;
                 }
+                
+                console.log(`[AIWikipediaSearch] Read article ${index + 1}/${topArticles.length}: "${fullArticle.title}" (final score: ${fullArticle.relevancy}/10)`);
             }
             
             contentStmt.free();
             
-            if (fullArticle) {
-                readCount += 1;
-                console.log(`[AIWikipediaSearch] Read article ${readCount}/${topArticles.length}: "${fullArticle.title}" (final score: ${fullArticle.relevancy}/10)`);
-                this.showMessage(`Reading article ${readCount}/${topArticles.length}: "${fullArticle.title}"...`, 'info');
-            }
-            
             return fullArticle;
         }));
         
+        // Aggregate results and report progress sequentially to avoid race conditions
         readResults.forEach(article => {
             if (article) {
                 finalArticles.push(article);
             }
         });
+        
+        this.showMessage(`Read ${finalArticles.length}/${topArticles.length} articles...`, 'info');
         
         // STEP 6: Sort final results by detailed scores
         finalArticles.sort((a, b) => (b.relevancy || 0) - (a.relevancy || 0));
