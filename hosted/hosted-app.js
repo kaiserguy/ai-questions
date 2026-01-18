@@ -648,61 +648,56 @@ async function ensureWikipediaDbOnDisk(dbPath) {
         
         await fs.promises.mkdir(path.dirname(dbPath), { recursive: true });
         
-        // Stream chunks to disk to avoid memory overflow (Heroku 512 MB limit)
-        console.log(`📝 Writing ${chunks.length} chunks to disk using streaming...`);
-        const writeStream = fs.createWriteStream(dbPath);
+        // Process chunks in batches to stay under memory limit while maintaining SQLite integrity
+        // Batch size: 10 chunks = ~100 MB per batch (well under 512 MB limit)
+        console.log(`📝 Writing ${chunks.length} chunks in batches to maintain SQLite integrity...`);
+        const BATCH_SIZE = 10;
+        const fd = await fs.promises.open(dbPath, 'w');
         let totalSize = 0;
+        let offset = 0;
         
-        for (let i = 0; i < chunks.length; i++) {
-            const chunk = chunks[i];
-            
-            // Decompress this chunk
-            const decompressed = await gunzip(chunk.chunk_data);
-            totalSize += decompressed.length;
-            
-            // Write chunk immediately to minimize memory usage
-            await new Promise((resolve, reject) => {
-                const canContinue = writeStream.write(decompressed);
-                if (canContinue) {
-                    resolve();
-                } else {
-                    writeStream.once('drain', resolve);
+        try {
+            for (let batchStart = 0; batchStart < chunks.length; batchStart += BATCH_SIZE) {
+                const batchEnd = Math.min(batchStart + BATCH_SIZE, chunks.length);
+                const batchChunks = chunks.slice(batchStart, batchEnd);
+                
+                // Decompress batch
+                const decompressedBatch = [];
+                for (const chunk of batchChunks) {
+                    const decompressed = await gunzip(chunk.chunk_data);
+                    decompressedBatch.push(decompressed);
+                    totalSize += decompressed.length;
                 }
-                writeStream.once('error', reject);
-            });
-            
-            if ((i + 1) % 10 === 0 || i === chunks.length - 1) {
-                const progress = ((i + 1) / chunks.length * 100).toFixed(1);
-                console.log(`📝 Written ${i + 1}/${chunks.length} chunks (${formatBytes(totalSize)}) - ${progress}%`);
+                
+                // Concatenate batch and write atomically
+                const batchBuffer = Buffer.concat(decompressedBatch);
+                await fd.write(batchBuffer, 0, batchBuffer.length, offset);
+                offset += batchBuffer.length;
+                
+                // Clear batch from memory
+                decompressedBatch.length = 0;
+                if (global.gc) global.gc();
+                
+                const progress = ((batchEnd) / chunks.length * 100).toFixed(1);
+                console.log(`📝 Written ${batchEnd}/${chunks.length} chunks (${formatBytes(totalSize)}) - ${progress}%`);
             }
             
-            // Force GC periodically to keep memory low
-            if (i % 5 === 0 && global.gc) {
-                global.gc();
+            await fd.sync();
+            await fd.close();
+            
+            console.log(`✅ Restored Wikipedia database (${formatBytes(totalSize)})`);
+            
+            // Validate the restored database
+            const isValid = await validateWikipediaDatabase(dbPath);
+            if (!isValid) {
+                console.error('❌ Restored database is corrupted, invalidating cache...');
+                await fs.promises.unlink(dbPath).catch(() => {});
+                await db.pool.query('DELETE FROM cached_files WHERE file_key = $1', ['wikipedia-database']);
+                throw new Error('Database validation failed');
             }
-        }
-        
-        // Close the write stream and wait for finish
-        await new Promise((resolve, reject) => {
-            writeStream.end(() => resolve());
-            writeStream.once('error', reject);
-        });
-        
-        // Verify the file size matches
-        const fileSize = fs.statSync(dbPath).size;
-        if (fileSize !== totalSize) {
-            throw new Error(`File size mismatch: expected ${totalSize}, got ${fileSize}`);
-        }
-        
-        console.log(`✅ Restored Wikipedia database (${formatBytes(fileSize)})`);
-        
-        // Validate the restored database
-        const isValid = await validateWikipediaDatabase(dbPath);
-        if (!isValid) {
-            console.error('❌ Restored database is corrupted, invalidating cache...');
-            await fs.promises.unlink(dbPath).catch(() => {});
-            await db.query('DELETE FROM cached_files WHERE file_key = $1', ['wikipedia-database']);
-            throw new Error('Database validation failed');
+        } catch (error) {
+            await fd.close().catch(() => {});
+            throw error;
         }
         
         return;
