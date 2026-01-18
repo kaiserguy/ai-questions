@@ -722,37 +722,31 @@ async function ensureWikipediaDbOnDisk(dbPath) {
             await fs.promises.mkdir(path.dirname(dbPath), { recursive: true });
             
             // Write to temporary file first, then rename atomically
-            // CRITICAL: Use writeFile or sequential write() WITHOUT offsets to avoid SQLite corruption
+            // CRITICAL: Process chunks ONE AT A TIME to minimize memory usage on Heroku
+            // Heroku's 512MB memory limit can be exceeded when batching large chunks
             console.log(`📝 Writing ${chunks.length} chunks to temporary file...`);
             const tempPath = dbPath + '.tmp';
-            const BATCH_SIZE = 10;
             const fd = await fs.promises.open(tempPath, 'w');
             let totalSize = 0;
             
             try {
-                for (let batchStart = 0; batchStart < chunks.length; batchStart += BATCH_SIZE) {
-                    const batchEnd = Math.min(batchStart + BATCH_SIZE, chunks.length);
-                    const batchChunks = chunks.slice(batchStart, batchEnd);
+                // Process chunks one at a time to avoid memory pressure
+                for (let i = 0; i < chunks.length; i++) {
+                    const chunk = chunks[i];
                     
-                    // Decompress batch
-                    const decompressedBatch = [];
-                    for (const chunk of batchChunks) {
-                        const decompressed = await gunzip(chunk.chunk_data);
-                        decompressedBatch.push(decompressed);
-                        totalSize += decompressed.length;
-                    }
+                    // Decompress and write immediately
+                    const decompressed = await gunzip(chunk.chunk_data);
+                    await writeAll(fd, decompressed);
+                    totalSize += decompressed.length;
                     
-                    // Concatenate batch and write WITHOUT explicit offset
-                    // Let Node.js track file position automatically
-                    const batchBuffer = Buffer.concat(decompressedBatch);
-                    await writeAll(fd, batchBuffer);
-                    
-                    // Clear batch from memory
-                    decompressedBatch.length = 0;
+                    // Force garbage collection if available
                     if (global.gc) global.gc();
                     
-                    const progress = ((batchEnd) / chunks.length * 100).toFixed(1);
-                    console.log(`📝 Written ${batchEnd}/${chunks.length} chunks (${formatBytes(totalSize)}) - ${progress}%`);
+                    // Log progress every 5 chunks
+                    if ((i + 1) % 5 === 0 || i === chunks.length - 1) {
+                        const progress = ((i + 1) / chunks.length * 100).toFixed(1);
+                        console.log(`📝 Written ${i + 1}/${chunks.length} chunks (${formatBytes(totalSize)}) - ${progress}%`);
+                    }
                 }
                 
                 await fd.sync();
