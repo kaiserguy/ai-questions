@@ -1141,6 +1141,84 @@ header {
     box-shadow: none;
 }
 
+.offline-page .session-import-section {
+    margin-top: 24px;
+    padding: 16px;
+    border-radius: 12px;
+    border: 1px solid #e5e7eb;
+    background: #f9fafb;
+}
+
+.offline-page .session-import-section h3 {
+    margin: 0 0 8px 0;
+    font-size: 1.1rem;
+    color: #111827;
+}
+
+.offline-page .session-import-description {
+    margin: 0 0 16px 0;
+    color: #4b5563;
+}
+
+.offline-page .session-import-grid {
+    display: grid;
+    gap: 16px;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+}
+
+.offline-page .session-import-card {
+    background: #ffffff;
+    border-radius: 10px;
+    padding: 14px;
+    border: 1px solid #e5e7eb;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.offline-page .session-import-card h4 {
+    margin: 0;
+    font-size: 1rem;
+    color: #111827;
+}
+
+.offline-page .session-import-card p {
+    margin: 0;
+    color: #6b7280;
+    font-size: 0.9rem;
+}
+
+.offline-page .session-import-card input[type="file"] {
+    padding: 6px;
+    border-radius: 6px;
+    border: 1px solid #d1d5db;
+    background: #f9fafb;
+}
+
+.offline-page .session-import-status {
+    font-size: 0.85rem;
+    color: #6b7280;
+    padding: 6px 8px;
+    border-radius: 6px;
+    background: #f3f4f6;
+}
+
+.offline-page .session-import-status.success {
+    background: #dcfce7;
+    color: #166534;
+}
+
+.offline-page .session-import-status.error {
+    background: #fee2e2;
+    color: #b91c1c;
+}
+
+.offline-page .session-import-note {
+    margin-top: 12px;
+    font-size: 0.85rem;
+    color: #6b7280;
+}
+
 .offline-page .progress-section {
     display: none;
     margin-top: 20px;

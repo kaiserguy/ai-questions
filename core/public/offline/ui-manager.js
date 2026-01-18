@@ -39,7 +39,11 @@ class OfflineUIManager {
             storageQuota: document.querySelector('.storage-quota'),
             storageWarning: document.getElementById('storageWarning'),
             toggleLogBtn: document.getElementById('toggleLogBtn'),
-            downloadLog: document.getElementById('downloadLog')
+            downloadLog: document.getElementById('downloadLog'),
+            sessionModelInput: document.getElementById('sessionModelInput'),
+            sessionWikipediaInput: document.getElementById('sessionWikipediaInput'),
+            sessionModelStatus: document.getElementById('sessionModelStatus'),
+            sessionWikipediaStatus: document.getElementById('sessionWikipediaStatus')
         };
         
         // Log state
@@ -67,6 +71,7 @@ class OfflineUIManager {
             this.setupClearCacheHandler();
             this.setupDownloadControlHandlers();
             this.setupLogToggleHandler();
+            this.setupSessionImportHandlers();
             
             // Start storage monitoring
             this.startStorageMonitoring();
@@ -196,6 +201,110 @@ class OfflineUIManager {
         if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
         if (bytes < 1024 * 1024 * 1024) return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
         return (bytes / (1024 * 1024 * 1024)).toFixed(2) + ' GB';
+    }
+
+    /**
+     * Set up handlers for session-only file imports
+     */
+    setupSessionImportHandlers() {
+        if (this.elements.sessionModelInput) {
+            this.elements.sessionModelInput.addEventListener('change', async (event) => {
+                const file = event.target.files?.[0];
+                if (!file) return;
+                await this.loadSessionModel(file);
+            });
+        }
+
+        if (this.elements.sessionWikipediaInput) {
+            this.elements.sessionWikipediaInput.addEventListener('change', async (event) => {
+                const file = event.target.files?.[0];
+                if (!file) return;
+                await this.loadSessionWikipedia(file);
+            });
+        }
+    }
+
+    async loadSessionModel(file) {
+        this.updateSessionStatus(this.elements.sessionModelStatus, 'Loading model...', 'info');
+
+        try {
+            const text = await file.text();
+            const data = JSON.parse(text);
+
+            if (typeof SimpleQAModel === 'undefined') {
+                throw new Error('Simple QA model is not available');
+            }
+
+            const model = new SimpleQAModel();
+            await model.initialize();
+            if (typeof model.loadKnowledgeBase !== 'function') {
+                throw new Error('Model does not support custom knowledge bases');
+            }
+            model.loadKnowledgeBase(data);
+
+            if (window.offlineAIChat && typeof window.offlineAIChat.useSessionModel === 'function') {
+                window.offlineAIChat.useSessionModel(model, {
+                    name: file.name,
+                    size: file.size
+                });
+            }
+
+            if (typeof updateModelStatus === 'function') {
+                updateModelStatus();
+            }
+
+            const sizeLabel = this.formatBytes(file.size);
+            this.updateSessionStatus(
+                this.elements.sessionModelStatus,
+                `Loaded ${file.name} (${sizeLabel})`,
+                'success'
+            );
+        } catch (error) {
+            console.error('[UIManager] Session model load failed:', error);
+            this.updateSessionStatus(
+                this.elements.sessionModelStatus,
+                `Failed to load model: ${error.message}`,
+                'error'
+            );
+        }
+    }
+
+    async loadSessionWikipedia(file) {
+        this.updateSessionStatus(this.elements.sessionWikipediaStatus, 'Loading Wikipedia database...', 'info');
+
+        try {
+            const wikiSearch = window.aiWikipediaSearch || window.offlineIntegrationManager?.wikipediaManager;
+            if (!wikiSearch || typeof wikiSearch.loadDatabaseFromFile !== 'function') {
+                throw new Error('Wikipedia search is not ready yet');
+            }
+
+            const articleCount = await wikiSearch.loadDatabaseFromFile(file);
+            const sizeLabel = this.formatBytes(file.size);
+            this.updateSessionStatus(
+                this.elements.sessionWikipediaStatus,
+                `Loaded ${articleCount.toLocaleString()} articles (${sizeLabel})`,
+                'success'
+            );
+        } catch (error) {
+            console.error('[UIManager] Session Wikipedia load failed:', error);
+            this.updateSessionStatus(
+                this.elements.sessionWikipediaStatus,
+                `Failed to load Wikipedia DB: ${error.message}`,
+                'error'
+            );
+        }
+    }
+
+    updateSessionStatus(element, message, state) {
+        if (!element) return;
+        element.textContent = message;
+        element.classList.remove('success', 'error');
+        if (state === 'success') {
+            element.classList.add('success');
+        }
+        if (state === 'error') {
+            element.classList.add('error');
+        }
     }
     
     /**

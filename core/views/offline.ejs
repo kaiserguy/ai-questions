@@ -118,6 +118,32 @@
                 Select a package to continue
             </button>
 
+            <!-- Session-Only Imports -->
+            <div class="session-import-section" id="sessionImportSection">
+                <h3>📂 Use Your Own Files (Session Only)</h3>
+                <p class="session-import-description">
+                    Download AI model or Wikipedia files externally and load them locally here.
+                    These files stay in memory for this session only and are cleared on refresh.
+                </p>
+                <div class="session-import-grid">
+                    <div class="session-import-card">
+                        <h4>AI Model Knowledge Base (JSON)</h4>
+                        <p>Upload a JSON knowledge base for the lightweight QA model.</p>
+                        <input type="file" id="sessionModelInput" accept=".json,application/json" />
+                        <div class="session-import-status" id="sessionModelStatus">No model file loaded.</div>
+                    </div>
+                    <div class="session-import-card">
+                        <h4>Wikipedia SQLite Database</h4>
+                        <p>Upload a SQLite file containing a <code>wikipedia_articles</code> table.</p>
+                        <input type="file" id="sessionWikipediaInput" accept=".sqlite,.db,application/octet-stream" />
+                        <div class="session-import-status" id="sessionWikipediaStatus">No Wikipedia file loaded.</div>
+                    </div>
+                </div>
+                <div class="session-import-note">
+                    Session-only imports are not saved to IndexedDB. Reload the page to clear them.
+                </div>
+            </div>
+
             <!-- Progress Section -->
             <div class="progress-section" id="progressSection">
                 <div class="progress-text" id="progressText">Downloading... 0%</div>
@@ -443,12 +469,18 @@
             
             if (!modelStatus || !modelStatusIcon || !modelStatusText) return;
             
+            const hasSessionModel = typeof window.offlineAIChat?.hasSessionModel === 'function' &&
+                                   window.offlineAIChat.hasSessionModel();
             // Check if the integration manager has initialized AI models
             const integrationManager = window.offlineIntegrationManager;
             const aiReady = integrationManager && integrationManager.aiModelManager && 
                            integrationManager.aiModelManager.ready;
             
-            if (aiReady) {
+            if (hasSessionModel) {
+                modelStatusIcon.textContent = '🧠';
+                modelStatusText.textContent = 'Session model loaded from file';
+                modelStatus.style.background = '#e0f2fe';
+            } else if (aiReady) {
                 modelStatusIcon.textContent = '✅';
                 modelStatusText.textContent = 'Local model ready for offline chat';
                 modelStatus.style.background = '#d1fae5';

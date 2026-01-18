@@ -11,6 +11,7 @@ class OfflineAIChat {
         this.localAI = null;  // Reference to TransformersAIModel instance
         this.isGenerating = false;
         this.shouldStop = false;
+        this.sessionModelInfo = null;
     }
 
     /**
@@ -216,6 +217,29 @@ class OfflineAIChat {
         } finally {
             this.isGenerating = false;
         }
+    }
+
+    /**
+     * Use a session-only model instance for this chat
+     * @param {Object} model - Model instance to use
+     * @param {Object} metadata - Optional metadata
+     */
+    useSessionModel(model, metadata = {}) {
+        this.localAI = model;
+        this.sessionModelInfo = {
+            name: metadata.name || 'Session model',
+            size: metadata.size || null,
+            loadedAt: new Date().toISOString()
+        };
+        this.initialized = true;
+    }
+
+    /**
+     * Check if a session-only model is active
+     * @returns {boolean} True if using a session model
+     */
+    hasSessionModel() {
+        return !!this.sessionModelInfo;
     }
 
     /**

@@ -16,7 +16,6 @@ const passport = require("passport");
 const GoogleStrategy = require("passport-google-oauth20").Strategy;
 const path = require("path");
 const fs = require("fs");
-const archiver = require("archiver");
 const cron = require("node-cron");
 
 // Import core components
@@ -28,6 +27,26 @@ const commonRoutes = require("../core/routes");
 
 const WIKIPEDIA_CACHE_NAME = "wikipedia-db";
 const WIKIPEDIA_CACHE_MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000;
+const ARCHIVER_MISSING_MESSAGE = "Archiver dependency not available. Run `npm install` to enable offline package downloads.";
+
+// Cached archiver module (lazy-loaded)
+let archiverModulePromise;
+
+/**
+ * Lazy-load archiver module with caching to avoid redundant imports
+ * Addresses Copilot comment: Cache the result to avoid redundant module resolution
+ */
+async function getArchiver() {
+    if (!archiverModulePromise) {
+        archiverModulePromise = import("archiver")
+            .then((mod) => mod.default || mod)
+            .catch((error) => {
+                console.error("Archiver module is not available:", error.message);
+                return null;
+            });
+    }
+    return archiverModulePromise;
+}
 
 // Public configuration
 const PUBLIC_CONFIG = {
@@ -198,6 +217,13 @@ app.get("/offline", (req, res) => {
 
 // Generate and serve local package
 app.get("/generate-local-package", async (req, res) => {
+    const archiver = await getArchiver();
+    if (!archiver) {
+        return res.status(500).json({
+            error: ARCHIVER_MISSING_MESSAGE
+        });
+    }
+
     const packageDir = path.join(__dirname, "local-package");
     const outputPath = path.join(__dirname, "local-package.zip");
     
@@ -269,7 +295,12 @@ app.get("/generate-local-package", async (req, res) => {
 
 // Download offline version route (generates and downloads package)
 app.get("/download/offline", async (req, res) => {
-    const archiver = require('archiver');
+    const archiver = await getArchiver();
+    if (!archiver) {
+        return res.status(500).json({
+            error: ARCHIVER_MISSING_MESSAGE
+        });
+    }
     
     try {
         // Set response headers for download
@@ -607,6 +638,18 @@ async function invalidateWikipediaCache(dbPath, options = {}) {
         console.warn(`⚠️  Cache cleanup issues: ${errors.join(' | ')}`);
     }
 }
+
+async function writeAll(fd, buffer) {
+    let offset = 0;
+    while (offset < buffer.length) {
+        const { bytesWritten } = await fd.write(buffer, offset, buffer.length - offset);
+        if (bytesWritten <= 0) {
+            throw new Error(`Failed to write database chunk to disk (offset: ${offset}, buffer.length: ${buffer.length})`);
+        }
+        offset += bytesWritten;
+    }
+}
+
 function getWikipediaFileInfo(dbPath) {
     if (!fs.existsSync(dbPath)) {
         return null;
@@ -644,16 +687,11 @@ async function getWikipediaCacheMetadata() {
             } else {
                 console.warn(`⚠️  Incomplete cache: ${chunksPresent}/${totalChunks} chunks`);
             }
-        } else {
-            console.log('🔍 No chunked cache found, checking old format...');
         }
-        
-        // Fall back to old monolithic format
-        return await db.getCachedFileMetadata(WIKIPEDIA_CACHE_NAME);
     } catch (error) {
         console.warn(`⚠️ Failed to load Wikipedia cache metadata: ${error.message}`);
-        return null;
     }
+    return null;
 }
 
 async function ensureWikipediaDbOnDisk(dbPath) {
@@ -704,10 +742,10 @@ async function ensureWikipediaDbOnDisk(dbPath) {
                         totalSize += decompressed.length;
                     }
                     
-                    // Concatenate batch and write sequentially
-                    // Let Node.js track file position automatically (no explicit offset)
+                    // Concatenate batch and write WITHOUT explicit offset
+                    // Let Node.js track file position automatically
                     const batchBuffer = Buffer.concat(decompressedBatch);
-                    await fd.write(batchBuffer);  // Simpler than writeAll() helper
+                    await writeAll(fd, batchBuffer);
                     
                     // Clear batch from memory
                     decompressedBatch.length = 0;
@@ -739,30 +777,15 @@ async function ensureWikipediaDbOnDisk(dbPath) {
             
             return;
         }
-        
-        chunkedRestoreError = new Error('No chunked cache found');
+
+        throw new Error('No chunked Wikipedia cache found in PostgreSQL cached_file_chunks table');
     } catch (error) {
-        chunkedRestoreError = error;
         await invalidateWikipediaCache(dbPath, { removeMonolithic: false });
+        throw error;
     }
-
-    // Fall back to old monolithic format if chunked cache is missing or invalid
-    const cachedFile = await db.getCachedFile(WIKIPEDIA_CACHE_NAME);
-    if (!cachedFile) {
-        if (chunkedRestoreError) {
-            throw chunkedRestoreError;
-        }
-        throw new Error('No Wikipedia database found in cache');
-    }
-
-    await fs.promises.mkdir(path.dirname(dbPath), { recursive: true });
-    
-    console.log(`📥 Decompressing database (${formatBytes(cachedFile.data.length)})...`);
-    const decompressed = await gunzip(cachedFile.data);
-    
-    await fs.promises.writeFile(dbPath, decompressed);
-    console.log(`✅ Restored Wikipedia database from PostgreSQL cache (${formatBytes(decompressed.length)})`);
 }
+
+
 
 async function cacheWikipediaDatabase(dbPath) {
     if (!db || typeof db.insertFileChunk !== 'function') {

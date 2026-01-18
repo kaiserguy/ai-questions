@@ -67,6 +67,32 @@ class SimpleQAModel {
     }
 
     /**
+     * Load a custom knowledge base (session-only)
+     * @param {Object} knowledgeBase - Knowledge base data
+     */
+    loadKnowledgeBase(knowledgeBase) {
+        // Copilot #6: Validate structure, not just object type
+        if (!knowledgeBase || typeof knowledgeBase !== 'object' || Array.isArray(knowledgeBase)) {
+            throw new Error('Knowledge base must be a JSON object');
+        }
+
+        // Validate that at least one entry exists and has expected structure
+        const entries = Object.entries(knowledgeBase);
+        if (entries.length === 0) {
+            throw new Error('Knowledge base must contain at least one entry');
+        }
+
+        // Validate structure of first entry as a sample
+        const [key, value] = entries[0];
+        if (typeof value !== 'object' || !value.definition) {
+            throw new Error('Knowledge base entries must have a "definition" field');
+        }
+
+        this.knowledgeBase = knowledgeBase;
+        return true;
+    }
+
+    /**
      * Calculate TF-IDF score for a query against a document
      */
     calculateTFIDF(query, document) {
